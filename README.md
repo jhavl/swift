@@ -1,8 +1,12 @@
+###Install
+```
 # Install node js version 12.18.2 (or whatever LTS is on a mac)
 https://nodejs.org/en/
 
 # Clone the repo
-git clone 
+git clone git@github.com:jhavl/sim.git 
+# or 
+git clone https@github.com:jhavl/sim.git 
 
 # cd into directory
 cd sim
@@ -12,7 +16,7 @@ npm install
 
 # Start the program
 npm start 
-
+```
 
 ### Information
 Node is a server framework (or so I think) for acting as the backend for
@@ -26,4 +30,4 @@ server code is in src/index.js
 Electron joins the server and client together since it runs in a desktop
 environment and brings to power of the server to the client. So all Node
 modules on npm can run on the client with electron. In this project the main
-client js code is renderer.js
+client js code is src/renderer.js
