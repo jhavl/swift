@@ -4,6 +4,7 @@ const Stats = require('stats-js')
 
 import {OrbitControls} from 'app:orbit-controls.mjs'
 import { STLLoader } from 'app:stl-loader.mjs'
+import {Robot, Cylinder} from 'app:lib.mjs'
 
 
 tr.Object3D.DefaultUp.set(0, 0, 1);
@@ -11,6 +12,12 @@ tr.Object3D.DefaultUp.set(0, 0, 1);
 var camera, scene, renderer, controls;
 var geometry, material, mesh;
 var stats
+// let cyl
+let robot
+
+
+
+
 
 init()
 animate();
@@ -22,12 +29,12 @@ function init() {
 	camera = new tr.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 10 );
 	scene = new tr.Scene();
 
-	// Test object
-	geometry = new tr.BoxGeometry( 0.2, 0.2, 0.2 );
-	material = new tr.MeshNormalMaterial();
-	mesh = new tr.Mesh( geometry, material );
-	mesh.translateZ(0.5)
-	scene.add( mesh );
+	// // Test object
+	// geometry = new tr.BoxGeometry( 0.2, 0.2, 0.2 );
+	// material = new tr.MeshNormalMaterial();
+	// mesh = new tr.Mesh( geometry, material );
+	// mesh.translateZ(0.5)
+	// scene.add( mesh );
 
 	renderer = new tr.WebGLRenderer( { antialias: true } );
 	renderer.setSize( window.innerWidth, window.innerHeight );
@@ -75,29 +82,39 @@ function init() {
 	var axesHelper = new tr.AxesHelper( 5 );
 	scene.add( axesHelper );
 
-	var loader = new STLLoader();
-	loader.load( './models/stl/ascii/puma560/link0.stl', function ( geometry ) {
+	// var loader = new STLLoader();
+	// loader.load( './models/stl/ascii/puma560/link0.stl', function ( geometry ) {
 
-		var material = new tr.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
-		var mesh = new tr.Mesh( geometry, material );
+	// 	var material = new tr.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
+	// 	var mesh = new tr.Mesh( geometry, material );
 
-		mesh.position.set(0, 0, 0.6);
-		// mesh.rotation.set( 0, - Math.PI / 2, 0 );
-		// mesh.scale.set(1, 1, 1);
+	// 	mesh.position.set(0, 0, 0.6);
+	// 	// mesh.rotation.set( 0, - Math.PI / 2, 0 );
+	// 	// mesh.scale.set(1, 1, 1);
 
-		mesh.castShadow = true;
-		mesh.receiveShadow = true;
+	// 	mesh.castShadow = true;
+	// 	mesh.receiveShadow = true;
 
-		scene.add( mesh );
-	});
+	// 	scene.add( mesh );
+	// });
+
+	// var geometry = new tr.CylinderGeometry( 0.07, 0.07, 0.44, 128 );
+	// var material = new tr.MeshBasicMaterial( {color: 0xffff00} );
+	// var cylinder = new tr.Mesh( geometry, material );
+	// cylinder.position.set(0, 0, 0)
+	// scene.add( cylinder );
+	// cyl = new Cylinder(scene, 0.44);
+	// robot = new Robot(scene);
 }
 
 function animate() {
 
-	requestAnimationFrame( animate );
+	requestAnimationFrame(animate);
 
-	mesh.rotation.x += 0.01;
-    mesh.rotation.y += 0.02;
+	// cyl.pivot.rotateY(0.01)
+
+	// mesh.rotation.x += 0.01;
+    // mesh.rotation.y += 0.02;
     
     // controls.update();
 
@@ -134,10 +151,13 @@ function addShadowedLight( x, y, z, color, intensity ) {
 
 
 var server = new zerorpc.Server({
-    hello: function(name, reply) {
-		console.log(name)
+    hello: function(loc, reply) {
+		// console.log(loc)
+		robot = new Robot(scene, loc);
         reply(null, [1, 2, 3, 4]);
     }
 });
 
 server.bind("tcp://0.0.0.0:4242");
+
+
