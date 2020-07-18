@@ -11,9 +11,10 @@ tr.Object3D.DefaultUp.set(0, 0, 1);
 
 var camera, scene, renderer, controls;
 var geometry, material, mesh;
-var stats
+var stats;
 // let cyl
-let robot
+let robot;
+let q;
 
 
 
@@ -151,11 +152,15 @@ function addShadowedLight( x, y, z, color, intensity ) {
 
 
 var server = new zerorpc.Server({
-    hello: function(loc, reply) {
+    robot: function(loc, reply) {
 		// console.log(loc)
 		robot = new Robot(scene, loc);
-        reply(null, [1, 2, 3, 4]);
-    }
+        reply(null, "Robot made");
+	},
+	q: function(q, reply) {
+		robot.q(q);
+		reply(null, "Joints updated");
+	}
 });
 
 server.bind("tcp://0.0.0.0:4242");

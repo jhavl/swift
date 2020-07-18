@@ -1,6 +1,7 @@
 const { app, BrowserWindow, protocol } = require('electron');
 const path = require('path');
 const tr = require('three')
+require('electron-reload')(__dirname);
 
 // Base path used to resolve modules
 const base = app.getAppPath();

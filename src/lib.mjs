@@ -3,57 +3,54 @@ const tr = require('three')
 
 class Robot{
     constructor(scene, loc) {
-        this.robot = []
+        this.robot = new tr.Group()
+        this.L = []
+        scene.add(this.robot)
+        this.robot.rotateX(Math.PI/2)
+
         this.n = loc.length
 
-        let t = loc[0]
-        t[4] = 0.2
-        new LinkMDH(scene, t)
+        // let t = loc[0]
+        // t[4] = 0.2
+        // t[3] = 0
+        // // t[5] = 0.4
+        // // t[2] = 0.4/
 
-        // for (let i = 0; i < loc.length; i++) {
-        //     new LinkMDH(scene, loc[i])
-        // }
-        
+        // let l1 = new LinkMDH(scene, t, this.robot)
+
+        // let v = loc[0]
+        // v[4] = 0.2
+        // v[3] = 0.4
+        // // v[5] = 0.4
+        // // v[2] = -0.4
+
+        // let l2 = new LinkMDH(scene, v, l1.pe)
+
+        // l1
 
 
-        // for (let i = 0; i < loc.length; i+=2) {
-        //     let lb = loc[i]
-        //     let le = loc[i+1]
 
-        //     // console.log(t)
+        let prev = this.robot
+        for (let i = 0; i < this.n; i++) {
+            this.L.push(new LinkMDH(scene, loc[i], prev))
+            prev = this.L[i].pe
+        }
 
-        //     // // x-axis cylinder
-        //     // if (t[0][3] !== 0) {
-        //     //     new Cylinder(scene, t[0][3], 0, 0, 0, 0)
-        //     // }
-
-        //     // // y-axis cylinder
-        //     // if (t[1][3] !== 0) {
-        //     //     new Cylinder(scene, t[1][3], 0, 0, 0, 1)
-        //     // }
-
-        //     // z-axis cylinder
-        //     if (le[2][3] !== 0) {
-        //         // console.log([2][3])
-        //         new Cylinder(scene, le[2][3], lb[0][3], lb[1][3], lb[2][3], 2)
-        //     }
-
-        // }
 
 
         console.log(loc)
-        // let cyl1 = new Cylinder(scene, 0.4, 0, 0, 0)
-        
-        // let cyl2 = new Cylinder(scene, 0.4, 0, 0, 0.4)
-        // let cyl3 = new Cylinder(scene, 0.4, 0, 0, 0.8)
-        
-        // cyl1.cylinder.add(cyl2.pivot)
-        // cyl1.pivot.rotateX(0.6)
+    }
+
+    q(q) {
+        for (let i = 0; i < this.n; i++) {
+            this.L[i].lz.ps.rotateY(q[i])
+            // prev = this.L[i].pe
+        }
     }
 }
 
 class LinkMDH{
-    constructor(scene, li) {
+    constructor(scene, li, prev) {
 
         // alpha
         let Rx = li[5];
@@ -67,81 +64,126 @@ class LinkMDH{
         // d
         let Tz = li[3];
 
-        let p0 = new tr.Group();
-        p0.position.set(0, 0, 0)
-        scene.add(p0)
+        // let p0 = new tr.Group();
+        // p0.position.set(0, 0, 0)
+        // scene.add(p0)
+        
+        this.ps = new tr.Group()
+        this.pe = new tr.Group()
+        prev.add(this.ps)
 
-        let lx = new Cylinder(scene, Tx, 0, 0, 0, 0, p0);
-        p0.rotateX(Rx)
+        
+        this.lx = new Cylinder(Tx, this.ps);
+        this.lx.ps.rotateZ(-Math.PI/2)
+        this.lx.pe.rotateZ(Math.PI/2)
 
-        let lz = new Cylinder(scene, Tz, 0, 0, 0, 2, lx.pe);
+        // let b = new tr.AxesHelper(0.4);
+        // this.lx.link.add(b)
 
-        // lx.pe.add(lz.pe)
-        // lx.pivot.rotateY(0.5)
+        // this.lx.pe.rotateX(-Math.PI/2)
+        this.lz = new Cylinder(Tz, this.lx.pe);
+
+        // let a = new tr.AxesHelper(0.2);
 
 
+        this.lz.pe.add(this.pe)
+        // this.pe.add(a)
+        this.joint = new Revolute(this.pe)
+        // this.lz.link.add(a)
 
+        console.log(Rx)
+        this.ps.rotateX(Rx)
+        this.lz.ps.rotateY(Rz)
 
-
-        // if ( !== 0) {
-
-        // } else
-
-        // if (le[0][3] !== 0) {
-        //     new Cylinder(scene, le[0][3], lb[0][3], lb[1][3], lb[2][3], 0)
-        // }
-
-        // if (le[1][3] !== 0) {
-        //     new Cylinder(scene, le[1][3], lb[0][3] + le[0][3], lb[1][3] , lb[2][3], 1)
-        // }
-
-        // if (le[2][3] !== 0) {
-        //     new Cylinder(scene, le[2][3], lb[0][3], lb[1][3] + le[1][3], lb[2][3], 2)
-        // }
-
-        // let a = new Cylinder(scene, 0.4, 0, 0, 0, 1)
-        // a.pivot.rotateX(0.6)
-        // a.pivot.rotateX(0.6)
-        // a.pivot.rotateZ(0.6)
 
     }
 }
 
 class Cylinder{
-	constructor(scene, length, x, y, z, axis, prev) {
-        this.scene = scene
+	constructor(length, prev) {
         this.length = length
-		this.geometry = new tr.CylinderGeometry( 0.01, 0.01, length, 128 );
+		this.geometry = new tr.CylinderGeometry( 0.025, 0.025, length, 128 );
 		this.material = new tr.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
         this.link = new tr.Mesh( this.geometry, this.material );
         this.link.castShadow = true;
 		this.link.receiveShadow = true;
         
+        this.ps = new tr.Group();
+        this.pe = new tr.Group();
 
-        if (axis === 0) {
+        if (length !== 0) {
             console.log(prev.position)
-            this.link.position.set(prev.position.x + length/2, prev.position.y, prev.position.z)
-            this.pe = new tr.Group();
-            this.pe.position.set(prev.position.x, prev.position.y - length/2, prev.position.z)
-            this.link.rotateZ(Math.PI/2)
-        } else if (axis === 1) {
-            // this.link.position.set(x, y  + length/2, z)
-            this.link.rotateY(Math.PI/2)
-            // this.ps = new tr.Group(x, y + length/2, z);
-            this.pe = new tr.Group(x, y - length/2, z);
-        } else if (axis == 2) {
-            this.link.position.set(prev.position.x, prev.position.y, prev.position.z + length/2)
-            this.link.rotateX(Math.PI/2)
-            // this.ps = new tr.Group();
-            // this.ps.position.set(x, y, z)
-            this.pe = new tr.Group();
-            // this.pe.position.set(x, y, z + length)
+            this.link.position.set(0, length/2, 0)
+            this.pe.position.set(0, length/2, 0)
+            prev.add(this.ps)
+            this.ps.add(this.link)
+            this.link.add(this.pe)
+        } else {
+            prev.add(this.ps)
+            this.ps.add(this.pe)
         }
-
-        prev.add(this.link)
-        this.link.add(this.pe)
-	}
-
+    }
 }
+
+class Revolute{
+    constructor(prev) {
+        length = 0.07
+        this.geometry = new tr.CylinderGeometry(0.003, 0.003, length, 12);
+        this.material = new tr.MeshPhongMaterial( { color: 0xf542ec, specular: 0x111111, shininess: 200 } );
+        this.joint = new tr.Mesh(this.geometry, this.material);
+        this.joint.position.set(0, length/2, 0)
+        prev.add(this.joint)
+    }
+}
+
+// Rotate an object around an arbitrary axis in object space
+var rotObjectMatrix;
+function rotateAroundObjectAxis(object, axis, radians) {
+    rotObjectMatrix = new THREE.Matrix4();
+    rotObjectMatrix.makeRotationAxis(axis.normalize(), radians);
+
+    // old code for Three.JS pre r54:
+    // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
+    // new code for Three.JS r55+:
+    object.matrix.multiply(rotObjectMatrix);
+
+    // old code for Three.js pre r49:
+    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
+    // old code for Three.js r50-r58:
+    // object.rotation.setEulerFromRotationMatrix(object.matrix);
+    // new code for Three.js r59+:
+    object.rotation.setFromRotationMatrix(object.matrix);
+}
+
+var rotWorldMatrix;
+// Rotate an object around an arbitrary axis in world space       
+function rotateAroundWorldAxis(object, axis, radians) {
+    rotWorldMatrix = new THREE.Matrix4();
+    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
+
+    // old code for Three.JS pre r54:
+    //  rotWorldMatrix.multiply(object.matrix);
+    // new code for Three.JS r55+:
+    rotWorldMatrix.multiply(object.matrix);                // pre-multiply
+
+    object.matrix = rotWorldMatrix;
+
+    // old code for Three.js pre r49:
+    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
+    // old code for Three.js pre r59:
+    // object.rotation.setEulerFromRotationMatrix(object.matrix);
+    // code for r59+:
+    object.rotation.setFromRotationMatrix(object.matrix);
+}
+
+
+
+
+
+
+
+
+
+
 
 export {Robot, Cylinder};
