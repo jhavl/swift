@@ -1,38 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>three.js webgl - buffergeometry - uint</title>
+		<title>sim</title>
+		<link rel="stylesheet" href="app:index.css">
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<style>
-			body {
-				color: #cccccc;
-				font-family:Monospace;
-				font-size:13px;
-				text-align:center;
 
-				background-color: rgba(0,0,0,0);
-				margin: 0px;
-				overflow: hidden;
-			}
-
-			#info {
-				position: absolute;
-				top: 0px; width: 100%;
-				padding: 5px;
-			}
-
-			a {
-
-				color: #0080ff;
-			}
 
 		</style>
 	</head>
 	<body>
 
-		<div id="container"></div>
-    	<script type="module" src="app:renderer.mjs"></script>
+		<div class="toolbar">
+			<div id="drag-region">
+				<div id="window-controls">
+					<div class="button" id="close-button">
+						<div class="icon" draggable="false" >
+							<img 
+								src="icons/icons/dark/close.svg" 
+								alt="x"
+								height="100%"
+								width="100%" />
+						</div>
+					</div>
+					<div class="button" id="restore-button">
+						<div class="icon" draggable="false" >
+							<div class="icon" draggable="false" >
+								<img 
+									src="icons/icons/dark/remove.svg" 
+									alt="_"
+									height="100%"
+									width="100%" />
+							</div>
+						</div>
+					</div>
+					<div class="button" id="max-button">
+						<div class="icon" draggable="false" >
+							<div class="icon" draggable="false" >
+								<img 
+									src="icons/icons/dark/debug-stop.svg" 
+									alt="O"
+									height="100%"
+									width="100%" />
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="module" src="app:renderer.mjs"></script>
+		<script type="module" src="app:buttons.mjs"></script>
+
+
+		<div id="canvas">
+			<!-- <div class="playercontrol"></div> -->
+		</div>
+		
+		<div class="sidenav"></div>
 
 	</body>
 </html>

@@ -1,6 +1,112 @@
-body {
+/* body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: auto;
   max-width: 38rem;
   padding: 2rem;
+} */
+
+body {
+  color: #cccccc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size:13px;
+  text-align:center;
+
+  background-color: rgba(0,0,0,0);
+  margin: 0px;
+  overflow: hidden;
+}
+
+.sidenav {
+  height: 100%;
+  width: 1.5cm;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: #1e1e1e;
+  overflow-x: hidden;
+  padding-top: 20px;
+}
+
+.playercontrol {
+  height: 0.5cm;
+  width: 3cm;
+  position: absolute;
+  margin: 0 auto;
+  z-index: 1;
+  left: 50%;
+  transform: translate(-50%, 0);
+  border-radius: 0px 0px 5px 5px;
+  /* top: 0; */
+  /* left: 0; */
+  background-color: #1e1e1e;
+  /* overflow-x: hidden; */
+  /* padding-top: 20px; */
+}
+
+.toolbar{
+  /* margin: 3px; */
+  padding: 1px 1px 1px 1px;
+  position: fixed;
+  display: block;
+  z-index: 10000;
+  height: 25px;
+  width: 100%;
+  /* transition: border-bottom 0.4s; */
+  background-color: #1e1e1e;
+}
+
+#drag-region {
+  width: 100%;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+#window-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 27px);
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+}
+
+#window-controls .button {
+  grid-row: 1 / span 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* left: 30%;
+  top: 30%; */
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+#close-button {
+  grid-column: 1;
+}
+
+#max-button {
+  grid-column: 3;
+}
+
+#restore-button {
+  grid-column: 2;
+}
+
+#window-controls {
+  -webkit-app-region: no-drag;
+}
+
+#window-controls .button {
+  user-select: none;
+}
+
+#window-controls .button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+#window-controls .button:active {
+  background: rgba(255,255,255,0.2);
 }

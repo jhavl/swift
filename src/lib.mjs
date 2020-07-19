@@ -102,9 +102,14 @@ class LinkMDH{
 class Cylinder{
 	constructor(length, prev) {
         this.length = length
-		this.geometry = new tr.CylinderGeometry( 0.025, 0.025, length, 128 );
-		this.material = new tr.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
-        this.link = new tr.Mesh( this.geometry, this.material );
+		this.geometry = new tr.CylinderGeometry(0.025, 0.025, length, 128);
+		this.material = new tr.MeshPhongMaterial({ 
+            color: 0xff5533, 
+            specular: 0x111111, 
+            shininess: 20, 
+            side:tr.DoubleSide
+        });
+        this.link = new tr.Mesh(this.geometry, this.material);
         this.link.castShadow = true;
 		this.link.receiveShadow = true;
         

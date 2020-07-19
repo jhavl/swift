@@ -1,3 +1,4 @@
+
 const tr = require('three')
 const zerorpc = require("zerorpc");
 const Stats = require('stats-js')
@@ -15,6 +16,20 @@ var stats;
 // let cyl
 let robot;
 let q;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -40,7 +55,9 @@ function init() {
 	renderer = new tr.WebGLRenderer( { antialias: true } );
 	renderer.setSize( window.innerWidth, window.innerHeight );
 	renderer.shadowMap.enabled = true;
-    document.body.appendChild( renderer.domElement );
+	let div = document.getElementById( 'canvas' );
+	document.body.appendChild(div);
+	div.appendChild(renderer.domElement)
 	controls = new OrbitControls( camera, renderer.domElement );
 
 	// Set up camera position
@@ -49,8 +66,9 @@ function init() {
 	camera.rotateZ(3.14)
 	controls.update()
 
-	scene.background = new tr.Color( 0x72645b );
-	scene.fog = new tr.Fog( 0x72645b, 2, 15 );
+	// scene.background = new tr.Color(0x72645b);
+	scene.background = new tr.Color(0x787878);
+	scene.fog = new tr.Fog(0x787878, 2, 15 );
 
 	// Construct a ground plane
 	// var geometry = new tr.PlaneGeometry( 5, 5, 32 );
@@ -58,7 +76,7 @@ function init() {
 	// var plane = new tr.Mesh( geometry, material );
 	var plane = new tr.Mesh(
 		new tr.PlaneBufferGeometry( 40, 40 ),
-		new tr.MeshPhongMaterial( { color: 0x999999, specular: 0x101010 } )
+		new tr.MeshPhongMaterial( { color: 0x4B4B4B, specular: 0x101010 } )
 	);
 	plane.receiveShadow = true;
 	scene.add( plane );
@@ -78,7 +96,7 @@ function init() {
 
 	stats = new Stats();
 	stats.showPanel(0);
-	container.appendChild(stats.dom);
+	// container.appendChild(stats.dom);
 
 	var axesHelper = new tr.AxesHelper( 5 );
 	scene.add( axesHelper );
