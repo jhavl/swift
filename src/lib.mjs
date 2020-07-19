@@ -141,44 +141,66 @@ class Revolute{
     }
 }
 
-// Rotate an object around an arbitrary axis in object space
-var rotObjectMatrix;
-function rotateAroundObjectAxis(object, axis, radians) {
-    rotObjectMatrix = new THREE.Matrix4();
-    rotObjectMatrix.makeRotationAxis(axis.normalize(), radians);
 
-    // old code for Three.JS pre r54:
-    // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
-    // new code for Three.JS r55+:
-    object.matrix.multiply(rotObjectMatrix);
+class FPS {
+	constructor(div) {
+		this.fps = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        this.i = 0
+        
+        this.div = div
+	}
 
-    // old code for Three.js pre r49:
-    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
-    // old code for Three.js r50-r58:
-    // object.rotation.setEulerFromRotationMatrix(object.matrix);
-    // new code for Three.js r59+:
-    object.rotation.setFromRotationMatrix(object.matrix);
+	frame(delta) {
+		this.fps[this.i] = 1000/delta;
+        this.i++;
+        if (this.i >= 10) {
+            this.i = 0;
+        }
+		let total = 0;
+
+		for (let j = 0; j < 10; j++) {
+			total += this.fps[j];
+        }
+
+        let fps = Math.round(total / 10)
+        
+        let fps_str = `${fps} fps`;
+        this.div.innerHTML = fps_str;
+	}
 }
 
-var rotWorldMatrix;
-// Rotate an object around an arbitrary axis in world space       
-function rotateAroundWorldAxis(object, axis, radians) {
-    rotWorldMatrix = new THREE.Matrix4();
-    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
+class SimTime {
+	constructor(div) {
+        this.div = div
+        this.time = Date.now();
+	}
 
-    // old code for Three.JS pre r54:
-    //  rotWorldMatrix.multiply(object.matrix);
-    // new code for Three.JS r55+:
-    rotWorldMatrix.multiply(object.matrix);                // pre-multiply
+	update(delta) {
+        let t = Date.now() - this.time;
+        let s = Math.floor(t / 1000);
+        let m = Math.floor(s / 60);
+        let ms = t % 1000;
 
-    object.matrix = rotWorldMatrix;
+        s = s % 60;
+        m = m % 60;
 
-    // old code for Three.js pre r49:
-    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
-    // old code for Three.js pre r59:
-    // object.rotation.setEulerFromRotationMatrix(object.matrix);
-    // code for r59+:
-    object.rotation.setFromRotationMatrix(object.matrix);
+        if (s < 10) {
+            s = "0" + s;
+        }
+
+        if (m < 10) {
+            m = "0" + m
+        }
+
+        if (ms < 10) {
+            ms *= 100;
+        } else if (ms < 100) {
+            ms *= 10;
+        }
+
+        let t_str = `${m}:${s}.${ms}`;
+        this.div.innerHTML = t_str;
+	}
 }
 
 
@@ -187,8 +209,4 @@ function rotateAroundWorldAxis(object, axis, radians) {
 
 
 
-
-
-
-
-export {Robot, Cylinder};
+export {Robot, Cylinder, FPS, SimTime};

@@ -5,7 +5,11 @@ const Stats = require('stats-js')
 
 import {OrbitControls} from 'app:orbit-controls.mjs'
 import { STLLoader } from 'app:stl-loader.mjs'
-import {Robot, Cylinder} from 'app:lib.mjs'
+import {Robot, FPS, SimTime} from 'app:lib.mjs'
+
+let fps = new FPS(document.getElementById('fps'));
+let sim_time = new SimTime(document.getElementById('sim-time'));
+let time = Date.now();
 
 
 tr.Object3D.DefaultUp.set(0, 0, 1);
@@ -61,7 +65,7 @@ function init() {
 	controls = new OrbitControls( camera, renderer.domElement );
 
 	// Set up camera position
-	camera.position.set( 0.3, 0.9, 0.9 );
+	camera.position.set(0.3, 0.9, 0.2);
 	camera.lookAt(new tr.Vector3(0,0,0))
 	camera.rotateZ(3.14)
 	controls.update()
@@ -95,6 +99,7 @@ function init() {
 	// stats
 
 	stats = new Stats();
+
 	stats.showPanel(0);
 	// container.appendChild(stats.dom);
 
@@ -139,6 +144,13 @@ function animate() {
 
 	renderer.render( scene, camera );
 	stats.update();
+	// console.log(stats.getFPS())
+
+	let delta = Date.now() - time;
+	time = Date.now();
+
+	fps.frame(delta);
+	sim_time.update()
 }
 
 function on_resize() {
@@ -182,5 +194,6 @@ var server = new zerorpc.Server({
 });
 
 server.bind("tcp://0.0.0.0:4242");
+
 
 

@@ -19,10 +19,10 @@ window.onbeforeunload = (event) => {
 
 function handleWindowControls() {
     // Make minimise/maximise/restore/close buttons work when they are clicked
-    // document.getElementById('min-button').addEventListener("click", event => {
-    //     win.unmaximize();
-    //
-    // });
+    document.getElementById('min-button').addEventListener("click", event => {
+        win.unmaximize();
+    
+    });
 
     document.getElementById('max-button').addEventListener("click", event => {
         win.maximize();
@@ -36,16 +36,21 @@ function handleWindowControls() {
         win.close();
     });
 
-    // // Toggle maximise/restore buttons when maximisation/unmaximisation occurs
-    // toggleMaxRestoreButtons();
-    // win.on('maximize', toggleMaxRestoreButtons);
-    // win.on('unmaximize', toggleMaxRestoreButtons);
+    // Toggle maximise/restore buttons when maximisation/unmaximisation occurs
+    toggleMaxRestoreButtons();
+    win.on('maximize', toggleMaxRestoreButtons);
+    win.on('unmaximize', toggleMaxRestoreButtons);
 
-    // function toggleMaxRestoreButtons() {
-    //     if (win.isMaximized()) {
-    //         document.body.classList.add('maximized');
-    //     } else {
-    //         document.body.classList.remove('maximized');
-    //     }
-    // }
+    function toggleMaxRestoreButtons() {
+        let min = document.getElementById('min-button')
+        let max = document.getElementById('max-button')
+
+        if (win.isMaximized()) {
+            max.style.display = "none";
+            min.style.display = "block";
+        } else {
+            min.style.display = "none";
+            max.style.display = "block";
+        }
+    }
 }
