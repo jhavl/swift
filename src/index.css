@@ -103,27 +103,27 @@ body {
 }
 
 #close-button:hover {
-  background: rgb(255, 69, 58);
+  background: rgba(255, 68, 58, 0.3);
 }
 
 #restore-button:hover {
-  background: rgb(215, 214, 10);
+  background: rgba(215, 214, 10, 0.5);
 }
 
 #max-button:hover {
-  background: rgb(50, 215, 75);
+  background: rgba(50, 215, 75, 0.2);
 }
 
 #min-button:hover {
-  background: rgb(50, 215, 75);
+  background: rgba(50, 215, 75, 0.2);
 }
 
 #window-controls .button:hover * {
-  stroke: #414141;
+  stroke: #ffffff;
 }
 
 #window-controls .button:active {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.63);
 }
 
 
@@ -135,12 +135,13 @@ body {
   right: 0px;
   height: 32px;
   color: #969696;
+  text-align: left;
 }
 
 .info #fps {
   position: absolute;
   top: 50%;
-  width: 80px;
+  width: 60px;
   display: inline-block;
   transform: translateY(-50%);
   right: 0px;
@@ -152,5 +153,5 @@ body {
   width: 80px;
   display: inline-block;
   transform: translateY(-50%);
-  right: 80px;
+  right: 60px;
 }

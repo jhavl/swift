@@ -2,50 +2,44 @@
 const tr = require('three')
 
 class Robot{
-    constructor(scene, loc) {
+    constructor(scene, ob) {
         this.robot = new tr.Group()
         this.L = []
         scene.add(this.robot)
         this.robot.rotateX(Math.PI/2)
 
-        this.n = loc.length
-
-        // let t = loc[0]
-        // t[4] = 0.2
-        // t[3] = 0
-        // // t[5] = 0.4
-        // // t[2] = 0.4/
-
-        // let l1 = new LinkMDH(scene, t, this.robot)
-
-        // let v = loc[0]
-        // v[4] = 0.2
-        // v[3] = 0.4
-        // // v[5] = 0.4
-        // // v[2] = -0.4
-
-        // let l2 = new LinkMDH(scene, v, l1.pe)
-
-        // l1
-
-
+        this.model = ob[1]
+        this.n = this.model.length
+        this.qd = new Array(this.n).fill(0);
+        this.q = new Array(this.n).fill(0);
 
         let prev = this.robot
         for (let i = 0; i < this.n; i++) {
-            this.L.push(new LinkMDH(scene, loc[i], prev))
+            this.L.push(new LinkMDH(scene, this.model[i], prev))
             prev = this.L[i].pe
         }
-
-
-
-        console.log(loc)
     }
 
-    q(q) {
+    set_q(q) {
         for (let i = 0; i < this.n; i++) {
-            this.L[i].lz.ps.rotateY(q[i])
-            // prev = this.L[i].pe
+            this.q[i] = q[i]
+            // this.L[i].lz.ps.rotateY(q[i])
+            this.L[i].lz.ps.setRotationFromEuler(new tr.Euler(0, q[i], 0));
         }
+    }
+
+    set_qd(qd) {
+        for (let i = 0; i < this.n; i++) {
+            this.qd[i] = qd[i]
+        }
+    }
+
+    apply_q(delta) {
+        let dt = delta / 1000;
+        for (let i = 0; i < this.n; i++) {
+            this.q[i] += this.qd[i] * dt;
+        }
+        this.set_q(this.q);
     }
 }
 
@@ -91,7 +85,6 @@ class LinkMDH{
         this.joint = new Revolute(this.pe)
         // this.lz.link.add(a)
 
-        console.log(Rx)
         this.ps.rotateX(Rx)
         this.lz.ps.rotateY(Rz)
 
@@ -117,7 +110,6 @@ class Cylinder{
         this.pe = new tr.Group();
 
         if (length !== 0) {
-            console.log(prev.position)
             this.link.position.set(0, length/2, 0)
             this.pe.position.set(0, length/2, 0)
             prev.add(this.ps)
@@ -172,17 +164,26 @@ class FPS {
 class SimTime {
 	constructor(div) {
         this.div = div
-        this.time = Date.now();
+        this.s_time = performance.now();
+        this.last_time = performance.now();
 	}
 
-	update(delta) {
-        let t = Date.now() - this.time;
+	delta() {
+        let delta = performance.now() - this.last_time;
+        this.last_time = performance.now();
+        // console.log(delta)
+        return delta
+    }
+    
+    display() {
+        let t = performance.now() - this.s_time;
         let s = Math.floor(t / 1000);
         let m = Math.floor(s / 60);
         let ms = t % 1000;
+        ms = Math.round(ms)
 
         s = s % 60;
-        m = m % 60;
+        // m = m % 60;
 
         if (s < 10) {
             s = "0" + s;
@@ -200,7 +201,7 @@ class SimTime {
 
         let t_str = `${m}:${s}.${ms}`;
         this.div.innerHTML = t_str;
-	}
+    }
 }
 
 
