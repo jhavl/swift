@@ -36,6 +36,11 @@ function handleWindowControls() {
         win.close();
     });
 
+    document.getElementById('refresh-button').addEventListener("click", event => {
+        win.reload();
+    
+    });
+
     // Toggle maximise/restore buttons when maximisation/unmaximisation occurs
     toggleMaxRestoreButtons();
     win.on('maximize', toggleMaxRestoreButtons);

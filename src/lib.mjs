@@ -96,15 +96,19 @@ class Cylinder{
 	constructor(length, prev) {
         this.length = length
 		this.geometry = new tr.CylinderGeometry(0.025, 0.025, length, 128);
-		this.material = new tr.MeshPhongMaterial({ 
-            color: 0xff5533, 
-            specular: 0x111111, 
-            shininess: 20, 
-            side:tr.DoubleSide
-        });
+		// this.material = new tr.MeshPhongMaterial({ 
+        //     color: 0xff5533, 
+        //     specular: 0x111111, 
+        //     shininess: 20, 
+        //     side:tr.DoubleSide
+        // });
+        this.material = new tr.MeshStandardMaterial({
+            color: 0xff5533
+        })
+
         this.link = new tr.Mesh(this.geometry, this.material);
-        this.link.castShadow = true;
-		this.link.receiveShadow = true;
+        // this.link.castShadow = true;
+		// this.link.receiveShadow = true;
         
         this.ps = new tr.Group();
         this.pe = new tr.Group();
@@ -138,11 +142,16 @@ class FPS {
 	constructor(div) {
 		this.fps = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         this.i = 0
+        this.time = performance.now();
         
         this.div = div
 	}
 
-	frame(delta) {
+	frame() {
+        let delta = performance.now() - this.time;
+        this.time = performance.now();
+
+
 		this.fps[this.i] = 1000/delta;
         this.i++;
         if (this.i >= 10) {
@@ -166,17 +175,25 @@ class SimTime {
         this.div = div
         this.s_time = performance.now();
         this.last_time = performance.now();
-	}
 
-	delta() {
+        this.c_time = 0.0;
+        this.last_c_time = performance.now();
+    }
+
+	delta(paused) {
         let delta = performance.now() - this.last_time;
         this.last_time = performance.now();
-        // console.log(delta)
+        
+        if (!paused) {
+            this.c_time += delta;
+        }
+
         return delta
     }
     
     display() {
-        let t = performance.now() - this.s_time;
+        // let t = performance.now() - this.s_time;
+        let t = this.c_time
         let s = Math.floor(t / 1000);
         let m = Math.floor(s / 60);
         let ms = t % 1000;
@@ -197,6 +214,10 @@ class SimTime {
             ms *= 100;
         } else if (ms < 100) {
             ms *= 10;
+        }
+
+        if (ms === 0) {
+            ms = "000"
         }
 
         let t_str = `${m}:${s}.${ms}`;

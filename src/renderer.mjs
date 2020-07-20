@@ -8,21 +8,22 @@ import {Robot, FPS, SimTime} from 'app:lib.mjs'
 
 let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
-let time = Date.now();
-let t = Date.now();
+let heartbeat = performance.now() - 100;
+let paused, prev_state = true;
 
 tr.Object3D.DefaultUp.set(0, 0, 1);
 
 var camera, scene, renderer, controls;
-var geometry, material, mesh;
 
 // Array of all the robots in the scene
 let agents = [];
 let first_step = 0;
 
+setInterval(rt_heartbeat, 10)
 init()
 animate();
 window.addEventListener('resize', on_resize, false);
+
 
 function init() {
 
@@ -39,10 +40,9 @@ function init() {
 	controls = new OrbitControls( camera, renderer.domElement );
 
 	// Set up camera position
-	camera.position.set(0.3, 0.9, 0.2);
-	camera.lookAt(new tr.Vector3(0,0,0))
-	camera.rotateZ(3.14)
-	controls.update()
+	camera.position.set(0.2, 1.2, 0.7);
+	controls.target = new tr.Vector3(0, 0, 0.2);
+	controls.update();
 
 	// scene.background = new tr.Color(0x72645b);
 	scene.background = new tr.Color(0x787878);
@@ -117,28 +117,51 @@ function animate() {
 
 	renderer.render(scene, camera);
 
-	let delta = Date.now() - time;
-	time = Date.now();
 
-	fps.frame(delta);
+	fps.frame();
 
-	if (first_step) {
-		sim_time.display()
-	}
+	// if (!paused) {
+	sim_time.display()
+	// }
 }
 
 function step_sim() {
-	if (!first_step) {
-		first_step = 1;
-		sim_time.time = Date.now();
-	}
-	let delta = sim_time.delta();
+	heartbeat = performance.now()
+	// if (!first_step) {
+	// 	first_step = 1;
+	// 	sim_time.time = Date.now();
+	// }
+	let delta = sim_time.delta(paused);
 
 	for (let i = 0; i < agents.length; i++) {
 		agents[i].apply_q(delta)
 	}
 }
 
+function rt_heartbeat() {
+
+
+	let delta = performance.now() - heartbeat;
+	if (delta > 100) {
+		paused = true;
+	} else {
+		paused = false;
+	}
+
+	if (prev_state !== paused) {
+		let play = document.getElementById('play-button')
+		let pause = document.getElementById('pause-button')
+
+		if (paused) {
+			pause.style.display = "none";
+            play.style.display = "block";
+		} else {
+			play.style.display = "none";
+			pause.style.display = "block";
+		}
+	}
+	prev_state = paused;
+}
 
 
 

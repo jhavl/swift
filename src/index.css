@@ -69,7 +69,26 @@ body {
   height: 32px;
 }
 
+#sim-controls {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  display: inline-block;
+  width: 110px;
+  height: 32px;
+  background: linear-gradient(90deg, rgba(30,30,30,1) 0%, rgba(37,37,37,1) 17%, rgba(37,37,37,1) 87%, rgba(30,30,30,1) 100%);
+}
+
 #window-controls .button {
+  position: fixed;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+#sim-controls .button {
   position: fixed;
   top: 4px;
   width: 24px;
@@ -81,6 +100,24 @@ body {
   left: 4px;
 }
 
+#play-button {
+  /* display: none; */
+  left: 14px;
+}
+
+#pause-button {
+  display: none;
+  left: 14px;
+}
+
+#restore-button {
+  left: 36px;
+}
+
+#refresh-button {
+  left: 44px;
+}
+
 #max-button {
   left: 68px;
 }
@@ -90,16 +127,61 @@ body {
   left: 68px;
 }
 
-#restore-button {
-  left: 36px;
+#stop-button {
+  left: 74px;
+}
+
+.sim-icon {
+  display: block;
+  margin: auto;
 }
 
 #window-controls {
   -webkit-app-region: no-drag;
 }
 
+#sim-controls {
+  -webkit-app-region: no-drag;
+}
+
 #window-controls .button {
   user-select: none;
+}
+
+#close-button:hover {
+  background: rgba(255, 68, 58, 0.3);
+}
+
+#stop-button:hover {
+  background: rgba(255, 68, 58, 0.3);
+}
+
+#stop-button:hover * {
+  fill: rgb(255, 68, 58);
+}
+
+#play-button:hover {
+  background: rgba(50, 215, 75, 0.3);
+}
+
+#play-button:hover * {
+  fill: rgb(50, 215, 75)
+}
+
+#pause-button:hover {
+  background: rgba(10, 132, 255, 0.3);
+}
+
+#pause-button:hover * {
+  fill: rgb(130, 216, 250)
+}
+
+#refresh-button:hover {
+  background: rgba(10, 132, 255, 0.3);
+}
+
+#refresh-button:hover * {
+  fill: rgb(130, 216, 250)
 }
 
 #close-button:hover {
@@ -123,6 +205,10 @@ body {
 }
 
 #window-controls .button:active {
+  background: rgba(255, 255, 255, 0.63);
+}
+
+#sim-controls .button:active {
   background: rgba(255, 255, 255, 0.63);
 }
 
