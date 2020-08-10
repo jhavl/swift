@@ -4,6 +4,7 @@ const zerorpc = require("zerorpc");
 
 import {OrbitControls} from 'app:orbit-controls.mjs'
 import { STLLoader } from 'app:stl-loader.mjs'
+import { ColladaLoader } from 'app:collada-loader.mjs'
 import {Robot, FPS, SimTime} from 'app:lib.mjs'
 
 let fps = new FPS(document.getElementById('fps'));
@@ -63,21 +64,20 @@ function init() {
 	var axesHelper = new tr.AxesHelper( 5 );
 	scene.add( axesHelper );
 
-	// var loader = new STLLoader();
-	// loader.load( './models/stl/ascii/puma560/link0.stl', function ( geometry ) {
+	var loader = new ColladaLoader();
+	loader.load( './models/dae/panda/link0.dae', function ( collada ) {
 
-	// 	var material = new tr.MeshPhongMaterial( { color: 0xff5533, specular: 0x111111, shininess: 200 } );
-	// 	var mesh = new tr.Mesh( geometry, material );
+		var dae = collada.scene;
+		console.log(collada)
+        // var skin = collada.skins[0];
+		dae.position.set(-0.075, 0, 0.06);
+		dae.scale.set(1,1,1);	
+			
+		dae.castShadow = true;
+		dae.receiveShadow = true;
 
-	// 	mesh.position.set(0, 0, 0.6);
-	// 	// mesh.rotation.set( 0, - Math.PI / 2, 0 );
-	// 	// mesh.scale.set(1, 1, 1);
-
-	// 	mesh.castShadow = true;
-	// 	mesh.receiveShadow = true;
-
-	// 	scene.add( mesh );
-	// });
+		scene.add(dae);
+	});
 
 }
 
