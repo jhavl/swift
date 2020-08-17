@@ -41,7 +41,7 @@ const TextureLoader = tr.TextureLoader
 const Vector3 = tr.Vector3
 const VectorKeyframeTrack = tr.VectorKeyframeTrack
 
-import { TGALoader } from 'app:tga-loader.mjs'
+import { TGALoader } from 'app:tlib/tga-loader.mjs'
 
 var ColladaLoader = function ( manager ) {
 

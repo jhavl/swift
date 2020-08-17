@@ -2,10 +2,9 @@
 const tr = require('three')
 const zerorpc = require("zerorpc");
 
-import {OrbitControls} from 'app:orbit-controls.mjs'
-import { STLLoader } from 'app:stl-loader.mjs'
-import { ColladaLoader } from 'app:collada-loader.mjs'
-import {Robot, FPS, SimTime} from 'app:lib.mjs'
+import {OrbitControls} from 'app:tlib/orbit-controls.mjs'
+import { STLLoader } from 'app:tlib/stl-loader.mjs'
+import {Robot, FPS, SimTime} from 'app:lib/lib.mjs'
 
 let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
@@ -63,21 +62,6 @@ function init() {
 
 	var axesHelper = new tr.AxesHelper( 5 );
 	scene.add( axesHelper );
-
-	var loader = new ColladaLoader();
-	loader.load( './models/dae/panda/link0.dae', function ( collada ) {
-
-		var dae = collada.scene;
-		console.log(collada)
-        // var skin = collada.skins[0];
-		dae.position.set(-0.075, 0, 0.06);
-		dae.scale.set(1,1,1);	
-			
-		dae.castShadow = true;
-		dae.receiveShadow = true;
-
-		scene.add(dae);
-	});
 
 }
 
@@ -168,9 +152,11 @@ function rt_heartbeat() {
 
 let server = new zerorpc.Server({
     robot: function(model, reply) {
+		// console.log(model)
 		let robot = new Robot(scene, model);
-		let id = agents.length
-		agents.push(robot)
+		// let id = agents.length
+		let id = 1;
+		// agents.push(robot)
         reply(null, id);
 	},
 	q: function(q_ob, reply) {
@@ -194,7 +180,7 @@ let server = new zerorpc.Server({
 	}
 });
 
-server.bind("tcp://0.0.0.0:4242");
+server.bind("tcp://0.0.0.0:4243");
 
 
 

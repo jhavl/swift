@@ -1,23 +1,79 @@
 
 const tr = require('three')
+import { ColladaLoader } from 'app:tlib/collada-loader.mjs'
+
+const loader = new ColladaLoader();
+
+function sleep(milliseconds) {
+    const date = Date.now();
+    let currentDate = null;
+    do {
+      currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+  }
+
+function load(file, scene, t, q) {
+    return loader.load(file, function(collada) {
+
+        var dae = collada.scene;
+        // console.log(collada)
+        // var skin = collada.skins[0];
+        // dae.position.set(-0.075, 0, 0.06);
+        // dae.position.set(T[3], T[7], T[11]);
+        dae.position.set(t[0], t[1], t[2]);
+        // dae.rotateX(Math.PI/2)
+        // let Tr = new tr.Matrix4();
+        // Tr.fromArray(T);
+        // console.log(Tr)
+
+        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0])
+        dae.setRotationFromQuaternion(quat);
+        // dae.setRotationFromMatrix(Tr);
+            
+        // dae.rotateX(R[0])
+        // dae.rotateY(R[1])
+        // dae.rotateZ(R[2])
+        // dae.scale.set(1,1,1);	
+            
+        dae.castShadow = true;
+        dae.receiveShadow = true;
+
+        // return dae
+        scene.add(dae)
+    });
+}
+
+
 
 class Robot{
     constructor(scene, ob) {
-        this.robot = new tr.Group()
-        this.L = []
-        scene.add(this.robot)
-        this.robot.rotateX(Math.PI/2)
 
-        this.model = ob[1]
-        this.n = this.model.length
-        this.qd = new Array(this.n).fill(0);
-        this.q = new Array(this.n).fill(0);
+        for (let i = 0; i < ob.n; i++) {
+        // for (let i = 2; i < 3; i++) {
+            // console.log(ob.links[i].geometry.length)
+            for (let j = 0; j < ob.links[i].geometry.length; j ++) {
+                let dae = load(ob.links[i].geometry[j].filename, scene, ob.poses.t[i], ob.poses.q[i])
 
-        let prev = this.robot
-        for (let i = 0; i < this.n; i++) {
-            this.L.push(new LinkMDH(scene, this.model[i], prev))
-            prev = this.L[i].pe
+                // scene.add(dae)
+            }
+            
         }
+
+        // this.robot = new tr.Group()
+        // this.L = []
+        // scene.add(this.robot)
+        // this.robot.rotateX(Math.PI/2)
+
+        // this.model = ob[1]
+        // this.n = this.model.length
+        // this.qd = new Array(this.n).fill(0);
+        // this.q = new Array(this.n).fill(0);
+
+        // let prev = this.robot
+        // for (let i = 0; i < this.n; i++) {
+        //     this.L.push(new LinkMDH(scene, this.model[i], prev))
+        //     prev = this.L[i].pe
+        // }
     }
 
     set_q(q) {

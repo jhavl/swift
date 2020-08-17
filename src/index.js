@@ -12,10 +12,16 @@ const scheme = 'app';
 { /* Protocol */
   // Registering must be done before app::ready fires
   // (Optional) Technically not a standard scheme but works as needed
-  protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+  protocol.registerSchemesAsPrivileged([{
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true
+    }}]);
 
   // Create protocol
-  require('./create-protocol')(scheme, base);
+  require('./lib/create-protocol')(scheme, base);
 }
 
 
@@ -38,15 +44,6 @@ const createWindow = () => {
 
   // and load the index.html of the app.
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-  
-
-
-  
-  // init()
-
-  // Open the DevTools.
-  // mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished
