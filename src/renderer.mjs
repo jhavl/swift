@@ -165,7 +165,7 @@ let server = new zerorpc.Server({
 		let poses = p_ob[1];
 		agents[id].set_poses(poses);
 		// step_sim();
-		animate();
+		// animate();
 		reply(null, 1);
 	},
 	q: function(q_ob, reply) {
