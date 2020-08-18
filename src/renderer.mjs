@@ -153,11 +153,20 @@ function rt_heartbeat() {
 let server = new zerorpc.Server({
     robot: function(model, reply) {
 		// console.log(model)
+		let id = agents.length
 		let robot = new Robot(scene, model);
-		// let id = agents.length
-		let id = 1;
-		// agents.push(robot)
+		
+		// let id = 1;
+		agents.push(robot)
         reply(null, id);
+	},
+	poses: function(p_ob, reply) {
+		let id = p_ob[0];
+		let poses = p_ob[1];
+		agents[id].set_poses(poses);
+		// step_sim();
+		animate();
+		reply(null, 1);
 	},
 	q: function(q_ob, reply) {
 		let id = q_ob[0];

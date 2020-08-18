@@ -12,34 +12,21 @@ function sleep(milliseconds) {
     } while (currentDate - date < milliseconds);
   }
 
-function load(file, scene, t, q) {
-    return loader.load(file, function(collada) {
+function load(ob, scene, t, q) {
+    return loader.load(ob.filename, function(collada) {
 
-        var dae = collada.scene;
-        // console.log(collada)
-        // var skin = collada.skins[0];
-        // dae.position.set(-0.075, 0, 0.06);
-        // dae.position.set(T[3], T[7], T[11]);
+        let dae = collada.scene;
         dae.position.set(t[0], t[1], t[2]);
-        // dae.rotateX(Math.PI/2)
-        // let Tr = new tr.Matrix4();
-        // Tr.fromArray(T);
-        // console.log(Tr)
 
-        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0])
+        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
         dae.setRotationFromQuaternion(quat);
-        // dae.setRotationFromMatrix(Tr);
-            
-        // dae.rotateX(R[0])
-        // dae.rotateY(R[1])
-        // dae.rotateZ(R[2])
-        // dae.scale.set(1,1,1);	
             
         dae.castShadow = true;
         dae.receiveShadow = true;
 
-        // return dae
         scene.add(dae)
+        ob['dae'] = dae
+        ob['loaded'] = true
     });
 }
 
@@ -48,17 +35,12 @@ function load(file, scene, t, q) {
 class Robot{
     constructor(scene, ob) {
 
-        for (let i = 0; i < ob.M; i++) {
-        // for (let i = 0; i < 9; i++) {
-            // console.log(ob.links[i].geometry.length)
-            for (let j = 0; j < ob.links[i].geometry.length; j ++) {
-                // console.log(ob.links[i].geometry[j].filename)
-                console.log(ob.links[i])
-                let dae = load(ob.links[i].geometry[j].filename, scene, ob.links[i].t, ob.links[i].q)
+        this.ob = ob
 
-                // scene.add(dae)
+        for (let i = 0; i < ob.M; i++) {
+            for (let j = 0; j < ob.links[i].geometry.length; j++) {
+                load(ob.links[i].geometry[j], scene, ob.links[i].t, ob.links[i].q)
             }
-            
         }
 
         // this.robot = new tr.Group()
@@ -76,6 +58,20 @@ class Robot{
         //     this.L.push(new LinkMDH(scene, this.model[i], prev))
         //     prev = this.L[i].pe
         // }
+    }
+
+    set_poses(poses) {
+        for (let i = 0; i < this.ob.M; i++) {
+
+            let t = poses.links[i].t
+            let q = poses.links[i].q
+            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            // console.log(this.ob.links[i].geometry.length)
+            for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
+                this.ob.links[i].geometry[j].dae.position.set(t[0], t[1], t[2]);
+                this.ob.links[i].geometry[j].dae.setRotationFromQuaternion(quat);
+            }
+        }
     }
 
     set_q(q) {
