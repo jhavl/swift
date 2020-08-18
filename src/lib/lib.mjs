@@ -48,11 +48,13 @@ function load(file, scene, t, q) {
 class Robot{
     constructor(scene, ob) {
 
-        for (let i = 0; i < ob.n; i++) {
-        // for (let i = 2; i < 3; i++) {
+        for (let i = 0; i < ob.M; i++) {
+        // for (let i = 0; i < 9; i++) {
             // console.log(ob.links[i].geometry.length)
             for (let j = 0; j < ob.links[i].geometry.length; j ++) {
-                let dae = load(ob.links[i].geometry[j].filename, scene, ob.poses.t[i], ob.poses.q[i])
+                // console.log(ob.links[i].geometry[j].filename)
+                console.log(ob.links[i])
+                let dae = load(ob.links[i].geometry[j].filename, scene, ob.links[i].t, ob.links[i].q)
 
                 // scene.add(dae)
             }
