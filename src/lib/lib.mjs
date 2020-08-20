@@ -20,9 +20,14 @@ function load(ob, scene, t, q) {
 
         let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
         dae.setRotationFromQuaternion(quat);
-            
-        dae.castShadow = true;
-        dae.receiveShadow = true;
+
+        for (let i = 0; i < dae.children.length; i++) {
+            if (dae.children[i] instanceof tr.Mesh) {
+                dae.children[i].castShadow = true;
+            } else if (dae.children[i] instanceof tr.PointLight) {
+                dae.children[i].visible = false;
+            }
+        }
 
         scene.add(dae)
         ob['dae'] = dae
@@ -39,6 +44,7 @@ class Robot{
 
         for (let i = 0; i < ob.M; i++) {
             for (let j = 0; j < ob.links[i].geometry.length; j++) {
+                // console.log(ob.link[i].geometry[j].filename)
                 load(ob.links[i].geometry[j], scene, ob.links[i].t, ob.links[i].q)
             }
         }
