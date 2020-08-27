@@ -4,7 +4,7 @@
  * @author takahirox / https://github.com/takahirox/
  */
 
-const tr = require('three')
+const tr = THREE;
 const FileLoader = tr.FileLoader
 const Loader = tr.Loader
 const Texture = tr.Texture

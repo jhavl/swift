@@ -1,8 +1,10 @@
 
-const tr = require('three')
+const tr = THREE;
 import { ColladaLoader } from 'app:tlib/collada-loader.mjs'
+import { STLLoader } from 'app:tlib/stl-loader.mjs'
 
-const loader = new ColladaLoader();
+const daeloader = new ColladaLoader();
+const stlloader = new STLLoader();
 
 function sleep(milliseconds) {
     const date = Date.now();
@@ -13,26 +15,66 @@ function sleep(milliseconds) {
   }
 
 function load(ob, scene, t, q) {
-    return loader.load(ob.filename, function(collada) {
 
-        let dae = collada.scene;
-        dae.position.set(t[0], t[1], t[2]);
+    let ext = ob.filename.split('.').pop();
+    console.log(ob);
 
-        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
-        dae.setRotationFromQuaternion(quat);
+    if (ext == 'dae') {
+        return daeloader.load(ob.filename, function(collada) {
 
-        for (let i = 0; i < dae.children.length; i++) {
-            if (dae.children[i] instanceof tr.Mesh) {
-                dae.children[i].castShadow = true;
-            } else if (dae.children[i] instanceof tr.PointLight) {
-                dae.children[i].visible = false;
+            let mesh = collada.scene;
+            mesh.position.set(t[0], t[1], t[2]);
+    
+            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            mesh.setRotationFromQuaternion(quat);
+    
+            for (let i = 0; i < mesh.children.length; i++) {
+                if (mesh.children[i] instanceof tr.Mesh) {
+                    mesh.children[i].castShadow = true;
+                } else if (mesh.children[i] instanceof tr.PointLight) {
+                    mesh.children[i].visible = false;
+                }
             }
-        }
+    
+            scene.add(mesh)
+            ob['mesh'] = mesh
+            ob['loaded'] = true
+        });
+    } else if (ext == 'stl') {
+        return stlloader.load(ob.filename, function(geometry) {
 
-        scene.add(dae)
-        ob['dae'] = dae
-        ob['loaded'] = true
-    });
+            let material = new tr.MeshPhongMaterial({
+                color: 0xff5533, specular: 0x111111, shininess: 200
+            });
+            let mesh = new tr.Mesh(geometry, material);
+
+            mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+
+            // let mesh = collada.scene;
+            // mesh.position.set(t[0], t[1], t[2]);
+            mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
+            
+            let quat_o = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            mesh.setRotationFromQuaternion(quat_o);
+    
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // for (let i = 0; i < mesh.children.length; i++) {
+            //     if (mesh.children[i] instanceof tr.Mesh) {
+            //         mesh.children[i].castShadow = true;
+            //     } else if (mesh.children[i] instanceof tr.PointLight) {
+            //         mesh.children[i].visible = false;
+            //     }
+            // }
+    
+            scene.add(mesh)
+            ob['mesh'] = mesh
+            ob['loaded'] = true
+        });
+    }
+
 }
 
 
@@ -74,8 +116,8 @@ class Robot{
             let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
             // console.log(this.ob.links[i].geometry.length)
             for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
-                this.ob.links[i].geometry[j].dae.position.set(t[0], t[1], t[2]);
-                this.ob.links[i].geometry[j].dae.setRotationFromQuaternion(quat);
+                this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
+                this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
             }
         }
     }

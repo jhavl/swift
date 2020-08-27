@@ -2,15 +2,15 @@
 <html lang="en">
 	<head>
 		<title>sim</title>
-		<link rel="stylesheet" href="app:index.css">
+		<!-- <base href="app://./" /> -->
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' app:; object-src 'self' app:;">
+		<link rel="stylesheet" href="./index.css">
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
 
-
-		</style>
 	</head>
 	<body>
+		<script src="../node_modules/three/build/three.js">THREE.Object3D.DefaultUp.set(0, 0, 1);</script>
 
 		<div class="toolbar">
 			<div id="drag-region">

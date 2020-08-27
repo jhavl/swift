@@ -55,7 +55,7 @@
  *  var mesh = new THREE.Mesh(geometry, materials);
  */
 
-const tr = require('three')
+const tr = THREE;
 const BufferAttribute = tr.BufferAttribute
 const BufferGeometry = tr.BufferGeometry
 const FileLoader = tr.FileLoader

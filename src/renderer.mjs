@@ -1,6 +1,7 @@
-
-const tr = require('three')
+THREE.Object3D.DefaultUp.set(0, 0, 1);
+const tr = THREE;
 const zerorpc = require("zerorpc");
+const HoloPlay = require("holoplay");
 
 import {OrbitControls} from 'app:tlib/orbit-controls.mjs'
 import { STLLoader } from 'app:tlib/stl-loader.mjs'
@@ -10,8 +11,6 @@ let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
 let heartbeat = performance.now() - 100;
 let paused, prev_state = true;
-
-tr.Object3D.DefaultUp.set(0, 0, 1);
 
 var camera, scene, renderer, controls;
 
@@ -26,12 +25,19 @@ window.addEventListener('resize', on_resize, false);
 
 
 function init() {
-
+// 
 	camera = new tr.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
+	// camera = new HoloPlay.Camera();
+	
 	scene = new tr.Scene();
-
+	// tr.Object3D.DefaultUp.set(0, 0, 1);
 
 	renderer = new tr.WebGLRenderer( {antialias: true });
+	// hrenderer = new HoloPlay.Renderer();
+	// hrenderer.webglRenderer = renderer;
+	// hrenderer.disableFullscreenUi = true;
+	// console.log(hrenderer);
+
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	renderer.shadowMap.enabled = true;
 	let div = document.getElementById( 'canvas' );
@@ -189,7 +195,7 @@ let server = new zerorpc.Server({
 	}
 });
 
-server.bind("tcp://0.0.0.0:4243");
+server.bind("tcp://0.0.0.0:4242");
 
 
 

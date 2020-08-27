@@ -3,9 +3,10 @@ const { extname } = require('path');
 const mime = filename =>
   mime[extname(`${filename || ''}`).toLowerCase()];
 
-mime[''] = 'text/plain',
-  mime['.js'] =
-  mime['.ts'] =
+  mime[''] = 'text/plain',
+  mime['.js'] = 'text/javascript',
+  mime['.ts'] = 'text/javascript',
+  mime['.module'] = 'text/javascript',
   mime['.mjs'] = 'text/javascript',
   mime['.html'] =
   mime['.htm'] = 'text/html',

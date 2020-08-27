@@ -3,7 +3,7 @@
  * @author Mugen87 / https://github.com/Mugen87
  */
 
-const tr = require('three')
+const tr = THREE;
 const AmbientLight = tr.AmbientLight
 const AnimationClip = tr.AnimationClip
 const Bone = tr.Bone

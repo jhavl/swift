@@ -26,6 +26,7 @@ function createProtocol(scheme, base, normalize = true) {
       try {
         // Get normalized pathname from url
         pathname = normalize(request.url);
+        console.log(pathname);
 
         // Resolve absolute filepath relative to mainModule
         filename = resolve(`.${pathname}`, mainModule);
