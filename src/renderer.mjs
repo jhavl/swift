@@ -1,7 +1,7 @@
 THREE.Object3D.DefaultUp.set(0, 0, 1);
 const tr = THREE;
 const zerorpc = require("zerorpc");
-const HoloPlay = require("holoplay");
+// const HoloPlay = require("holoplay");
 
 import {OrbitControls} from 'app:tlib/orbit-controls.mjs'
 import { STLLoader } from 'app:tlib/stl-loader.mjs'
