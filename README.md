@@ -1,4 +1,16 @@
-### Install
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/jhavl/swift/graphs/commit-activity)
+
+## In development
+
+# Swift
+
+The Swift simulator is a is designed for rapid prototyping of algorithms, research, and education. Currently, Swift supports manipulators, with other robot types incoming.
+
+Swift is controlled using the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python) through an easy and intuitive API.
+
+# Getting going
+## From Github
 ```
 # Install node js version 12.18.2 (or whatever LTS is on a mac)
 https://nodejs.org/en/
@@ -18,16 +30,5 @@ npm install
 npm start 
 ```
 
-### Information
-Node is a server framework (or so I think) for acting as the backend for
-websites, apps, webapps and appwebs (probably).
-
-So in a typical application the node server has access to all of the powerful
-and usefull modules you can find on npm (pip for node), while the client
-(web browser) is much more limited in capability. In this project the main
-server code is in src/index.js
-
-Electron joins the server and client together since it runs in a desktop
-environment and brings to power of the server to the client. So all Node
-modules on npm can run on the client with electron. In this project the main
-client js code is src/renderer.js
+## From executable
+Avaliable soon
