@@ -1,6 +1,9 @@
 THREE.Object3D.DefaultUp.set(0, 0, 1);
 const tr = THREE;
 const zerorpc = require("zerorpc");
+const fs = require('fs');
+// import {  } from 'app:../node_modules/ccapture.js/build/CCapture.all.min.js';
+// import {CCapture} from 'app:../node_modules/ccapture.js/build/CCapture.all.min.js' 
 // const HoloPlay = require("holoplay");
 
 import {OrbitControls} from 'app:tlib/orbit-controls.mjs'
@@ -17,6 +20,9 @@ var camera, scene, renderer, controls;
 // Array of all the robots in the scene
 let agents = [];
 let first_step = 0;
+
+// scene recorder
+let rec = null
 
 setInterval(rt_heartbeat, 10)
 init()
@@ -107,20 +113,12 @@ function animate() {
 
 	renderer.render(scene, camera);
 
-
 	fps.frame();
-
-	// if (!paused) {
 	sim_time.display()
-	// }
 }
 
 function step_sim() {
 	heartbeat = performance.now()
-	// if (!first_step) {
-	// 	first_step = 1;
-	// 	sim_time.time = Date.now();
-	// }
 	let delta = sim_time.delta(paused);
 
 	for (let i = 0; i < agents.length; i++) {
@@ -154,11 +152,45 @@ function rt_heartbeat() {
 }
 
 
+function startRecording(file) {
+	let canvas = document.getElementById('canvas').children[0];
+	const chunks = []; // here we will store our recorded media chunks (Blobs)
 
+	const blob_reader = new FileReader();
+	const storage_stream = require("fs").createWriteStream(file);
+	const blobs = [];
+
+	const stream = canvas.captureStream(); // grab our canvas MediaStream
+
+	blob_reader.addEventListener("load", function(ev) {
+		storage_stream.write(Buffer.from(ev.currentTarget.result));
+		if(blobs.length) {
+			ev.currentTarget.readAsArrayBuffer(blobs.shift());
+		}
+	});
+
+	rec = new MediaRecorder(stream); // init the recorder
+
+	rec.addEventListener("dataavailable", function(ev) {
+		if(blob_reader.readyState != 1) {
+			blob_reader.readAsArrayBuffer(ev.data);
+		} else {
+			blobs.push(ev.data);
+		}
+	});
+	
+	rec.start();
+	// setTimeout(()=>rec.stop(), 3000); // stop recording in 3s
+	// console.log('started')
+}
+
+
+
+
+// startRecording('file');
 
 let server = new zerorpc.Server({
     robot: function(model, reply) {
-		// console.log(model)
 		let id = agents.length
 		let robot = new Robot(scene, model);
 		
@@ -184,14 +216,22 @@ let server = new zerorpc.Server({
 		let id = qd_ob[0];
 		let qd = qd_ob[1];
 		agents[id].set_qd(qd);
-		reply(null, 1)
+		reply(null, 1);
 	},
 	step: function(step, reply) {
 		step_sim();
-		reply(null, 1)
+		reply(null, 1);
 	},
 	get_q: function(id, reply) {
 		reply(null, agents[id].q)
+	},
+	record_start: function(file, reply) {
+		startRecording(file);
+		reply(null, 1);
+	},
+	record_stop: function(file, reply) {
+		rec.stop();
+		reply(null, 1);
 	}
 });
 

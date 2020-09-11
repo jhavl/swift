@@ -24,7 +24,7 @@
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "sim"
+            "name": "Swift"
           }
         },
         {
@@ -45,6 +45,7 @@
     }
   },
   "dependencies": {
+    "ccapture.js": "github:aceslowman/ccapture.js#npm-fix",
     "electron-reload": "^1.5.0",
     "electron-squirrel-startup": "^1.0.0",
     "holoplay": "^1.0.3",
