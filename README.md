@@ -21,7 +21,7 @@ git clone git@github.com:jhavl/swift.git
 git clone https://github.com/jhavl/swift.git
 
 # cd into directory
-cd sim
+cd swift
 
 # Install the project (this will download and install the dependancies for the project)
 npm install
