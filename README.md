@@ -16,9 +16,9 @@ Swift is controlled using the [Robotics Toolbox for Python](https://github.com/p
 https://nodejs.org/en/
 
 # Clone the repo
-git clone git@github.com:jhavl/sim.git 
+git clone git@github.com:jhavl/swift.git 
 # or 
-git clone https@github.com:jhavl/sim.git 
+git clone https://github.com/jhavl/swift.git
 
 # cd into directory
 cd sim
