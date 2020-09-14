@@ -14,18 +14,81 @@ function sleep(milliseconds) {
     } while (currentDate - date < milliseconds);
   }
 
-function load(ob, scene, t, q) {
+function load(ob, scene, color) {
+    if (ob.stype === 'mesh') {
+        loadMesh(ob, scene);
+    } else if (ob.stype === 'box') {
+        loadBox(ob, scene, color);
+    } else if (ob.stype === 'sphere') {
+        loadSphere(ob, scene, color);
+    } else if (ob.stype === 'cylinder') {
+        loadCylinder(ob, scene, color);
+    }
+}
+    
+function loadBox(ob, scene, color) {
+    let geometry = new THREE.BoxGeometry( ob.scale[0], ob.scale[1], ob.scale[2] );
+    let material = new tr.MeshStandardMaterial({
+        color: color
+    })
+    let cube = new THREE.Mesh( geometry, material );
+    cube.position.set(ob.t[0], ob.t[1], ob.t[2]);
+    
+    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    cube.setRotationFromQuaternion(quat);
+
+    scene.add( cube );
+    ob['mesh'] = cube
+    ob['loaded'] = true
+}
+
+function loadSphere(ob, scene, color) {
+    let geometry = new THREE.SphereGeometry( ob.radius, 64, 64 );
+    let material = new tr.MeshStandardMaterial({
+        color: color
+    })
+    material.transparent = true;
+    material.opacity = 0.4;
+    let sphere = new THREE.Mesh( geometry, material );
+    sphere.position.set(ob.t[0], ob.t[1], ob.t[2]);
+    
+    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    sphere.setRotationFromQuaternion(quat);
+
+    scene.add( sphere );
+    ob['mesh'] = sphere
+    ob['loaded'] = true
+}
+
+function loadCylinder(ob, scene, color) {
+    let geometry = new THREE.CylinderGeometry( ob.radius, ob.radius, ob.length, 32 );
+    let material = new tr.MeshStandardMaterial({
+        color: color
+    })
+    material.transparent = true;
+    material.opacity = 0.4;
+    let cylinder = new THREE.Mesh( geometry, material );
+    cylinder.position.set(ob.t[0], ob.t[1], ob.t[2]);
+    
+    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    cylinder.setRotationFromQuaternion(quat);
+
+    scene.add( cylinder );
+    ob['mesh'] = cylinder
+    ob['loaded'] = true
+}
+
+function loadMesh(ob, scene) {
 
     let ext = ob.filename.split('.').pop();
-    console.log(ob);
 
     if (ext == 'dae') {
         return daeloader.load(ob.filename, function(collada) {
 
             let mesh = collada.scene;
-            mesh.position.set(t[0], t[1], t[2]);
+            mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
     
-            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
             mesh.setRotationFromQuaternion(quat);
     
             for (let i = 0; i < mesh.children.length; i++) {
@@ -49,34 +112,21 @@ function load(ob, scene, t, q) {
             let mesh = new tr.Mesh(geometry, material);
 
             mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
-
-            // let mesh = collada.scene;
-            // mesh.position.set(t[0], t[1], t[2]);
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
             
             let quat_o = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
-            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            // let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
             mesh.setRotationFromQuaternion(quat_o);
     
             mesh.castShadow = true;
             mesh.receiveShadow = true;
-
-            // for (let i = 0; i < mesh.children.length; i++) {
-            //     if (mesh.children[i] instanceof tr.Mesh) {
-            //         mesh.children[i].castShadow = true;
-            //     } else if (mesh.children[i] instanceof tr.PointLight) {
-            //         mesh.children[i].visible = false;
-            //     }
-            // }
     
             scene.add(mesh)
             ob['mesh'] = mesh
             ob['loaded'] = true
         });
     }
-
 }
-
 
 
 class Robot{
@@ -85,9 +135,20 @@ class Robot{
         this.ob = ob
 
         for (let i = 0; i < ob.M; i++) {
-            for (let j = 0; j < ob.links[i].geometry.length; j++) {
-                // console.log(ob.link[i].geometry[j].filename)
-                load(ob.links[i].geometry[j], scene, ob.links[i].t, ob.links[i].q)
+            let color = Math.random() * 0xffffff;
+
+            if (ob.show_robot) {
+                for (let j = 0; j < ob.links[i].geometry.length; j++) {
+                    // console.log(ob.link[i].geometry[j].filename)
+                    load(ob.links[i].geometry[j], scene, color)
+                }
+            }
+
+            if (ob.show_collision) {
+                for (let j = 0; j < ob.links[i].collision.length; j++) {
+                    // console.log(ob.link[i].collision[j].filename)
+                    load(ob.links[i].collision[j], scene, color)
+                }
             }
         }
 
@@ -111,14 +172,33 @@ class Robot{
     set_poses(poses) {
         for (let i = 0; i < this.ob.M; i++) {
 
-            let t = poses.links[i].t
-            let q = poses.links[i].q
-            let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
-            // console.log(this.ob.links[i].geometry.length)
-            for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
-                this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
-                this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
+            // let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            // // console.log(this.ob.links[i].geometry.length)
+            // for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
+            //     this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
+            //     this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
+            // }
+
+            if (this.ob.show_robot) {
+                for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
+                    let t = poses.links[i].geometry[j].t;
+                    let q = poses.links[i].geometry[j].q;
+                    let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+                    this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
+                    this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
+                }
             }
+
+            if (this.ob.show_collision) {
+                for (let j = 0; j < this.ob.links[i].collision.length; j++) {
+                    let t = poses.links[i].collision[j].t;
+                    let q = poses.links[i].collision[j].q;
+                    let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+                    this.ob.links[i].collision[j].mesh.position.set(t[0], t[1], t[2]);
+                    this.ob.links[i].collision[j].mesh.setRotationFromQuaternion(quat);
+                }
+            }
+
         }
     }
 

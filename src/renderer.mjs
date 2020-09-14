@@ -169,7 +169,12 @@ function startRecording(file) {
 		}
 	});
 
-	rec = new MediaRecorder(stream); // init the recorder
+	let options = {
+		videoBitsPerSecond : 2500000000000,
+		mimeType: 'video/webm'
+	};
+
+	rec = new MediaRecorder(stream, options); // init the recorder
 
 	rec.addEventListener("dataavailable", function(ev) {
 		if(blob_reader.readyState != 1) {
@@ -192,6 +197,7 @@ function startRecording(file) {
 let server = new zerorpc.Server({
     robot: function(model, reply) {
 		let id = agents.length
+		console.log(model)
 		let robot = new Robot(scene, model);
 		
 		// let id = 1;
