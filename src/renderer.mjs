@@ -8,7 +8,7 @@ const fs = require('fs');
 
 import {OrbitControls} from 'app:tlib/orbit-controls.mjs'
 import { STLLoader } from 'app:tlib/stl-loader.mjs'
-import {Robot, FPS, SimTime} from 'app:lib/lib.mjs'
+import {Robot, Shape, FPS, SimTime} from 'app:lib/lib.mjs'
 
 let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
@@ -19,6 +19,7 @@ var camera, scene, renderer, controls;
 
 // Array of all the robots in the scene
 let agents = [];
+let shapes = [];
 let first_step = 0;
 
 // scene recorder
@@ -197,11 +198,14 @@ function startRecording(file) {
 let server = new zerorpc.Server({
     robot: function(model, reply) {
 		let id = agents.length
-		console.log(model)
 		let robot = new Robot(scene, model);
-		
-		// let id = 1;
 		agents.push(robot)
+        reply(null, id);
+	},
+    shape: function(model, reply) {
+		let id = shapes.length
+		let shape = new Shape(scene, model);
+		shapes.push(shape)
         reply(null, id);
 	},
 	poses: function(p_ob, reply) {

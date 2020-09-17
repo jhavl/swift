@@ -225,6 +225,24 @@ class Robot{
     }
 }
 
+
+class Shape{
+    constructor(scene, ob) {
+        this.ob = ob
+        let color = Math.random() * 0xffffff;
+        load(ob, scene, color)
+    }
+
+    set_poses(pose) {
+        let t = pose.t;
+        let q = pose.q;
+        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+        this.ob.mesh.position.set(t[0], t[1], t[2]);
+        this.ob.mesh.setRotationFromQuaternion(quat);
+    }
+}
+
+
 class LinkMDH{
     constructor(scene, li, prev) {
 
@@ -413,4 +431,4 @@ class SimTime {
 
 
 
-export {Robot, Cylinder, FPS, SimTime};
+export {Robot, Shape, Cylinder, FPS, SimTime};
