@@ -208,12 +208,16 @@ let server = new zerorpc.Server({
 		shapes.push(shape)
         reply(null, id);
 	},
-	poses: function(p_ob, reply) {
+	robot_poses: function(p_ob, reply) {
 		let id = p_ob[0];
 		let poses = p_ob[1];
 		agents[id].set_poses(poses);
-		// step_sim();
-		// animate();
+		reply(null, 1);
+	},
+	shape_poses: function(p_ob, reply) {
+		let id = p_ob[0];
+		let poses = p_ob[1];
+		shapes[id].set_poses(poses);
 		reply(null, 1);
 	},
 	q: function(q_ob, reply) {
