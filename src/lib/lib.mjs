@@ -14,19 +14,19 @@ function sleep(milliseconds) {
     } while (currentDate - date < milliseconds);
   }
 
-function load(ob, scene, color) {
+function load(ob, scene, color, cb) {
     if (ob.stype === 'mesh') {
-        loadMesh(ob, scene);
+        loadMesh(ob, scene, cb);
     } else if (ob.stype === 'box') {
-        loadBox(ob, scene, color);
+        loadBox(ob, scene, color, cb);
     } else if (ob.stype === 'sphere') {
-        loadSphere(ob, scene, color);
+        loadSphere(ob, scene, color, cb);
     } else if (ob.stype === 'cylinder') {
-        loadCylinder(ob, scene, color);
+        loadCylinder(ob, scene, color, cb);
     }
 }
     
-function loadBox(ob, scene, color) {
+function loadBox(ob, scene, color, cb) {
     let geometry = new THREE.BoxGeometry( ob.scale[0], ob.scale[1], ob.scale[2] );
     let material = new tr.MeshStandardMaterial({
         color: color
@@ -38,11 +38,12 @@ function loadBox(ob, scene, color) {
     cube.setRotationFromQuaternion(quat);
 
     scene.add( cube );
-    ob['mesh'] = cube
-    ob['loaded'] = true
+    ob['mesh'] = cube;
+    ob['loaded'] = true;
+    cb();
 }
 
-function loadSphere(ob, scene, color) {
+function loadSphere(ob, scene, color, cb) {
     let geometry = new THREE.SphereGeometry( ob.radius, 64, 64 );
     let material = new tr.MeshStandardMaterial({
         color: color
@@ -56,11 +57,12 @@ function loadSphere(ob, scene, color) {
     sphere.setRotationFromQuaternion(quat);
 
     scene.add( sphere );
-    ob['mesh'] = sphere
-    ob['loaded'] = true
+    ob['mesh'] = sphere;
+    ob['loaded'] = true;
+    cb();
 }
 
-function loadCylinder(ob, scene, color) {
+function loadCylinder(ob, scene, color, cb) {
     let geometry = new THREE.CylinderGeometry( ob.radius, ob.radius, ob.length, 32 );
     let material = new tr.MeshStandardMaterial({
         color: color
@@ -74,23 +76,23 @@ function loadCylinder(ob, scene, color) {
     cylinder.setRotationFromQuaternion(quat);
 
     scene.add( cylinder );
-    ob['mesh'] = cylinder
-    ob['loaded'] = true
+    ob['mesh'] = cylinder;
+    ob['loaded'] = true;
+    cb();
 }
 
-function loadMesh(ob, scene) {
+function loadMesh(ob, scene, cb) {
 
     let ext = ob.filename.split('.').pop();
 
-    if (ext == 'dae') {
-        return daeloader.load(ob.filename, function(collada) {
+    let addDae = function(collada) {
 
             let mesh = collada.scene;
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
-    
+
             let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
             mesh.setRotationFromQuaternion(quat);
-    
+
             for (let i = 0; i < mesh.children.length; i++) {
                 if (mesh.children[i] instanceof tr.Mesh) {
                     mesh.children[i].castShadow = true;
@@ -98,13 +100,21 @@ function loadMesh(ob, scene) {
                     mesh.children[i].visible = false;
                 }
             }
-    
-            scene.add(mesh)
-            ob['mesh'] = mesh
-            ob['loaded'] = true
-        });
+
+            scene.add(mesh);
+            ob['mesh'] = mesh;
+            ob['loaded'] = true;
+            cb();
+    };
+
+    // addDae.then(function(resp) {
+    //     console.log('hello')
+    // })
+
+    if (ext == 'dae') {
+        let loader = daeloader.load(ob.filename, addDae);
     } else if (ext == 'stl') {
-        return stlloader.load(ob.filename, function(geometry) {
+        let loader = stlloader.load(ob.filename, function(geometry) {
 
             let material = new tr.MeshPhongMaterial({
                 color: 0xff5533, specular: 0x111111, shininess: 200
@@ -121,18 +131,30 @@ function loadMesh(ob, scene) {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
     
-            scene.add(mesh)
-            ob['mesh'] = mesh
-            ob['loaded'] = true
+            scene.add(mesh);
+            ob['mesh'] = mesh;
+            ob['loaded'] = true;
+            cb();
         });
     }
+
 }
 
 
 class Robot{
     constructor(scene, ob) {
 
-        this.ob = ob
+        this.ob = ob;
+        this.promised = 0;
+        this.loaded = 0;
+        this.model_loaded = false;
+
+        let cb = () => {
+            this.loaded++;
+            if (this.loaded === this.promised) {
+                this.model_loaded = true
+            }
+        }
 
         for (let i = 0; i < ob.M; i++) {
             let color = Math.random() * 0xffffff;
@@ -140,17 +162,24 @@ class Robot{
             if (ob.show_robot) {
                 for (let j = 0; j < ob.links[i].geometry.length; j++) {
                     // console.log(ob.link[i].geometry[j].filename)
-                    load(ob.links[i].geometry[j], scene, color)
+                    this.promised++;
+                    load(ob.links[i].geometry[j], scene, color, cb)
+                    // console.log(loader)
+                    // loader.then(function(resp) {
+                    //     console.log('hellogfdughu')
+                    // })
                 }
             }
 
             if (ob.show_collision) {
                 for (let j = 0; j < ob.links[i].collision.length; j++) {
                     // console.log(ob.link[i].collision[j].filename)
+                    this.promised++;
                     load(ob.links[i].collision[j], scene, color)
                 }
             }
         }
+
 
         // this.robot = new tr.Group()
         // this.L = []
@@ -167,6 +196,10 @@ class Robot{
         //     this.L.push(new LinkMDH(scene, this.model[i], prev))
         //     prev = this.L[i].pe
         // }
+    }
+
+    isLoaded() {
+        return this.model_loaded;
     }
 
     set_poses(poses) {

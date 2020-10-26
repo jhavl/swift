@@ -202,6 +202,10 @@ let server = new zerorpc.Server({
 		agents.push(robot)
         reply(null, id);
 	},
+    is_loaded: function(id, reply) {
+		let loaded = agents[id].isLoaded();
+        reply(null, loaded);
+	},
     shape: function(model, reply) {
 		let id = shapes.length
 		let shape = new Shape(scene, model);
