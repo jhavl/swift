@@ -1,64 +1,16 @@
 {
-  "name": "sim",
-  "productName": "sim",
-  "version": "0.0.1",
-  "description": "My Electron application description",
-  "main": "src/index.js",
+  "name": "swift",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\""
-  },
-  "keywords": [],
-  "author": {
-    "name": "jhavl",
-    "email": "jhavl@users.noreply.github.com"
-  },
-  "license": "MIT",
-  "config": {
-    "forge": {
-      "packagerConfig": {},
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "Swift"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
+    "start": "node ./bin/www"
   },
   "dependencies": {
-    "ccapture.js": "github:aceslowman/ccapture.js#npm-fix",
-    "electron-reload": "^1.5.0",
-    "electron-squirrel-startup": "^1.0.0",
-    "holoplay": "^1.0.3",
-    "stats-js": "^1.0.1",
-    "three": "^0.118.3",
-    "zerorpc": "^0.9.8"
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^6.0.0-beta.52",
-    "@electron-forge/maker-deb": "^6.0.0-beta.52",
-    "@electron-forge/maker-rpm": "^6.0.0-beta.52",
-    "@electron-forge/maker-squirrel": "^6.0.0-beta.52",
-    "@electron-forge/maker-zip": "^6.0.0-beta.52",
-    "electron": "6"
+    "cookie-parser": "~1.4.4",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "jade": "~1.11.0",
+    "morgan": "~1.9.1"
   }
 }
