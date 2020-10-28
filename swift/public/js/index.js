@@ -22,26 +22,26 @@ let agents = [];
 let shapes = [];
 let first_step = 0;
 
-let port = null;
 let connected = false;
-let ws = null
 
 // // scene recorder
 // let rec = null
 
+// Open the connection to python
+let port = parseInt(window.location.pathname.slice(1));
+let ws = new WebSocket("ws://localhost:" + port + "/")
 
-// Open the initial connection to python
-let port_ws = new WebSocket("ws://localhost:8997/")
-
-port_ws.onopen = function(event) {
+ws.onopen = function(event) {
 	connected = true;
+	ws.send('Connected');
+	startSim(event.data);
 }
 
-port_ws.onmessage = function (event) {
-	console.log(event.data)
-	startSim(event.data);
-	port_ws.close()
-};
+// port_ws.onmessage = function (event) {
+// 	console.log(event.data)
+	
+// 	port_ws.close()
+// };
 
 let open = function(event) {
 	ws.send('Connected');
@@ -49,9 +49,9 @@ let open = function(event) {
 
 function startSim(port) {
 	// Set up the ws client
-	ws = new WebSocket("ws://localhost:" + port + "/");
-	ws.onopen = open;
-	ws.onmessage = message;
+	// ws = new WebSocket("ws://localhost:" + port + "/");
+	// ws.onopen = open;
+	// ws.onmessage = message;
 
 	setInterval(rt_heartbeat, 10)
 	init()
