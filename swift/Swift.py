@@ -11,16 +11,16 @@ import swift as sw
 import websockets
 import asyncio
 from threading import Thread
-from queue import Queue, Empty
 import webbrowser as wb
 import json
 import http.server
 import socketserver
 from pathlib import Path
 import os
+from queue import Empty
 
 
-def start_servers(outq, inq):
+def start_servers(outq, inq, open_tab=True):
 
     # Start our websocket server with a new clean port
     socket = Thread(
@@ -34,11 +34,18 @@ def start_servers(outq, inq):
     server.start()
     server_port = inq.get()
 
-    wb.open_new_tab(
-        'http://localhost:'
-        + str(server_port)
-        + '/'
-        + str(socket_port))
+    if open_tab:
+        wb.open_new_tab(
+            'http://localhost:'
+            + str(server_port)
+            + '/'
+            + str(socket_port))
+
+        try:
+            inq.get(timeout=10)
+        except Empty:
+            print('\nCould not connect to the Swift simulator \n')
+            raise
 
 
 class SwiftSocket:
@@ -51,16 +58,15 @@ class SwiftSocket:
         asyncio.set_event_loop(loop)
 
         started = False
-        port = 51478
+        port = 51480
 
         while not started and port < 62000:
             try:
-                port += 1
                 start_server = websockets.serve(self.serve, "localhost", port)
                 loop.run_until_complete(start_server)
                 started = True
             except OSError:
-                pass
+                port += 1
 
         self.inq.put(port)
         loop.run_forever()
@@ -82,7 +88,6 @@ class SwiftSocket:
 
             recieved = await websocket.recv()
             self.inq.put(recieved)
-            print(recieved)
 
     async def producer(self):
         data = self.outq.get()
@@ -91,17 +96,22 @@ class SwiftSocket:
 
 class SwiftServer:
 
-    def __init__(self, outq, inq, socket_port):
+    def __init__(self, outq, inq, socket_port, verbose=False):
 
         server_port = 52000
         self.inq = inq
-
-        print(socket_port)
 
         root_dir = Path(sw.__file__).parent / 'public'
         os.chdir(Path.home())
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                if verbose:
+                    http.server.SimpleHTTPRequestHandler.log_message(
+                                                        self, format, *args)
+                else:
+                    pass
+
             def do_GET(self):
 
                 home = str(Path.home())
@@ -135,8 +145,8 @@ class SwiftServer:
                 with socketserver.TCPServer(
                             ("", server_port), Handler) as httpd:
                     self.inq.put(server_port)
-                    print(server_port)
                     connected = True
+
                     httpd.serve_forever()
             except OSError:
                 server_port += 1

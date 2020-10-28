@@ -24,6 +24,14 @@ let first_step = 0;
 
 let connected = false;
 
+function sleep(milliseconds) {
+    const date = Date.now();
+    let currentDate = null;
+    do {
+      currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+}
+
 // // scene recorder
 // let rec = null
 
@@ -37,22 +45,14 @@ ws.onopen = function(event) {
 	startSim(event.data);
 }
 
-// port_ws.onmessage = function (event) {
-// 	console.log(event.data)
-	
-// 	port_ws.close()
-// };
-
-let open = function(event) {
-	ws.send('Connected');
+ws.onclose = function(event) {
+	setTimeout(
+		function() {
+			window.close();
+		}, 5000);
 }
 
 function startSim(port) {
-	// Set up the ws client
-	// ws = new WebSocket("ws://localhost:" + port + "/");
-	// ws.onopen = open;
-	// ws.onmessage = message;
-
 	setInterval(rt_heartbeat, 10)
 	init()
 	animate();
@@ -245,7 +245,7 @@ function rt_heartbeat() {
 
 
 
-let message = function (event) {
+ws.onmessage = function (event) {
 	let eventdata = JSON.parse(event.data)
 	let func = eventdata[0]
 	let data = eventdata[1]
