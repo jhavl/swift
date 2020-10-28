@@ -2,6 +2,9 @@
 import { ColladaLoader } from './vendor/examples/jsm/loaders/ColladaLoader.js'
 import { STLLoader } from './vendor/examples/jsm/loaders/STLLoader.js'
 
+const daeloader = new ColladaLoader();
+const stlloader = new STLLoader();
+
 function sleep(milliseconds) {
     const date = Date.now();
     let currentDate = null;
@@ -24,13 +27,13 @@ function load(ob, scene, color, cb) {
     
 function loadBox(ob, scene, color, cb) {
     let geometry = new THREE.BoxGeometry( ob.scale[0], ob.scale[1], ob.scale[2] );
-    let material = new tr.MeshStandardMaterial({
+    let material = new THREE.MeshStandardMaterial({
         color: color
     })
     let cube = new THREE.Mesh( geometry, material );
     cube.position.set(ob.t[0], ob.t[1], ob.t[2]);
     
-    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    let quat = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
     cube.setRotationFromQuaternion(quat);
 
     scene.add( cube );
@@ -41,7 +44,7 @@ function loadBox(ob, scene, color, cb) {
 
 function loadSphere(ob, scene, color, cb) {
     let geometry = new THREE.SphereGeometry( ob.radius, 64, 64 );
-    let material = new tr.MeshStandardMaterial({
+    let material = new THREE.MeshStandardMaterial({
         color: color
     })
     material.transparent = true;
@@ -49,7 +52,7 @@ function loadSphere(ob, scene, color, cb) {
     let sphere = new THREE.Mesh( geometry, material );
     sphere.position.set(ob.t[0], ob.t[1], ob.t[2]);
     
-    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    let quat = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
     sphere.setRotationFromQuaternion(quat);
 
     scene.add( sphere );
@@ -60,7 +63,7 @@ function loadSphere(ob, scene, color, cb) {
 
 function loadCylinder(ob, scene, color, cb) {
     let geometry = new THREE.CylinderGeometry( ob.radius, ob.radius, ob.length, 32 );
-    let material = new tr.MeshStandardMaterial({
+    let material = new THREE.MeshStandardMaterial({
         color: color
     })
     material.transparent = true;
@@ -68,7 +71,7 @@ function loadCylinder(ob, scene, color, cb) {
     let cylinder = new THREE.Mesh( geometry, material );
     cylinder.position.set(ob.t[0], ob.t[1], ob.t[2]);
     
-    let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+    let quat = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
     cylinder.setRotationFromQuaternion(quat);
 
     scene.add( cylinder );
@@ -86,13 +89,13 @@ function loadMesh(ob, scene, cb) {
             let mesh = collada.scene;
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
 
-            let quat = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+            let quat = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
             mesh.setRotationFromQuaternion(quat);
 
             for (let i = 0; i < mesh.children.length; i++) {
-                if (mesh.children[i] instanceof tr.Mesh) {
+                if (mesh.children[i] instanceof THREE.Mesh) {
                     mesh.children[i].castShadow = true;
-                } else if (mesh.children[i] instanceof tr.PointLight) {
+                } else if (mesh.children[i] instanceof THREE.PointLight) {
                     mesh.children[i].visible = false;
                 }
             }
@@ -112,16 +115,16 @@ function loadMesh(ob, scene, cb) {
     } else if (ext == 'stl') {
         let loader = stlloader.load(ob.filename, function(geometry) {
 
-            let material = new tr.MeshPhongMaterial({
+            let material = new THREE.MeshPhongMaterial({
                 color: 0xff5533, specular: 0x111111, shininess: 200
             });
-            let mesh = new tr.Mesh(geometry, material);
+            let mesh = new THREE.Mesh(geometry, material);
 
             mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
             
-            let quat_o = new tr.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
-            // let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+            // let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
             mesh.setRotationFromQuaternion(quat_o);
     
             mesh.castShadow = true;
@@ -143,12 +146,12 @@ class Robot{
         this.ob = ob;
         this.promised = 0;
         this.loaded = 0;
-        this.model_loaded = false;
+        this.model_loaded = 0;
 
         let cb = () => {
             this.loaded++;
             if (this.loaded === this.promised) {
-                this.model_loaded = true
+                this.model_loaded = 1
             }
         }
 
@@ -177,7 +180,7 @@ class Robot{
         }
 
 
-        // this.robot = new tr.Group()
+        // this.robot = new THREE.Group()
         // this.L = []
         // scene.add(this.robot)
         // this.robot.rotateX(Math.PI/2)
@@ -201,7 +204,7 @@ class Robot{
     set_poses(poses) {
         for (let i = 0; i < this.ob.M; i++) {
 
-            // let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+            // let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
             // // console.log(this.ob.links[i].geometry.length)
             // for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
             //     this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
@@ -212,7 +215,7 @@ class Robot{
                 for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
                     let t = poses.links[i].geometry[j].t;
                     let q = poses.links[i].geometry[j].q;
-                    let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+                    let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
                     this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
                     this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
                 }
@@ -222,7 +225,7 @@ class Robot{
                 for (let j = 0; j < this.ob.links[i].collision.length; j++) {
                     let t = poses.links[i].collision[j].t;
                     let q = poses.links[i].collision[j].q;
-                    let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+                    let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
                     this.ob.links[i].collision[j].mesh.position.set(t[0], t[1], t[2]);
                     this.ob.links[i].collision[j].mesh.setRotationFromQuaternion(quat);
                 }
@@ -235,7 +238,7 @@ class Robot{
         for (let i = 0; i < this.n; i++) {
             this.q[i] = q[i]
             // this.L[i].lz.ps.rotateY(q[i])
-            this.L[i].lz.ps.setRotationFromEuler(new tr.Euler(0, q[i], 0));
+            this.L[i].lz.ps.setRotationFromEuler(new THREE.Euler(0, q[i], 0));
         }
     }
 
@@ -259,10 +262,10 @@ class Shape{
     constructor(scene, ob) {
         this.ob = ob
         let color = Math.random() * 0xffffff;
-        this.loaded = false;
+        this.loaded = 0;
 
         let cb = () => {
-            this.loaded = true;
+            this.loaded = 1;
         }
 
         load(ob, scene, color, cb);
@@ -271,7 +274,7 @@ class Shape{
     set_poses(pose) {
         let t = pose.t;
         let q = pose.q;
-        let quat = new tr.Quaternion(q[1], q[2], q[3], q[0]);
+        let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
         this.ob.mesh.position.set(t[0], t[1], t[2]);
         this.ob.mesh.setRotationFromQuaternion(quat);
     }
@@ -293,12 +296,12 @@ class Shape{
 //         // d
 //         let Tz = li[3];
 
-//         // let p0 = new tr.Group();
+//         // let p0 = new THREE.Group();
 //         // p0.position.set(0, 0, 0)
 //         // scene.add(p0)
         
-//         this.ps = new tr.Group()
-//         this.pe = new tr.Group()
+//         this.ps = new THREE.Group()
+//         this.pe = new THREE.Group()
 //         prev.add(this.ps)
 
         
@@ -306,13 +309,13 @@ class Shape{
 //         this.lx.ps.rotateZ(-Math.PI/2)
 //         this.lx.pe.rotateZ(Math.PI/2)
 
-//         // let b = new tr.AxesHelper(0.4);
+//         // let b = new THREE.AxesHelper(0.4);
 //         // this.lx.link.add(b)
 
 //         // this.lx.pe.rotateX(-Math.PI/2)
 //         this.lz = new Cylinder(Tz, this.lx.pe);
 
-//         // let a = new tr.AxesHelper(0.2);
+//         // let a = new THREE.AxesHelper(0.2);
 
 
 //         this.lz.pe.add(this.pe)
@@ -330,23 +333,23 @@ class Shape{
 // class Cylinder{
 // 	constructor(length, prev) {
 //         this.length = length
-// 		this.geometry = new tr.CylinderGeometry(0.025, 0.025, length, 128);
-// 		// this.material = new tr.MeshPhongMaterial({ 
+// 		this.geometry = new THREE.CylinderGeometry(0.025, 0.025, length, 128);
+// 		// this.material = new THREE.MeshPhongMaterial({ 
 //         //     color: 0xff5533, 
 //         //     specular: 0x111111, 
 //         //     shininess: 20, 
-//         //     side:tr.DoubleSide
+//         //     side:THREE.DoubleSide
 //         // });
-//         this.material = new tr.MeshStandardMaterial({
+//         this.material = new THREE.MeshStandardMaterial({
 //             color: 0xff5533
 //         })
 
-//         this.link = new tr.Mesh(this.geometry, this.material);
+//         this.link = new THREE.Mesh(this.geometry, this.material);
 //         // this.link.castShadow = true;
 // 		// this.link.receiveShadow = true;
         
-//         this.ps = new tr.Group();
-//         this.pe = new tr.Group();
+//         this.ps = new THREE.Group();
+//         this.pe = new THREE.Group();
 
 //         if (length !== 0) {
 //             this.link.position.set(0, length/2, 0)
@@ -364,9 +367,9 @@ class Shape{
 // class Revolute{
 //     constructor(prev) {
 //         length = 0.07
-//         this.geometry = new tr.CylinderGeometry(0.003, 0.003, length, 12);
-//         this.material = new tr.MeshPhongMaterial( { color: 0xf542ec, specular: 0x111111, shininess: 200 } );
-//         this.joint = new tr.Mesh(this.geometry, this.material);
+//         this.geometry = new THREE.CylinderGeometry(0.003, 0.003, length, 12);
+//         this.material = new THREE.MeshPhongMaterial( { color: 0xf542ec, specular: 0x111111, shininess: 200 } );
+//         this.joint = new THREE.Mesh(this.geometry, this.material);
 //         this.joint.position.set(0, length/2, 0)
 //         prev.add(this.joint)
 //     }

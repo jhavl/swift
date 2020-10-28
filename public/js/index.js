@@ -22,25 +22,42 @@ let agents = [];
 let shapes = [];
 let first_step = 0;
 
+let port = null;
+let connected = false;
+let ws = null
+
 // // scene recorder
 // let rec = null
 
-// var ws = new WebSocket("ws://127.0.0.1:5678/"),
-// messages = document.createElement('ul');
-// ws.onmessage = function (event) {
-// 	var messages = document.getElementsByTagName('ul')[0],
-// 	message = document.createElement('li'),
-// 	content = document.createTextNode(event.data);
-// 	console.log(event.data)
-// message.appendChild(content);
-// messages.appendChild(message);
-// };
-// document.body.appendChild(messages);
 
-setInterval(rt_heartbeat, 10)
-init()
-animate();
-window.addEventListener('resize', on_resize, false);
+// Open the initial connection to python
+let port_ws = new WebSocket("ws://localhost:8997/")
+
+port_ws.onopen = function(event) {
+	connected = true;
+}
+
+port_ws.onmessage = function (event) {
+	console.log(event.data)
+	startSim(event.data);
+	port_ws.close()
+};
+
+let open = function(event) {
+	ws.send('Connected');
+}
+
+function startSim(port) {
+	// Set up the ws client
+	ws = new WebSocket("ws://localhost:" + port + "/");
+	ws.onopen = open;
+	ws.onmessage = message;
+
+	setInterval(rt_heartbeat, 10)
+	init()
+	animate();
+	window.addEventListener('resize', on_resize, false);
+}
 
 
 function init() {
@@ -224,10 +241,38 @@ function rt_heartbeat() {
 // 	// console.log('started')
 // }
 
-
-
-
 // // startRecording('file');
+
+
+
+let message = function (event) {
+	let eventdata = JSON.parse(event.data)
+	let func = eventdata[0]
+	let data = eventdata[1]
+
+	if (func === 'robot') {
+		let id = agents.length;
+		console.log(id);
+		let robot = new Robot(scene, data);
+		console.log('made robot');
+		agents.push(robot);
+			ws.send(id);
+	} else if (func === 'robot_poses') {
+		let id = data[0];
+		let poses = data[1];
+		agents[id].set_poses(poses);
+		ws.send(id);
+	} else if (func === 'shape_poses') {
+		let id = data[0];
+		let poses = data[1];
+		shapes[id].set_poses(poses);
+		ws.send(id);
+	} else if (func === 'is_loaded') {
+		let loaded = agents[data].isLoaded();
+		console.log(loaded)
+		ws.send(loaded);
+	}
+};
 
 // let server = new zerorpc.Server({
 //     robot: function(model, reply) {
