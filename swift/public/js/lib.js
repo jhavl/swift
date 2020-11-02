@@ -149,8 +149,9 @@ class Robot{
                 this.model_loaded = 1
             }
         }
+        console.log(ob)
 
-        for (let i = 0; i < ob.M; i++) {
+        for (let i = 0; i < ob.links.length; i++) {
             let color = Math.random() * 0xffffff;
 
             if (ob.show_robot) {
