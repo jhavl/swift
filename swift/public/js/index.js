@@ -12,48 +12,48 @@ import {Robot, Shape, FPS, SimTime} from './lib.js'
 
 let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
-let heartbeat = performance.now() - 100;
-let paused, prev_state = true;
 
 let camera, scene, renderer, controls;
 
 // Array of all the robots in the scene
 let agents = [];
 let shapes = [];
-let first_step = 0;
 
 let connected = false;
-
-function sleep(milliseconds) {
-    const date = Date.now();
-    let currentDate = null;
-    do {
-      currentDate = Date.now();
-    } while (currentDate - date < milliseconds);
-}
-
-// // scene recorder
-// let rec = null
 
 // Open the connection to python
 let port = parseInt(window.location.pathname.slice(1));
 let ws = new WebSocket("ws://localhost:" + port + "/")
 
+
+// const recorder = new CCapture({
+// 	verbose: false,
+// 	display: true,
+// 	framerate: 60,
+// 	quality: 100,
+// 	format: 'webm'
+// });
+
+
 ws.onopen = function(event) {
 	connected = true;
 	ws.send('Connected');
 	startSim(event.data);
+	// recorder.start();
 }
 
+
 ws.onclose = function(event) {
+	// recorder.stop();
+	// recorder.save();
 	setTimeout(
 		function() {
 			window.close();
 		}, 5000);
 }
 
+
 function startSim(port) {
-	setInterval(rt_heartbeat, 10)
 	init()
 	animate();
 	window.addEventListener('resize', on_resize, false);
@@ -100,30 +100,7 @@ function init() {
 	// Lights
 	scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
 	addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
-	addShadowedLight( 0.5, 1, - 1, 0xffaa00, 1 );function rt_heartbeat() {
-
-
-		let delta = performance.now() - heartbeat;
-		if (delta > 100) {
-			paused = true;
-		} else {
-			paused = false;
-		}
-	
-		if (prev_state !== paused) {
-			let play = document.getElementById('play-button')
-			let pause = document.getElementById('pause-button')
-	
-			if (paused) {
-				pause.style.display = "none";
-				play.style.display = "block";
-			} else {
-				play.style.display = "none";
-				pause.style.display = "block";
-			}
-		}
-		prev_state = paused;
-	}
+	addShadowedLight( 0.5, 1, - 1, 0xffaa00, 1 );
 
 	var axesHelper = new THREE.AxesHelper( 5 );
 	scene.add( axesHelper );
@@ -166,83 +143,10 @@ function animate() {
 
 	renderer.render(scene, camera);
 
+	// recorder.capture(renderer.domElement);
+
 	fps.frame();
-	sim_time.display()
 }
-
-function step_sim() {
-	heartbeat = performance.now()
-	let delta = sim_time.delta(paused);
-
-	for (let i = 0; i < agents.length; i++) {
-		agents[i].apply_q(delta)
-	}
-}
-
-
-function rt_heartbeat() {
-	let delta = performance.now() - heartbeat;
-	if (delta > 100) {
-		paused = true;
-	} else {
-		paused = false;
-	}
-
-	if (prev_state !== paused) {
-		let play = document.getElementById('play-button')
-		let pause = document.getElementById('pause-button')
-
-		if (paused) {
-			pause.style.display = "none";
-            play.style.display = "block";
-		} else {
-			play.style.display = "none";
-			pause.style.display = "block";
-		}
-	}
-	prev_state = paused;
-}
-
-
-// function startRecording(file) {
-// 	let canvas = document.getElementById('canvas').children[0];
-// 	const chunks = []; // here we will store our recorded media chunks (Blobs)
-
-// 	const blob_reader = new FileReader();
-// 	const storage_stream = require("fs").createWriteStream(file);
-// 	const blobs = [];
-
-// 	const stream = canvas.captureStream(); // grab our canvas MediaStream
-
-// 	blob_reader.addEventListener("load", function(ev) {
-// 		storage_stream.write(Buffer.from(ev.currentTarget.result));
-// 		if(blobs.length) {
-// 			ev.currentTarget.readAsArrayBuffer(blobs.shift());
-// 		}
-// 	});
-
-// 	let options = {
-// 		videoBitsPerSecond : 2500000000000,
-// 		mimeType: 'video/webm'
-// 	};
-
-// 	rec = new MediaRecorder(stream, options); // init the recorder
-
-// 	rec.addEventListener("dataavailable", function(ev) {
-// 		if(blob_reader.readyState != 1) {
-// 			blob_reader.readAsArrayBuffer(ev.data);
-// 		} else {
-// 			blobs.push(ev.data);
-// 		}
-// 	});
-	
-// 	rec.start();
-// 	// setTimeout(()=>rec.stop(), 3000); // stop recording in 3s
-// 	// console.log('started')
-// }
-
-// // startRecording('file');
-
 
 
 ws.onmessage = function (event) {
@@ -252,11 +156,15 @@ ws.onmessage = function (event) {
 
 	if (func === 'robot') {
 		let id = agents.length;
-		console.log(id);
 		let robot = new Robot(scene, data);
 		console.log('made robot');
 		agents.push(robot);
-			ws.send(id);
+		ws.send(id);
+	} else if (func === 'shape') {
+		let id = shapes.length;
+		let shape = new Shape(scene, data);
+		shapes.push(shape);
+		ws.send(id);
 	} else if (func === 'robot_poses') {
 		let id = data[0];
 		let poses = data[1];
@@ -271,70 +179,8 @@ ws.onmessage = function (event) {
 		let loaded = agents[data].isLoaded();
 		console.log(loaded)
 		ws.send(loaded);
+	} else if (func === 'sim_time') {
+		sim_time.display(parseInt(data));
+		ws.send(0);
 	}
 };
-
-// let server = new zerorpc.Server({
-//     robot: function(model, reply) {
-// 		let id = agents.length
-// 		let robot = new Robot(scene, model);
-// 		agents.push(robot)
-//         reply(null, id);
-// 	},
-//     is_loaded: function(id, reply) {
-// 		let loaded = agents[id].isLoaded();
-//         reply(null, loaded);
-// 	},
-//     shape: function(model, reply) {
-// 		let id = shapes.length
-// 		let shape = new Shape(scene, model);
-// 		shapes.push(shape)
-//         reply(null, id);
-// 	},
-// 	robot_poses: function(p_ob, reply) {
-// 		let id = p_ob[0];
-// 		let poses = p_ob[1];
-// 		agents[id].set_poses(poses);
-// 		reply(null, 1);
-// 	},
-// 	shape_poses: function(p_ob, reply) {
-// 		let id = p_ob[0];
-// 		let poses = p_ob[1];
-// 		shapes[id].set_poses(poses);
-// 		reply(null, 1);
-// 	},
-// 	q: function(q_ob, reply) {
-// 		let id = q_ob[0];
-// 		let q = q_ob[1];
-// 		agents[id].set_q(q);
-// 		reply(null, 1);
-// 	},
-// 	qd: function(qd_ob, reply) {
-// 		let id = qd_ob[0];
-// 		let qd = qd_ob[1];
-// 		agents[id].set_qd(qd);
-// 		reply(null, 1);
-// 	},
-// 	step: function(step, reply) {
-// 		step_sim();
-// 		reply(null, 1);
-// 	},
-// 	get_q: function(id, reply) {
-// 		reply(null, agents[id].q)
-// 	},
-// 	record_start: function(file, reply) {
-// 		startRecording(file);
-// 		reply(null, 1);
-// 	},
-// 	record_stop: function(file, reply) {
-// 		rec.stop();
-// 		reply(null, 1);
-// 	}
-// });
-
-// server.bind("tcp://0.0.0.0:4242");
-
-
-
-
-

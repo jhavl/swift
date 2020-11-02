@@ -106,10 +106,6 @@ function loadMesh(ob, scene, cb) {
             cb();
     };
 
-    // addDae.then(function(resp) {
-    //     console.log('hello')
-    // })
-
     if (ext == 'dae') {
         let loader = daeloader.load(ob.filename, addDae);
     } else if (ext == 'stl') {
@@ -124,7 +120,6 @@ function loadMesh(ob, scene, cb) {
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
             
             let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
-            // let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
             mesh.setRotationFromQuaternion(quat_o);
     
             mesh.castShadow = true;
@@ -160,41 +155,18 @@ class Robot{
 
             if (ob.show_robot) {
                 for (let j = 0; j < ob.links[i].geometry.length; j++) {
-                    // console.log(ob.link[i].geometry[j].filename)
                     this.promised++;
                     load(ob.links[i].geometry[j], scene, color, cb)
-                    // console.log(loader)
-                    // loader.then(function(resp) {
-                    //     console.log('hellogfdughu')
-                    // })
                 }
             }
 
             if (ob.show_collision) {
                 for (let j = 0; j < ob.links[i].collision.length; j++) {
-                    // console.log(ob.link[i].collision[j].filename)
                     this.promised++;
                     load(ob.links[i].collision[j], scene, color)
                 }
             }
         }
-
-
-        // this.robot = new THREE.Group()
-        // this.L = []
-        // scene.add(this.robot)
-        // this.robot.rotateX(Math.PI/2)
-
-        // this.model = ob[1]
-        // this.n = this.model.length
-        // this.qd = new Array(this.n).fill(0);
-        // this.q = new Array(this.n).fill(0);
-
-        // let prev = this.robot
-        // for (let i = 0; i < this.n; i++) {
-        //     this.L.push(new LinkMDH(scene, this.model[i], prev))
-        //     prev = this.L[i].pe
-        // }
     }
 
     isLoaded() {
@@ -203,13 +175,6 @@ class Robot{
 
     set_poses(poses) {
         for (let i = 0; i < this.ob.M; i++) {
-
-            // let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
-            // // console.log(this.ob.links[i].geometry.length)
-            // for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
-            //     this.ob.links[i].geometry[j].mesh.position.set(t[0], t[1], t[2]);
-            //     this.ob.links[i].geometry[j].mesh.setRotationFromQuaternion(quat);
-            // }
 
             if (this.ob.show_robot) {
                 for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
@@ -411,34 +376,15 @@ class FPS {
 class SimTime {
 	constructor(div) {
         this.div = div
-        this.s_time = performance.now();
-        this.last_time = performance.now();
-
-        this.c_time = 0.0;
-        this.last_c_time = performance.now();
-    }
-
-	delta(paused) {
-        let delta = performance.now() - this.last_time;
-        this.last_time = performance.now();
-        
-        if (!paused) {
-            this.c_time += delta;
-        }
-
-        return delta
     }
     
-    display() {
-        // let t = performance.now() - this.s_time;
-        let t = this.c_time
+    display(t) {
         let s = Math.floor(t / 1000);
         let m = Math.floor(s / 60);
         let ms = t % 1000;
         ms = Math.round(ms)
 
         s = s % 60;
-        // m = m % 60;
 
         if (s < 10) {
             s = "0" + s;
@@ -463,11 +409,4 @@ class SimTime {
     }
 }
 
-
-
-
-
-
-
-// export {Robot, Shape, Cylinder, FPS, SimTime};
 export {Robot, Shape, FPS, SimTime};
