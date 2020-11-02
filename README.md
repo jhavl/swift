@@ -12,9 +12,6 @@ Swift is controlled using the [Robotics Toolbox for Python](https://github.com/p
 # Getting going
 ## From Github
 ```
-# Install node js version 12.18.2 (or whatever LTS is on a mac)
-https://nodejs.org/en/
-
 # Clone the repo
 git clone git@github.com:jhavl/swift.git 
 # or 
@@ -23,12 +20,6 @@ git clone https://github.com/jhavl/swift.git
 # cd into directory
 cd swift
 
-# Install the project (this will download and install the dependancies for the project)
-npm install
-
-# Start the program
-npm start 
+# Install the project
+pip install -e .
 ```
-
-## From executable
-Avaliable soon
