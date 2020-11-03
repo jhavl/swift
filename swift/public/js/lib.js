@@ -175,7 +175,7 @@ class Robot{
     }
 
     set_poses(poses) {
-        for (let i = 0; i < this.ob.M; i++) {
+        for (let i = 0; i < this.ob.links.length; i++) {
 
             if (this.ob.show_robot) {
                 for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
@@ -196,7 +196,6 @@ class Robot{
                     this.ob.links[i].collision[j].mesh.setRotationFromQuaternion(quat);
                 }
             }
-
         }
     }
 
