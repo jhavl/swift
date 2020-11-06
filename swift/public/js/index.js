@@ -155,7 +155,7 @@ function startRecording(frate, name) {
 			verbose: false,
 			display: true,
 			framerate: frate,
-			quality: 1000,
+			quality: 100,
 			format: 'webm',
 			name: name
 		});
