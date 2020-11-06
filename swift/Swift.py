@@ -20,7 +20,7 @@ import os
 from queue import Empty
 
 
-def start_servers(outq, inq, open_tab=True):
+def start_servers(outq, inq, open_tab=True, browser=None):
 
     # Start our websocket server with a new clean port
     socket = Thread(
@@ -35,11 +35,19 @@ def start_servers(outq, inq, open_tab=True):
     server_port = inq.get()
 
     if open_tab:
-        wb.open_new_tab(
-            'http://localhost:'
-            + str(server_port)
-            + '/'
-            + str(socket_port))
+
+        if browser is not None:
+            wb.get(browser).open_new_tab(
+                'http://localhost:'
+                + str(server_port)
+                + '/'
+                + str(socket_port))
+        else:
+            wb.open_new_tab(
+                'http://localhost:'
+                + str(server_port)
+                + '/'
+                + str(socket_port))
 
         try:
             inq.get(timeout=10)
