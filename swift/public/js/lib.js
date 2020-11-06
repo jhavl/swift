@@ -379,9 +379,9 @@ class SimTime {
     }
     
     display(t) {
-        let s = Math.floor(t / 1000);
+        let s = Math.floor(t);
         let m = Math.floor(s / 60);
-        let ms = t % 1000;
+        let ms = (t * 1000) % 1000;
         ms = Math.round(ms)
 
         s = s % 60;

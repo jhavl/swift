@@ -9,6 +9,7 @@ THREE.Object3D.DefaultUp.set(0, 0, 1);
 
 import {OrbitControls} from './vendor/examples/jsm/controls/OrbitControls.js'
 import {Robot, Shape, FPS, SimTime} from './lib.js'
+// import { start } from 'repl';
 
 let fps = new FPS(document.getElementById('fps'));
 let sim_time = new SimTime(document.getElementById('sim-time'));
@@ -25,27 +26,24 @@ let connected = false;
 let port = parseInt(window.location.pathname.slice(1));
 let ws = new WebSocket("ws://localhost:" + port + "/")
 
-
-// const recorder = new CCapture({
-// 	verbose: false,
-// 	display: true,
-// 	framerate: 60,
-// 	quality: 100,
-// 	format: 'webm'
-// });
+let recorder = null;
+let recording = false;
+let framerate = 20;
 
 
 ws.onopen = function(event) {
 	connected = true;
 	ws.send('Connected');
 	startSim(event.data);
-	// recorder.start();
 }
 
 
 ws.onclose = function(event) {
-	// recorder.stop();
-	// recorder.save();
+
+	if (recording) {
+		stopRecording();
+	}
+
 	setTimeout(
 		function() {
 			window.close();
@@ -143,9 +141,34 @@ function animate() {
 
 	renderer.render(scene, camera);
 
-	// recorder.capture(renderer.domElement);
+	if (recording) {
+		recorder.capture(renderer.domElement);
+	}
 
 	fps.frame();
+}
+
+
+function startRecording(frate, name) {
+	if (!recording) {
+		recorder = new CCapture({
+			verbose: false,
+			display: true,
+			framerate: frate,
+			quality: 1000,
+			format: 'webm',
+			name: name
+		});
+		recording = true;
+		recorder.start();
+	};
+}
+
+
+function stopRecording() {
+	recorder.stop();
+	recorder.save();
+	recording = false;
 }
 
 
@@ -177,10 +200,15 @@ ws.onmessage = function (event) {
 		ws.send(id);
 	} else if (func === 'is_loaded') {
 		let loaded = agents[data].isLoaded();
-		console.log(loaded)
 		ws.send(loaded);
 	} else if (func === 'sim_time') {
-		sim_time.display(parseInt(data));
+		sim_time.display(parseFloat(data));
+		ws.send(0);
+	} else if (func === 'start_recording') {
+		startRecording(parseFloat(data[0]), data[1]);
+		ws.send(0);
+	} else if (func === 'stop_recording') {
+		stopRecording();
 		ws.send(0);
 	}
 };
