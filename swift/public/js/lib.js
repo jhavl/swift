@@ -84,6 +84,12 @@ function loadMesh(ob, scene, cb) {
 
     let ext = ob.filename.split('.').pop();
 
+    if (navigator.appVersion.indexOf("Win") != -1) {
+        console.log(ob.filename);
+        ob.filename = ob.filename.slice(2);
+        console.log(ob.filename);
+    }
+
     let addDae = function(collada) {
 
             let mesh = collada.scene;
