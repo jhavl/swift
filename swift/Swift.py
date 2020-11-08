@@ -37,11 +37,21 @@ def start_servers(outq, inq, open_tab=True, browser=None):
     if open_tab:
 
         if browser is not None:
-            wb.get(browser).open_new_tab(
-                'http://localhost:'
-                + str(server_port)
-                + '/'
-                + str(socket_port))
+            try:
+                wb.get(browser).open_new_tab(
+                    'http://localhost:'
+                    + str(server_port)
+                    + '/'
+                    + str(socket_port))
+            except wb.Error:
+                print(
+                    '\nCould not open specified browser, '
+                    'using default instead\n')
+                wb.open_new_tab(
+                    'http://localhost:'
+                    + str(server_port)
+                    + '/'
+                    + str(socket_port))
         else:
             wb.open_new_tab(
                 'http://localhost:'
@@ -104,7 +114,7 @@ class SwiftSocket:
 
 class SwiftServer:
 
-    def __init__(self, outq, inq, socket_port, verbose=False):
+    def __init__(self, outq, inq, socket_port, verbose=True):
 
         server_port = 52000
         self.inq = inq
@@ -120,6 +130,9 @@ class SwiftServer:
                 else:
                     pass
 
+            def do_POST(self):
+                print(self)
+
             def do_GET(self):
 
                 home = str(Path.home())
@@ -133,14 +146,23 @@ class SwiftServer:
                         + '/'
                         + str(socket_port))
 
-                elif self.path == '/' + str(socket_port):
+                    self.end_headers()
+                    return
+
+                if self.path == '/' + str(socket_port):
                     self.path = str(root_dir / 'index.html')
 
                 elif self.path.endswith('css') or self.path.endswith('js'):
-                    self.path = str(root_dir) + self.path
+                    self.path = str(root_dir) + str(Path(self.path))
 
-                if self.path.startswith(home):
+                self.path = str(Path(self.path))
+
+                if self.path.lower().startswith(home.lower()):
                     self.path = self.path[len(home):]
+                elif self.path.lower().startswith(home.lower()[2:]):
+                    self.path = self.path[len(home)-2:]
+
+                self.path = Path(self.path).as_posix()
 
                 return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
