@@ -28,7 +28,7 @@ def package_files(directory):
 extra_files = package_files('swift/public')
 
 setup(
-    name='swift',
+    name='swift-sim',
 
     version='0.6.0',
 
