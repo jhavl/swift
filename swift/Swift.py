@@ -114,7 +114,7 @@ class SwiftSocket:
 
 class SwiftServer:
 
-    def __init__(self, outq, inq, socket_port, verbose=True):
+    def __init__(self, outq, inq, socket_port, verbose=False):
 
         server_port = 52000
         self.inq = inq
