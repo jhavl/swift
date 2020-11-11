@@ -9,17 +9,23 @@ The Swift simulator is a is designed for rapid prototyping of algorithms, resear
 
 Swift is controlled using the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python) through an easy and intuitive API.
 
-# Getting going
-## From Github
+
+# Installing
+### Using pip
+
+Install a snapshot from PyPI
+
+```shell script
+pip3 install swift-sim
 ```
-# Clone the repo
-git clone git@github.com:jhavl/swift.git 
-# or 
+
+### From GitHub
+
+To install the bleeding-edge version from GitHub
+
+```shell script
 git clone https://github.com/jhavl/swift.git
-
-# cd into directory
 cd swift
-
-# Install the project
-pip install -e .
+pip3 install -e .
 ```
+
