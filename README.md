@@ -78,4 +78,6 @@ while not arrived:
     # Step the simulator by 50 milliseconds
     env.step(0.05)
 ```
-
+<p align="center">
+ <img src="https://github.com/jhavl/swift/blob/master/.github/figures/panda.gif">
+</p>
