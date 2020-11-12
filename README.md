@@ -47,16 +47,16 @@ pip3 install -e .
 We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined as Tep.
 
 ```python
-import roboticstoolbox as rp
+import roboticstoolbox as rtb
 import spatialmath as sm
 import numpy as np
 
 # Make and instance of the Swift simulator and open it
-env = rp.backends.Swift()
+env = rtb.backends.Swift()
 env.launch()
 
 # Make a panda model and set its joint angles to the ready joint configuration
-panda = rp.models.Panda()
+panda = rtb.models.Panda()
 panda.q = panda.qr
 
 # Set a desired and effector pose an an offset from the current end-effector pose
@@ -70,7 +70,7 @@ arrived = False
 while not arrived:
 
     # Work out the required end-effector velocity to go towards the goal
-    v, arrived = rp.p_servo(panda.fkine(), Tep, 1)
+    v, arrived = rtb.p_servo(panda.fkine(), Tep, 1)
     
     # Set the Panda's joint velocities
     panda.qd = np.linalg.pinv(panda.jacobe()) @ v
