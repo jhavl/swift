@@ -17,7 +17,7 @@ Swift provides:
   * source code which can be read for learning and teaching;
 
 
-# Installing
+## Installing
 ### Using pip
 
 It is highly recommended to control Swift through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python). By installing the toolbox through PyPI, swift is installed as a dependancy
