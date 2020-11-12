@@ -42,9 +42,9 @@ cd swift
 pip3 install -e .
 ```
 
-## Code Example
+## Code Examples
 
-### Resolved-Rate Motion Control Example
+### Resolved-Rate Motion Control
 We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined as Tep.
 
 ```python
