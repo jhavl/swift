@@ -44,7 +44,7 @@ pip3 install -e .
 
 ## Code Examples
 
-### Plot a robot
+### Robot Plot
 We will load a model of the Franka-Emika Panda robot and plot it. We set the joint angles of the robot into the ready joint configuration qr.
 
 ```python
