@@ -44,6 +44,19 @@ pip3 install -e .
 
 ## Code Examples
 
+### Plot a robot
+We will load a model of the Franka-Emika Panda robot and plot it. We set the joint angles of the robot into the ready joint configuration qr.
+
+```python
+import roboticstoolbox as rp
+
+panda = rp.models.Panda()
+panda.plot(q=panda.qr)
+```
+<p align="center">
+ <img src="https://github.com/jhavl/swift/blob/master/.github/figures/panda.png">
+</p>
+
 ### Resolved-Rate Motion Control
 We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined as Tep.
 
