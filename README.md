@@ -58,7 +58,7 @@ panda.plot(q=panda.qr)
 </p>
 
 ### Resolved-Rate Motion Control
-We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined as Tep.
+We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined by the variable Tep.
 
 ```python
 import roboticstoolbox as rtb
