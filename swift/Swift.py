@@ -120,7 +120,8 @@ class SwiftServer:
         self.inq = inq
 
         root_dir = Path(sw.__file__).parent / 'public'
-        os.chdir(Path.home())
+        # os.chdir(Path.home())
+        os.chdir(Path.home().anchor)
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
@@ -135,7 +136,7 @@ class SwiftServer:
 
             def do_GET(self):
 
-                home = str(Path.home())
+                # home = str(Path.home())
 
                 if self.path == '/':
                     self.send_response(301)
@@ -157,10 +158,10 @@ class SwiftServer:
 
                 self.path = str(Path(self.path))
 
-                if self.path.lower().startswith(home.lower()):
-                    self.path = self.path[len(home):]
-                elif self.path.lower().startswith(home.lower()[2:]):
-                    self.path = self.path[len(home)-2:]
+                # if self.path.lower().startswith(home.lower()):
+                #     self.path = self.path[len(home):]
+                # elif self.path.lower().startswith(home.lower()[2:]):
+                #     self.path = self.path[len(home)-2:]
 
                 self.path = Path(self.path).as_posix()
 
