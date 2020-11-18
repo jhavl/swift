@@ -118,8 +118,14 @@ function loadMesh(ob, scene, cb) {
         let loader = stlloader.load(ob.filename, function(geometry) {
 
             let material = new THREE.MeshPhongMaterial({
-                color: 0xff5533, specular: 0x111111, shininess: 200
+                color: new THREE.Color(
+                    ob.color[0], ob.color[1],ob.color[2]),
+                    specular: 0x111111, shininess: 200
             });
+
+            material.transparent = true;
+            material.opacity = ob.color[3];
+
             let mesh = new THREE.Mesh(geometry, material);
 
             mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
