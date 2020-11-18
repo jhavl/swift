@@ -222,6 +222,6 @@ ws.onmessage = function (event) {
 		setTimeout(
 			function() {
 				ws.send(0);
-			}, 1000);
+			}, 5000);
 	}
 };
