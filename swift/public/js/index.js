@@ -29,6 +29,7 @@ let ws = new WebSocket("ws://localhost:" + port + "/")
 let recorder = null;
 let recording = false;
 let framerate = 20;
+let autoclose = true;
 
 
 ws.onopen = function(event) {
@@ -44,10 +45,12 @@ ws.onclose = function(event) {
 		stopRecording();
 	}
 
-	setTimeout(
-		function() {
-			window.close();
-		}, 5000);
+	if (autoclose) {
+		setTimeout(
+			function() {
+				window.close();
+			}, 5000);
+	}
 }
 
 
@@ -149,15 +152,21 @@ function animate() {
 }
 
 
-function startRecording(frate, name) {
+function startRecording(frate, name, format) {
 	if (!recording) {
+
+		if (format === 'gif') {
+			autoclose = false;
+		}
+
 		recorder = new CCapture({
 			verbose: false,
 			display: true,
 			framerate: frate,
 			quality: 100,
-			format: 'webm',
-			name: name
+			format: format,
+			name: name,
+			workersPath: 'js/vendor/build/'
 		});
 		recording = true;
 		recorder.start();
@@ -205,10 +214,14 @@ ws.onmessage = function (event) {
 		sim_time.display(parseFloat(data));
 		ws.send(0);
 	} else if (func === 'start_recording') {
-		startRecording(parseFloat(data[0]), data[1]);
+		startRecording(parseFloat(data[0]), data[1], data[2]);
 		ws.send(0);
 	} else if (func === 'stop_recording') {
 		stopRecording();
-		ws.send(0);
+		
+		setTimeout(
+			function() {
+				ws.send(0);
+			}, 1000);
 	}
 };
