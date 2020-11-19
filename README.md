@@ -16,7 +16,6 @@ Swift provides:
   * recording and saving a video of the simulation;
   * source code which can be read for learning and teaching;
 
-
 ## Installing
 ### Using pip
 
