@@ -33,7 +33,7 @@ pip3 install swift-sim
 
 ### From GitHub
 
-To install the bleeding-edge version from GitHub
+To install the latest version from GitHub
 
 ```shell script
 git clone https://github.com/jhavl/swift.git
