@@ -19,7 +19,7 @@ Swift provides:
 ## Installing
 ### Using pip
 
-It is highly recommended to control Swift through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python). By installing the toolbox through PyPI, swift is installed as a dependency
+Swift is designed to be controlled through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python). By installing the toolbox through PyPI, swift is installed as a dependency
 
 ```shell script
 pip3 install roboticstoolbox-python
