@@ -11,7 +11,7 @@ Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics
 
 Swift provides:
 
-  * visualisation of mesh objects (Collada and STL files) and also primitive shapes;
+  * visualisation of mesh objects (Collada and STL files) and primitive shapes;
   * robot visualisation and simulation;
   * recording and saving a video of the simulation;
   * source code which can be read for learning and teaching;
