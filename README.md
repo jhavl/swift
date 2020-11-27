@@ -25,7 +25,7 @@ Swift is designed to be controlled through the [Robotics Toolbox for Python](htt
 pip3 install roboticstoolbox-python
 ```
 
-Otherwise, Swift alone can be install by
+Otherwise, Swift can be install by
 
 ```shell script
 pip3 install swift-sim
