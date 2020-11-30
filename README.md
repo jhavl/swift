@@ -92,5 +92,5 @@ while not arrived:
     env.step(0.05)
 ```
 <p align="center">
- <img src="https://github.com/jhavl/swift/blob/master/.github/figures/panda.gif">
+ <img src="./.github/figures/panda.gif">
 </p>
