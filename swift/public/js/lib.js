@@ -99,12 +99,13 @@ function loadMesh(ob, scene, cb) {
             mesh.setRotationFromQuaternion(quat);
 
             for (let i = 0; i < mesh.children.length; i++) {
-                if (mesh.children[i] instanceof THREE.Mesh) {
+                if (mesh.children[i].type === 'Mesh') {
                     mesh.children[i].castShadow = true;
-                } else if (mesh.children[i] instanceof THREE.PointLight) {
+                } else if (mesh.children[i].type === 'PointLight') {
                     mesh.children[i].visible = false;
                 }
             }
+            console.log(mesh.children)
 
             scene.add(mesh);
             ob['mesh'] = mesh;
@@ -119,7 +120,7 @@ function loadMesh(ob, scene, cb) {
 
             let material = new THREE.MeshPhongMaterial({
                 color: new THREE.Color(
-                    ob.color[0], ob.color[1],ob.color[2]),
+                    ob.color[0], ob.color[1], ob.color[2]),
                     specular: 0x111111, shininess: 200
             });
 
