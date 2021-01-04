@@ -11,7 +11,7 @@ Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics
 
 Swift provides:
 
-  * visualisation of mesh objects (Collada and STL files) and also primitive shapes;
+  * visualisation of mesh objects (Collada and STL files) and primitive shapes;
   * robot visualisation and simulation;
   * recording and saving a video of the simulation;
   * source code which can be read for learning and teaching;
@@ -25,7 +25,7 @@ Swift is designed to be controlled through the [Robotics Toolbox for Python](htt
 pip3 install roboticstoolbox-python
 ```
 
-Otherwise, Swift alone can be install by
+Otherwise, Swift can be install by
 
 ```shell script
 pip3 install swift-sim
@@ -92,5 +92,5 @@ while not arrived:
     env.step(0.05)
 ```
 <p align="center">
- <img src="https://github.com/jhavl/swift/blob/master/.github/figures/panda.gif">
+ <img src="./.github/figures/panda.gif">
 </p>

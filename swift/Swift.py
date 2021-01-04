@@ -4,9 +4,6 @@
 """
 
 
-# import numpy as np
-# import spatialmath as sm
-# import time
 import swift as sw
 import websockets
 import asyncio
