@@ -105,7 +105,6 @@ function loadMesh(ob, scene, cb) {
                     mesh.children[i].visible = false;
                 }
             }
-            console.log(mesh.children)
 
             scene.add(mesh);
             ob['mesh'] = mesh;
