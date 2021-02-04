@@ -182,6 +182,7 @@ function stopRecording() {
 
 
 ws.onmessage = function (event) {
+	console.log(event.data)
 	let eventdata = JSON.parse(event.data)
 	let func = eventdata[0]
 	let data = eventdata[1]
