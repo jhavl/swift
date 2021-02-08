@@ -73,7 +73,7 @@ panda = rtb.models.Panda()
 panda.q = panda.qr
 
 # Set a desired and effector pose an an offset from the current end-effector pose
-Tep = panda.fkine() * sm.SE3.Tx(0.2) * sm.SE3.Ty(0.2) * sm.SE3.Tz(0.45)
+Tep = panda.fkine(panda.q) * sm.SE3.Tx(0.2) * sm.SE3.Ty(0.2) * sm.SE3.Tz(0.45)
 
 # Add the robot to the simulator
 env.add(panda)
@@ -83,10 +83,10 @@ arrived = False
 while not arrived:
 
     # Work out the required end-effector velocity to go towards the goal
-    v, arrived = rtb.p_servo(panda.fkine(), Tep, 1)
+    v, arrived = rtb.p_servo(panda.fkine(panda.q), Tep, 1)
     
     # Set the Panda's joint velocities
-    panda.qd = np.linalg.pinv(panda.jacobe()) @ v
+    panda.qd = np.linalg.pinv(panda.jacobe(panda.q)) @ v
     
     # Step the simulator by 50 milliseconds
     env.step(0.05)
