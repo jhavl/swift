@@ -182,7 +182,6 @@ function stopRecording() {
 
 
 ws.onmessage = function (event) {
-	console.log(event.data)
 	let eventdata = JSON.parse(event.data)
 	let func = eventdata[0]
 	let data = eventdata[1]
@@ -190,14 +189,25 @@ ws.onmessage = function (event) {
 	if (func === 'robot') {
 		let id = agents.length;
 		let robot = new Robot(scene, data);
-		console.log('made robot');
 		agents.push(robot);
 		ws.send(id);
+	} else if (func === 'remove_robot') {
+		let agent = agents[data]
+		agent.remove(scene)
+		renderer.renderLists.dispose();
+		agents[data] = null;
+		ws.send(0);
 	} else if (func === 'shape') {
 		let id = shapes.length;
 		let shape = new Shape(scene, data);
 		shapes.push(shape);
 		ws.send(id);
+	} else if (func === 'remove_shape') {
+		let shape = shapes[data]
+		shape.remove(scene)
+		renderer.renderLists.dispose();
+		shapes[data] = null;
+		ws.send(0);
 	} else if (func === 'robot_poses') {
 		let id = data[0];
 		let poses = data[1];

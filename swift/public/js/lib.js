@@ -161,7 +161,6 @@ class Robot{
                 this.model_loaded = 1
             }
         }
-        console.log(ob)
 
         for (let i = 0; i < ob.links.length; i++) {
             let color = Math.random() * 0xffffff;
@@ -176,7 +175,7 @@ class Robot{
             if (ob.show_collision) {
                 for (let j = 0; j < ob.links[i].collision.length; j++) {
                     this.promised++;
-                    load(ob.links[i].collision[j], scene, color)
+                    load(ob.links[i].collision[j], scene, color, cb)
                 }
             }
         }
@@ -232,6 +231,33 @@ class Robot{
         }
         this.set_q(this.q);
     }
+
+    remove(scene) {
+        for (let i = 0; i < this.ob.links.length; i++) {
+
+            if (this.ob.show_robot) {
+                for (let j = 0; j < this.ob.links[i].geometry.length; j++) {
+                    try {
+                        this.ob.links[i].geometry[j].mesh.material.dispose();
+                        this.ob.links[i].geometry[j].mesh.geometry.dispose();
+                    } catch {};
+
+                    scene.remove(this.ob.links[i].geometry[j].mesh);
+                }
+            }
+
+            if (this.ob.show_collision) {
+                for (let j = 0; j < this.ob.links[i].collision.length; j++) {
+                    try {
+                        this.ob.links[i].collision[j].mesh.material.dispose();
+                        this.ob.links[i].collision[j].mesh.geometry.dispose();
+                    } catch {};
+
+                    scene.remove(this.ob.links[i].collision[j].mesh);
+                }
+            }
+        }
+    }
 }
 
 
@@ -254,6 +280,12 @@ class Shape{
         let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
         this.ob.mesh.position.set(t[0], t[1], t[2]);
         this.ob.mesh.setRotationFromQuaternion(quat);
+    }
+
+    remove(scene) {
+        this.ob.mesh.geometry.dispose();
+        this.ob.mesh.material.dispose();
+        scene.remove(this.ob.mesh);
     }
 }
 
