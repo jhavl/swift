@@ -407,12 +407,12 @@ function slider(
     let smax = document.getElementById('max' + id);
 
     range_slider.value = value;
-    slider_val.innerHTML = range_slider.value + ' ' + unit;
+    slider_val.innerHTML = range_slider.value + unit;
     smin.innerHTML = min;
     smax.innerHTML = max;
 
     range_slider.addEventListener('input', function () {
-        slider_val.innerHTML = range_slider.value + ' ' + unit;
+        slider_val.innerHTML = range_slider.value + unit;
         custom_elements[id] = true;
     }, true);
 
