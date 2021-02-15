@@ -4,6 +4,7 @@ import { STLLoader } from './vendor/examples/jsm/loaders/STLLoader.js'
 
 const daeloader = new ColladaLoader();
 const stlloader = new STLLoader();
+let nav_div_showing = false;
 
 function sleep(milliseconds) {
     const date = Date.now();
@@ -290,101 +291,6 @@ class Shape{
 }
 
 
-// class LinkMDH{
-//     constructor(scene, li, prev) {
-
-//         // alpha
-//         let Rx = li[5];
-
-//         // a
-//         let Tx = li[4];
-
-//         // theta
-//         let Rz = li[2];
-
-//         // d
-//         let Tz = li[3];
-
-//         // let p0 = new THREE.Group();
-//         // p0.position.set(0, 0, 0)
-//         // scene.add(p0)
-        
-//         this.ps = new THREE.Group()
-//         this.pe = new THREE.Group()
-//         prev.add(this.ps)
-
-        
-//         this.lx = new Cylinder(Tx, this.ps);
-//         this.lx.ps.rotateZ(-Math.PI/2)
-//         this.lx.pe.rotateZ(Math.PI/2)
-
-//         // let b = new THREE.AxesHelper(0.4);
-//         // this.lx.link.add(b)
-
-//         // this.lx.pe.rotateX(-Math.PI/2)
-//         this.lz = new Cylinder(Tz, this.lx.pe);
-
-//         // let a = new THREE.AxesHelper(0.2);
-
-
-//         this.lz.pe.add(this.pe)
-//         // this.pe.add(a)
-//         this.joint = new Revolute(this.pe)
-//         // this.lz.link.add(a)
-
-//         this.ps.rotateX(Rx)
-//         this.lz.ps.rotateY(Rz)
-
-
-//     }
-// }
-
-// class Cylinder{
-// 	constructor(length, prev) {
-//         this.length = length
-// 		this.geometry = new THREE.CylinderGeometry(0.025, 0.025, length, 128);
-// 		// this.material = new THREE.MeshPhongMaterial({ 
-//         //     color: 0xff5533, 
-//         //     specular: 0x111111, 
-//         //     shininess: 20, 
-//         //     side:THREE.DoubleSide
-//         // });
-//         this.material = new THREE.MeshStandardMaterial({
-//             color: 0xff5533
-//         })
-
-//         this.link = new THREE.Mesh(this.geometry, this.material);
-//         // this.link.castShadow = true;
-// 		// this.link.receiveShadow = true;
-        
-//         this.ps = new THREE.Group();
-//         this.pe = new THREE.Group();
-
-//         if (length !== 0) {
-//             this.link.position.set(0, length/2, 0)
-//             this.pe.position.set(0, length/2, 0)
-//             prev.add(this.ps)
-//             this.ps.add(this.link)
-//             this.link.add(this.pe)
-//         } else {
-//             prev.add(this.ps)
-//             this.ps.add(this.pe)
-//         }
-//     }
-// }
-
-// class Revolute{
-//     constructor(prev) {
-//         length = 0.07
-//         this.geometry = new THREE.CylinderGeometry(0.003, 0.003, length, 12);
-//         this.material = new THREE.MeshPhongMaterial( { color: 0xf542ec, specular: 0x111111, shininess: 200 } );
-//         this.joint = new THREE.Mesh(this.geometry, this.material);
-//         this.joint.position.set(0, length/2, 0)
-//         prev.add(this.joint)
-//     }
-// }
-
-
 class FPS {
 	constructor(div) {
 		this.fps = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -416,6 +322,7 @@ class FPS {
         this.div.innerHTML = fps_str;
 	}
 }
+
 
 class SimTime {
 	constructor(div) {
@@ -453,4 +360,68 @@ class SimTime {
     }
 }
 
-export {Robot, Shape, FPS, SimTime};
+function show_nav_div() {
+    let div = document.getElementById('sidenav');
+    div.style.display = 'block';
+}
+
+function update_slider(range_slider, slider_val, unit) {
+    slider_val.innerHTML = range_slider.value + ' ' + unit
+}
+
+function slider(
+    id, min=0, max=100, step=10, value=0,
+    desc='', unit='', custom_elements={}) {
+
+    if (!nav_div_showing) {
+        show_nav_div();
+    }
+
+    let ml = `
+        <div class="slider-div" id="` + id + `">
+            <p class="slider-p" id="` + id + `">
+                ` + desc + `
+            </p>
+            <input type="range" value="` + value + `" step="` + step + `" min="` + min + `" max="` + max + `" class='slider' id="slider` + id + `">
+
+            <div class="slider-val-div" id="` + id + `">
+                <p class="slider-vals slider-min" id="min` + id + `">
+                    0
+                </p>
+                <p class="slider-vals slider-val" id="val` + id + `">
+                    0
+                </p>
+                <p class="slider-vals slider-max" id="max` + id + `">
+                    100
+                </p>
+            </div>
+        </div>
+    `;
+
+    let div = document.getElementById('sidenav');
+    div.insertAdjacentHTML('beforeend', ml);
+
+    let range_slider = document.getElementById('slider' + id);
+    let slider_val = document.getElementById('val' + id);
+    let smin = document.getElementById('min' + id);
+    let smax = document.getElementById('max' + id);
+
+    range_slider.value = value;
+    slider_val.innerHTML = range_slider.value + ' ' + unit;
+    smin.innerHTML = min;
+    smax.innerHTML = max;
+
+    range_slider.addEventListener('input', function () {
+        slider_val.innerHTML = range_slider.value + ' ' + unit;
+        custom_elements[id] = true;
+    }, true);
+
+    return {id: false};
+}
+
+
+
+
+
+
+export {Robot, Shape, FPS, SimTime, slider};

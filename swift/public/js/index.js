@@ -8,7 +8,7 @@ THREE.Object3D.DefaultUp.set(0, 0, 1);
 // import * as tr from './vendor/three.module.js'
 
 import {OrbitControls} from './vendor/examples/jsm/controls/OrbitControls.js'
-import {Robot, Shape, FPS, SimTime} from './lib.js'
+import {Robot, Shape, FPS, SimTime, slider} from './lib.js'
 // import { start } from 'repl';
 
 let fps = new FPS(document.getElementById('fps'));
@@ -19,6 +19,7 @@ let camera, scene, renderer, controls;
 // Array of all the robots in the scene
 let agents = [];
 let shapes = [];
+let custom_elements = {};
 
 let connected = false;
 
@@ -30,7 +31,6 @@ let recorder = null;
 let recording = false;
 let framerate = 20;
 let autoclose = true;
-
 
 ws.onopen = function(event) {
 	connected = true;
@@ -234,5 +234,27 @@ ws.onmessage = function (event) {
 			function() {
 				ws.send(0);
 			}, 5000);
+	} else if (func === 'add_element') {
+		let element = data[0];
+
+		if (element === 'slider') {
+			custom_elements[data[1]] = false;
+			slider(
+				data[1], data[2], data[3], data[4],
+				data[5], data[6], data[7], custom_elements);
+		}
+		ws.send(0);
+	} else if (func === 'check_elements') {
+
+		let ret = {};
+		let element;
+
+		for (element in custom_elements) {
+			if (custom_elements[element] === true) {
+				ret[element] = document.getElementById('slider' + element).value;
+				custom_elements[element] = false;
+			}
+		}
+		ws.send(JSON.stringify(ret));
 	}
 };
