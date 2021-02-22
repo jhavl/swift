@@ -93,7 +93,7 @@ body {
 }
 
 .slider-p {
-  text-align: left;
+  /* text-align: left; */
   width: 90%;
   margin-top: 0;
   margin-bottom: 0.3cm;
@@ -156,4 +156,156 @@ body {
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(167, 167, 167);
+}
+
+/* ----------------- SELECT ----------------- */
+
+.select-div {
+  width: 100%;
+  margin-bottom: 0.5cm;
+  margin-top: 0.5cm;
+}
+
+.select-label {
+  font-weight: bold;
+  padding-left: 5px;
+  padding-right: 5px;
+  line-height: 2;
+  display: inline-block;
+}
+
+.select-select {
+  min-width: 70px;
+  border-radius: 2px;
+  height: 1.5em;
+  background-color: #383838;
+  color: #d3d3d3;
+  border-color: #383838;
+  margin-right: 5px;
+  margin-left: 5px;
+}
+
+/* ----------------- Button ----------------- */
+
+.button-div {
+  width: 100%;
+  margin-bottom: 0.5cm;
+  margin-top: 0.5cm;
+}
+
+.button-button {
+  background-color: #383838;
+  text-align: center;
+  min-width: 80%;
+  max-width: 90%;
+  border: none;
+  color: #d3d3d3;
+  height: 2.5em;
+  border-radius: 2px;
+  transition-duration: 0.2s;
+}
+
+.button-button:hover {
+  background-color: #616161; /* Green */
+  color: white;
+}
+
+.button-button:active {
+  background-color: #8f8f8f; /* Green */
+  color: white;
+}
+
+/* ----------------- Checkbox ----------------- */
+
+.checkbox-div {
+  width: 100%;
+  margin-bottom: 0.5cm;
+  margin-top: 0.5cm;
+}
+
+.checkbox-cont {
+  text-align: left;
+  margin-left: 10%;
+}
+
+.checkbox-cont label {
+  padding-right: 10px;
+  white-space: nowrap;
+
+}
+.checkbox-cont input {
+  /* float: left; */
+  vertical-align: middle;
+}
+.checkbox-cont span {
+  vertical-align: middle;
+  line-height: 1.5em;
+  display: inline;
+}
+
+.checkbox-div p {
+  width: 90%;
+  margin-top: 0;
+  margin-bottom: 8px;
+  margin-left: 5%;
+  margin-right: 5%;
+  color: #d3d3d3;
+  font-weight: bold;
+}
+
+/* ----------------- Radio ----------------- */
+
+.radio-div {
+  width: 100%;
+  margin-bottom: 0.5cm;
+  margin-top: 0.5cm;
+}
+
+.radio-cont {
+  text-align: left;
+  margin-left: 10%;
+}
+
+.radio-cont label {
+  padding-right: 10px;
+  white-space: nowrap;
+
+}
+.radio-cont input {
+  vertical-align: middle;
+  margin-bottom: 3px;
+  margin-top: 3px;
+}
+.radio-cont label span {
+  vertical-align: middle;
+  line-height: 1.5em;
+}
+
+.radio-div p {
+  width: 90%;
+  margin-top: 0;
+  margin-bottom: 8px;
+  margin-left: 5%;
+  margin-right: 5%;
+  color: #d3d3d3;
+  font-weight: bold;
+}
+
+/* ----------------- Label ----------------- */
+
+.label-div {
+  width: 100%;
+  margin-bottom: 0.5cm;
+  margin-top: 1cm;
+}
+
+.label-div p {
+  font-size: 1.3em;
+  width: 90%;
+  margin-top: 0;
+  margin-left: 5%;
+  margin-right: 5%;
+  margin-bottom: 0;
+  color: #d3d3d3;
+  font-weight: bold;
 }

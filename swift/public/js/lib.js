@@ -365,63 +365,318 @@ function show_nav_div() {
     div.style.display = 'block';
 }
 
-function update_slider(range_slider, slider_val, unit) {
-    slider_val.innerHTML = range_slider.value + ' ' + unit
-}
 
-function slider(
-    id, min=0, max=100, step=10, value=0,
-    desc='', unit='', custom_elements={}) {
+class Slider {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="slider-div" id="slider-div` + data.id + `">
+                <p class="slider-p" id="desc` + data.id + `">
+                </p>
+                <input type="range" value="0" step="1" min="0" max="100" class='slider' id="slider` + data.id + `">
+    
+                <div class="slider-val-div" id="slider-val-div` + data.id + `">
+                    <p class="slider-vals slider-min" id="min` + data.id + `">
+                        0
+                    </p>
+                    <p class="slider-vals slider-val" id="value` + data.id + `">
+                        0
+                    </p>
+                    <p class="slider-vals slider-max" id="max` + data.id + `">
+                        100
+                    </p>
+                </div>
+            </div>
+        `;
 
-    if (!nav_div_showing) {
-        show_nav_div();
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
+
+        this.slider =  document.getElementById('slider' + data.id),
+        this.value =  document.getElementById('value' + data.id),
+        this.min =  document.getElementById('min' + data.id),
+        this.max =  document.getElementById('max' + data.id)
+        this.desc =  document.getElementById('desc' + data.id)
+        this.id = data.id;
+
+        this.onInput = () => {
+            this.value.innerHTML = this.slider.value + this.unit;
+            this.changed = true;
+            this.data = this.slider.value;
+        }
+
+        this.slider.addEventListener('input', this.onInput, false);
+
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = this.slider.value;
     }
 
-    let ml = `
-        <div class="slider-div" id="` + id + `">
-            <p class="slider-p" id="` + id + `">
-                ` + desc + `
-            </p>
-            <input type="range" value="` + value + `" step="` + step + `" min="` + min + `" max="` + max + `" class='slider' id="slider` + id + `">
+    update(data) {
+        this.unit = data.unit;
+        this.slider.value = data.value;
+        this.slider.step = data.step;
+        this.slider.min = data.min;
+        this.slider.max = data.max;
+        this.value.innerHTML = this.slider.value + this.unit;
+        this.min.innerHTML = data.min;
+        this.max.innerHTML = data.max;
+        this.desc.innerHTML = data.desc;
 
-            <div class="slider-val-div" id="` + id + `">
-                <p class="slider-vals slider-min" id="min` + id + `">
-                    0
-                </p>
-                <p class="slider-vals slider-val" id="val` + id + `">
-                    0
-                </p>
-                <p class="slider-vals slider-max" id="max` + id + `">
-                    100
-                </p>
+        this.onInput();
+    }
+}
+
+
+class Button {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="button-div">
+                <button type="button" class="button-button" id="button` + data.id + `"></button>
             </div>
-        </div>
-    `;
+        `;
 
-    let div = document.getElementById('sidenav');
-    div.insertAdjacentHTML('beforeend', ml);
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
 
-    let range_slider = document.getElementById('slider' + id);
-    let slider_val = document.getElementById('val' + id);
-    let smin = document.getElementById('min' + id);
-    let smax = document.getElementById('max' + id);
+        this.button = document.getElementById('button' + data.id),
+        this.id = data.id;
 
-    range_slider.value = value;
-    slider_val.innerHTML = range_slider.value + unit;
-    smin.innerHTML = min;
-    smax.innerHTML = max;
+        this.onInput = () => {
+            this.changed = true;
+        }
 
-    range_slider.addEventListener('input', function () {
-        slider_val.innerHTML = range_slider.value + unit;
-        custom_elements[id] = true;
-    }, true);
+        this.button.addEventListener('click', this.onInput, false);
 
-    return {id: false};
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = 0;
+    }
+
+    update(data) {
+        this.button.innerHTML = data.desc;
+    }
+}
+
+
+class Label {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="label-div">
+                <p id="label` + data.id + `"></p>
+            </div>
+        `;
+
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
+
+        this.label = document.getElementById('label' + data.id);
+        this.id = data.id;
+
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = 0;
+    }
+
+    update(data) {
+        this.label.innerHTML = data.desc;
+    }
+}
+
+
+class Select {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="select-div">
+                <label id="label` + data.id + `" class="select-label"></label>
+                <select id="select` + data.id + `" class="select-select">
+                </select>
+            </div>
+        `;
+
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
+
+        this.label = document.getElementById('label' + data.id);
+        this.select = document.getElementById('select' + data.id);
+        this.id = data.id;
+
+        this.onInput = (e) => {
+            this.changed = true;
+            this.data = this.select.value;
+        }
+
+        this.select.addEventListener('change', this.onInput, false);
+
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = 0;
+    }
+
+    update(data) {
+        this.label.innerHTML = data.desc;
+
+        let sel = '';
+        for (let i = 0; i < data.options.length; i++) {
+            sel += `<option value="` + i + `">` + data.options[i] + `</option>`
+        }
+        this.select.innerHTML = sel;
+        this.select.value = String(data.value)
+    }
+}
+
+
+class Checkbox {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="checkbox-div">
+                <p id="label` + data.id + `"></p>
+                <div class="checkbox-cont" id="checkboxcont` + data.id + `">
+                </div>
+            </div>
+        `;
+
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
+
+        this.label = document.getElementById('label' + data.id);
+        this.checkbox = document.getElementById('checkboxcont' + data.id);
+        this.id = data.id;
+
+        this.onChange = (e) => {
+            this.data = []
+            this.changed = true;
+            let checks = this.checkbox.getElementsByTagName('input');
+
+            for (let i = 0; i < checks.length; i++) {
+                this.data.push(checks[i].checked);
+            }
+        }
+
+        this.checkbox.addEventListener('change', this.onChange, false);
+
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = [];
+    }
+
+    update(data) {
+        this.label.innerHTML = data.desc;
+        let sel = '';
+
+        for (let i = 0; i < data.options.length; i++) {
+            let checked = data.checked[i] ? 'checked' : '';
+            sel += `
+                <label for="checkbox` + data.id + `">
+                    <input type="checkbox" ` + checked + ` id="checkbox` + data.id + i + `" />
+                    <span>` + data.options[i] + `</span>
+                </label>
+            `
+            sel += i < data.options.length - 1 ? '<br>' : '';
+        }
+        this.checkbox.innerHTML = sel;
+        
+        this.onChange();
+    }
+}
+
+
+class Radio {
+	constructor(data) {
+        if (!nav_div_showing) {
+            show_nav_div();
+        }
+    
+        let ml = `
+            <div class="radio-div">
+                <p id="label` + data.id + `"></p>
+                <div class="radio-cont" id="radiocont` + data.id + `">
+                </div>
+            </div>
+        `;
+
+        let opt = `
+        <label for="k"><input type="radio" id="k" name="x"/> <span>Label text z</span></label>
+        `
+
+        let div = document.getElementById('sidenav');
+        div.insertAdjacentHTML('beforeend', ml);
+
+        this.label = document.getElementById('label' + data.id);
+        this.radio = document.getElementById('radiocont' + data.id);
+        this.id = data.id;
+
+        this.onChange = (e) => {
+            this.changed = true;
+
+            let radios = this.radio.getElementsByTagName('input');
+
+            for (let i = 0; i < radios.length; i++) {
+                if (radios[i].checked) {
+                    this.data = i;
+                    break;
+                }
+            }
+        }
+
+        this.radio.addEventListener('change', this.onChange, false);
+
+        this.update(data);
+
+        // Common attributes
+        this.changed = false;
+        this.data = [];
+    }
+
+    update(data) {
+        this.label.innerHTML = data.desc;
+        let sel = '';
+
+        for (let i = 0; i < data.options.length; i++) {
+            let checked = data.checked === i ? 'checked' : '';
+            sel += `
+                <label for="radio` + data.id + `">
+                    <input type="radio" ` + checked + ` id="radio` + data.id + i + `" name="radio` + data.id + `"/>
+                    <span>` + data.options[i] + `</span>
+                </label>`
+
+            sel += i < data.options.length - 1 ? '<br>' : '';
+        }
+        this.radio.innerHTML = sel;
+        
+        this.onChange();
+    }
 }
 
 
 
-
-
-
-export {Robot, Shape, FPS, SimTime, slider};
+export {Robot, Shape, FPS, SimTime, Slider, Button, Label, Select, Checkbox, Radio};

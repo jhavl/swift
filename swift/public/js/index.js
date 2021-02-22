@@ -8,7 +8,7 @@ THREE.Object3D.DefaultUp.set(0, 0, 1);
 // import * as tr from './vendor/three.module.js'
 
 import {OrbitControls} from './vendor/examples/jsm/controls/OrbitControls.js'
-import {Robot, Shape, FPS, SimTime, slider} from './lib.js'
+import {Robot, Shape, FPS, SimTime, Slider, Button, Label, Select, Checkbox, Radio} from './lib.js'
 // import { start } from 'repl';
 
 let fps = new FPS(document.getElementById('fps'));
@@ -19,7 +19,7 @@ let camera, scene, renderer, controls;
 // Array of all the robots in the scene
 let agents = [];
 let shapes = [];
-let custom_elements = {};
+let custom_elements = [];
 
 let connected = false;
 
@@ -31,6 +31,15 @@ let recorder = null;
 let recording = false;
 let framerate = 20;
 let autoclose = true;
+
+
+// let one = new Label({id: "2", desc: "I am a new Label"})
+// let two = new Select({id: "3", desc: "Select Box", options: ["one", '2', 'fourt'], value: 1})
+// let three = new Button({id: "1", desc: "Hello"})
+// let four = new Checkbox({id: "4", desc: "Check Box", options: ["one", '2', 'fourt'], checked: [0, 's', 0]})
+// let five = new Radio({id: "5", desc: "Radio Buttons", options: ["one long", '2', 'fourt'], checked: 1})
+
+
 
 ws.onopen = function(event) {
 	connected = true;
@@ -235,26 +244,42 @@ ws.onmessage = function (event) {
 				ws.send(0);
 			}, 5000);
 	} else if (func === 'add_element') {
-		let element = data[0];
+		let element = data.element;
 
 		if (element === 'slider') {
-			custom_elements[data[1]] = false;
-			slider(
-				data[1], data[2], data[3], data[4],
-				data[5], data[6], data[7], custom_elements);
+			custom_elements.push(new Slider(data));
+		} else if (element === 'button') {
+			custom_elements.push(new Button(data));
+		} else if (element === 'label') {
+			custom_elements.push(new Label(data));
+		} else if (element === 'select') {
+			custom_elements.push(new Select(data));
+		} else if (element === 'checkbox') {
+			custom_elements.push(new Checkbox(data));
+		} else if (element === 'radio') {
+			custom_elements.push(new Radio(data));
 		}
 		ws.send(0);
 	} else if (func === 'check_elements') {
-
 		let ret = {};
-		let element;
 
-		for (element in custom_elements) {
-			if (custom_elements[element] === true) {
-				ret[element] = document.getElementById('slider' + element).value;
-				custom_elements[element] = false;
+		for (let i = 0; i < custom_elements.length; i++) {
+			if (custom_elements[i].changed === true) {
+				ret[custom_elements[i].id] = custom_elements[i].data;
+				custom_elements[i].changed = false;
 			}
 		}
 		ws.send(JSON.stringify(ret));
+	} else if (func === 'update_element') {
+		let id = data.id;
+
+		for (let i = 0; i < custom_elements.length; i++) {
+			if (custom_elements[i].id === id) {
+				custom_elements[i].update(data);
+				break;
+			}
+		}
+
+		ws.send(0);
 	}
 };
