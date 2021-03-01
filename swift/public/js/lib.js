@@ -1,9 +1,22 @@
 
 import { ColladaLoader } from './vendor/examples/jsm/loaders/ColladaLoader.js'
 import { STLLoader } from './vendor/examples/jsm/loaders/STLLoader.js'
+import { OBJLoader } from './vendor/examples/jsm/loaders/OBJLoader.js'
+import { MTLLoader } from './vendor/examples/jsm/loaders/MTLLoader.js'
+import { VRMLoader } from './vendor/examples/jsm/loaders/VRMLoader.js'
+import { PCDLoader } from './vendor/examples/jsm/loaders/PCDLoader.js'
+import { PLYLoader } from './vendor/examples/jsm/loaders/PLYLoader.js'
+import { GLTFLoader } from './vendor/examples/jsm/loaders/GLTFLoader.js'
 
 const daeloader = new ColladaLoader();
 const stlloader = new STLLoader();
+const objloader = new OBJLoader();
+const mtlloader = new MTLLoader();
+const vrmloader = new VRMLoader();
+const pcdloader = new PCDLoader();
+const plyloader = new PLYLoader();
+const gltfloader = new GLTFLoader();
+
 let nav_div_showing = false;
 
 function sleep(milliseconds) {
@@ -86,35 +99,34 @@ function loadMesh(ob, scene, cb) {
     let ext = ob.filename.split('.').pop();
 
     if (navigator.appVersion.indexOf("Win") != -1) {
-        console.log(ob.filename);
+        // console.log(ob.filename);
         ob.filename = ob.filename.slice(2);
-        console.log(ob.filename);
+        // console.log(ob.filename);
     }
 
-    let addDae = function(collada) {
+    if (ext == 'dae') {
+        let loader = daeloader.load(ob.filename, function(collada) {
 
             let mesh = collada.scene;
             mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
-
+    
             let quat = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
             mesh.setRotationFromQuaternion(quat);
-
-            for (let i = 0; i < mesh.children.length; i++) {
-                if (mesh.children[i].type === 'Mesh') {
-                    mesh.children[i].castShadow = true;
-                } else if (mesh.children[i].type === 'PointLight') {
-                    mesh.children[i].visible = false;
+    
+            mesh.traverse( function (child) {
+                if ( child.isMesh ) {
+                    child.castShadow = true;
+                    // child.receiveShadow = true;
+                } else if (child.type === 'PointLight') {
+                    child.visible = false;
                 }
-            }
+            });
 
             scene.add(mesh);
             ob['mesh'] = mesh;
             ob['loaded'] = true;
             cb();
-    };
-
-    if (ext == 'dae') {
-        let loader = daeloader.load(ob.filename, addDae);
+        });
     } else if (ext == 'stl') {
         let loader = stlloader.load(ob.filename, function(geometry) {
 
@@ -143,6 +155,165 @@ function loadMesh(ob, scene, cb) {
             ob['loaded'] = true;
             cb();
         });
+    } else if (ext == 'obj') {
+        let loader =  mtlloader.load(ob.filename.slice(0, ob.filename.length-3) + 'mtl',
+            function (materials) {
+                materials.preload();
+
+                // let objloader = new THREE.OBJLoader();
+                objloader.setMaterials(materials);
+
+                objloader.load(ob.filename,
+                    function (object) {
+                        console.log(object)
+
+                        object.traverse( function (child) {
+                            if ( child.isMesh ) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                            }
+                        });
+        
+                        object.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+                        object.position.set(ob.t[0], ob.t[1], ob.t[2]);
+                        let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+                        object.setRotationFromQuaternion(quat_o);
+        
+                        scene.add(object);
+                        ob['mesh'] = object;
+                        ob['loaded'] = true;
+                        cb();
+                    },
+                    function (xhr) {
+                        console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+                    },
+                    function (error) {
+                        console.log('Error loading obj file');
+                        console.log(error);
+                    }
+                );
+            }
+        );
+    } else if (ext == 'gltf' || ext == 'glb') {
+        let loader = gltfloader.load(ob.filename,
+            function (object) {
+
+                let mesh = object.scene;
+
+                mesh.traverse( function (child) {
+                    if ( child.isMesh ) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+
+                mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+                mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
+                let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+                mesh.setRotationFromQuaternion(quat_o);
+
+                scene.add(mesh);
+                ob['mesh'] = mesh;
+                ob['loaded'] = true;
+                cb();
+            },
+            // called when loading is in progresses
+            function ( xhr ) {
+                console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // called when loading has errors
+            function ( error ) {
+                console.log('Error loading GLTF file');
+                console.log(error);
+            }
+        );
+    } else if (ext == 'ply') {
+        let loader = plyloader.load(ob.filename,
+            function (geometry) {
+
+                geometry.computeVertexNormals();
+
+                const material = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(
+                        ob.color[0], ob.color[1], ob.color[2]),
+                        specular: 0x111111, shininess: 200
+                });
+                const mesh = new THREE.Mesh(geometry, material);
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+                mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
+                let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+                mesh.setRotationFromQuaternion(quat_o);
+
+                scene.add(mesh);
+                ob['mesh'] = mesh;
+                ob['loaded'] = true;
+                cb();
+            },
+            // called when loading is in progresses
+            function ( xhr ) {
+                console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // called when loading has errors
+            function ( error ) {
+                console.log('Error loading PLY file');
+                console.log(error);
+            }
+        );
+    } else if (ext == 'wrl') {
+        let loader = vrmloader.load(ob.filename,
+            function (mesh) {
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+                mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
+                let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+                mesh.setRotationFromQuaternion(quat_o);
+
+                scene.add(mesh);
+                ob['mesh'] = mesh;
+                ob['loaded'] = true;
+                cb();
+            },
+            // called when loading is in progresses
+            function ( xhr ) {
+                console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // called when loading has errors
+            function ( error ) {
+                console.log('Error loading VRML file');
+                console.log(error);
+            }
+        );
+    } else if (ext == 'pcd') {
+        let loader = pcdloader.load(ob.filename,
+            function (mesh) {
+
+                mesh.scale.set(ob.scale[0], ob.scale[1], ob.scale[2]);
+                mesh.position.set(ob.t[0], ob.t[1], ob.t[2]);
+                let quat_o = new THREE.Quaternion(ob.q[1], ob.q[2], ob.q[3], ob.q[0]);
+                mesh.setRotationFromQuaternion(quat_o);
+
+                scene.add(mesh);
+                ob['mesh'] = mesh;
+                ob['loaded'] = true;
+                cb();
+            },
+            // called when loading is in progresses
+            function ( xhr ) {
+                console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // called when loading has errors
+            function ( error ) {
+                console.log('Error loading PLY file');
+                console.log(error);
+            }
+        );
     }
 
 }
