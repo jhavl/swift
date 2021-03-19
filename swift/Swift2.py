@@ -30,14 +30,14 @@ def start_servers2(outq, inq, open_tab=True, browser=None):
     socket_port = inq.get()
 
     # Start a http server
-    # server = Thread(
-    #     target=SwiftServer2, args=(outq, inq, socket_port, ), daemon=True)
-    # server.start()
-    # server_port = inq.get()
+    server = Thread(
+        target=SwiftServer2, args=(outq, inq, socket_port, ), daemon=True)
+    server.start()
+    server_port = inq.get()
 
-    # wb.get(browser).open_new_tab(
-    #     'http://localhost:'
-    #     + str(server_port))
+    wb.get(browser).open_new_tab(
+        'http://localhost:'
+        + str(server_port))
 
     # if open_tab:
 
@@ -110,9 +110,13 @@ class SwiftSocket2:
         # Now onto send, recieve cycle
         while True:
             message = await self.producer()
-            await websocket.send(json.dumps(message))
-            recieved = await websocket.recv()
-            self.inq.put(recieved)
+            expected = message[0]
+            msg = message[1]
+            await websocket.send(json.dumps(msg))
+
+            if expected:
+                recieved = await websocket.recv()
+                self.inq.put(recieved)
 
     async def producer(self):
         data = self.outq.get()
