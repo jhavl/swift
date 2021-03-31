@@ -21,20 +21,20 @@ import time
 import sys
 
 
-def start_servers2(
+def start_servers(
         outq, inq, stop_servers, open_tab=True,
         browser=None, dev=False):
 
     # Start our websocket server with a new clean port
     socket = Thread(
-        target=SwiftSocket2, args=(outq, inq, stop_servers, ), daemon=True)
+        target=SwiftSocket, args=(outq, inq, stop_servers, ), daemon=True)
     socket.start()
     socket_port = inq.get()
 
     if not dev:
         # Start a http server
         server = Thread(
-            target=SwiftServer2,
+            target=SwiftServer,
             args=(outq, inq, socket_port, stop_servers, ),
             daemon=True)
 
@@ -74,31 +74,6 @@ def start_servers2(
             + '/?'
             + str(socket_port))
 
-        # if open_tab:
-
-        #     if browser is not None:
-        #         try:
-        # wb.get(browser).open_new_tab(
-        #     'http://localhost:'
-        #     + str(server_port)
-        #                 + '/'
-        #                 + str(socket_port))
-        #         except wb.Error:
-        #             print(
-        #                 '\nCould not open specified browser, '
-        #                 'using default instead\n')
-        #             wb.open_new_tab(
-        #                 'http://localhost:'
-        #                 + str(server_port)
-        #                 + '/'
-        #                 + str(socket_port))
-        #     else:
-        #         wb.open_new_tab(
-        #             'http://localhost:'
-        #             + str(server_port)
-        #             + '/'
-        #             + str(socket_port))
-
     try:
         inq.get(timeout=10)
     except Empty:
@@ -108,7 +83,7 @@ def start_servers2(
     return socket, server
 
 
-class SwiftSocket2:
+class SwiftSocket:
 
     def __init__(self, outq, inq, run):
         self.run = run
@@ -162,7 +137,7 @@ class SwiftSocket2:
         return data
 
 
-class SwiftServer2:
+class SwiftServer:
 
     def __init__(self, outq, inq, socket_port, run, verbose=False):
 

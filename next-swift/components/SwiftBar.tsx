@@ -59,6 +59,7 @@ const SwiftSlider = (props: ISwiftElement): JSX.Element => {
         console.log(props.value)
         slider.current.value = props.value[0]
         label.current.innerHTML = props.value[0] + props.unit
+        callback(null)
     }, [props.value])
 
     return (
@@ -93,9 +94,7 @@ const SwiftSlider = (props: ISwiftElement): JSX.Element => {
                     className={[styles.sliderVals, styles.sliderVal].join(' ')}
                     id={'value' + props.id}
                 >
-                    {slider.current
-                        ? slider.current.value + props.unit
-                        : props.value[0] + props.unit}
+                    {props.value[0] + props.unit}
                 </p>
                 <p
                     className={[styles.sliderVals, styles.sliderMax].join(' ')}
@@ -117,6 +116,7 @@ const SwiftSelect = (props: ISwiftElement): JSX.Element => {
 
     useEffect(() => {
         select.current.value = props.value[0]
+        props.callback(props.id, select.current.value)
     }, [props.value])
 
     return (
@@ -160,6 +160,7 @@ const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
         for (let i = 0; i < checks.length; i++) {
             checks[i].checked = props.checked[i]
         }
+        callback(null)
     }, [props.checked])
 
     return (
@@ -196,13 +197,6 @@ const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
 const SwiftRadio = (props: ISwiftElement): JSX.Element => {
     const radio = useRef(null)
 
-    useEffect(() => {
-        const radios = radio.current.getElementsByTagName('input')
-        for (let i = 0; i < radios.length; i++) {
-            radios[i].checked = props.checked[i]
-        }
-    }, [props.checked])
-
     const callback = (e) => {
         const radios = radio.current.getElementsByTagName('input')
         let i
@@ -213,6 +207,14 @@ const SwiftRadio = (props: ISwiftElement): JSX.Element => {
         }
         props.callback(props.id, i)
     }
+
+    useEffect(() => {
+        const radios = radio.current.getElementsByTagName('input')
+        for (let i = 0; i < radios.length; i++) {
+            radios[i].checked = props.checked[i]
+        }
+        callback(null)
+    }, [props.checked])
 
     return (
         <div className={styles.radioDiv}>
