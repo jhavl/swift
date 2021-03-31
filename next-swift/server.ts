@@ -11,6 +11,13 @@ app.prepare().then(() => {
     res.sendFile(req.path)
   })
 
+//   server.get('/[0-9]{5}/', (req, res) => {
+//     console.log(req.path)
+//     res.path = '/'
+//     console.log(req.path)
+//     return handle(req, res)
+//   })
+
   server.get('*', (req, res) => {
     return handle(req, res)
   })
@@ -25,3 +32,4 @@ app.prepare().then(() => {
 })
 
 // export { }
+// 

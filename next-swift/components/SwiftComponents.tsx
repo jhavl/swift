@@ -56,6 +56,7 @@ export const ShadowedLight: React.FC<IShadowedLightProps> = (
 
 export interface ICameraProps {
     setDefault: boolean
+    fpsCallBack: any
 }
 
 export const Camera = (props: ICameraProps): JSX.Element => {
@@ -69,6 +70,10 @@ export const Camera = (props: ICameraProps): JSX.Element => {
         if (props.setDefault) {
             setDefaultCamera(camera.current)
         }
+    })
+
+    useFrame((state, delta) => {
+        props.fpsCallBack(1.0 / delta)
     })
 
     return (

@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@react-three/drei": "^3.11.2",
     "@types/sass": "^1.16.0",
     "ace-builds": "^1.4.12",
     "express": "^4.17.1",

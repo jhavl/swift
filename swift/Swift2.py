@@ -21,48 +21,83 @@ import time
 import sys
 
 
-def start_servers2(outq, inq, open_tab=True, browser=None):
+def start_servers2(
+        outq, inq, stop_servers, open_tab=True,
+        browser=None, dev=False):
 
     # Start our websocket server with a new clean port
     socket = Thread(
-        target=SwiftSocket2, args=(outq, inq, ), daemon=True)
+        target=SwiftSocket2, args=(outq, inq, stop_servers, ), daemon=True)
     socket.start()
     socket_port = inq.get()
 
-    # Start a http server
-    # server = Thread(
-    #     target=SwiftServer2, args=(outq, inq, socket_port, ), daemon=True)
-    # server.start()
-    # server_port = inq.get()
+    if not dev:
+        # Start a http server
+        server = Thread(
+            target=SwiftServer2,
+            args=(outq, inq, socket_port, stop_servers, ),
+            daemon=True)
 
-    # wb.get(browser).open_new_tab(
-    #     'http://localhost:'
-    #     + str(server_port))
+        server.start()
+        server_port = inq.get()
 
-    # if open_tab:
+        if open_tab:
 
-    #     if browser is not None:
-    #         try:
-    # wb.get(browser).open_new_tab(
-    #     'http://localhost:'
-    #     + str(server_port)
-    #                 + '/'
-    #                 + str(socket_port))
-    #         except wb.Error:
-    #             print(
-    #                 '\nCould not open specified browser, '
-    #                 'using default instead\n')
-    #             wb.open_new_tab(
-    #                 'http://localhost:'
-    #                 + str(server_port)
-    #                 + '/'
-    #                 + str(socket_port))
-    #     else:
-    #         wb.open_new_tab(
-    #             'http://localhost:'
-    #             + str(server_port)
-    #             + '/'
-    #             + str(socket_port))
+            if browser is not None:
+                try:
+                    wb.get(browser).open_new_tab(
+                        'http://localhost:'
+                        + str(server_port)
+                        + '/?'
+                        + str(socket_port))
+                except wb.Error:
+                    print(
+                        '\nCould not open specified browser, '
+                        'using default instead\n')
+                    wb.open_new_tab(
+                        'http://localhost:'
+                        + str(server_port)
+                        + '/?'
+                        + str(socket_port))
+            else:
+                wb.open_new_tab(
+                    'http://localhost:'
+                    + str(server_port)
+                    + '/?'
+                    + str(socket_port))
+    else:
+        server = None
+
+        wb.get(browser).open_new_tab(
+            'http://localhost:'
+            + str(3000)
+            + '/?'
+            + str(socket_port))
+
+        # if open_tab:
+
+        #     if browser is not None:
+        #         try:
+        # wb.get(browser).open_new_tab(
+        #     'http://localhost:'
+        #     + str(server_port)
+        #                 + '/'
+        #                 + str(socket_port))
+        #         except wb.Error:
+        #             print(
+        #                 '\nCould not open specified browser, '
+        #                 'using default instead\n')
+        #             wb.open_new_tab(
+        #                 'http://localhost:'
+        #                 + str(server_port)
+        #                 + '/'
+        #                 + str(socket_port))
+        #     else:
+        #         wb.open_new_tab(
+        #             'http://localhost:'
+        #             + str(server_port)
+        #             + '/'
+        #             + str(socket_port))
 
     try:
         inq.get(timeout=10)
@@ -70,32 +105,35 @@ def start_servers2(outq, inq, open_tab=True, browser=None):
         print('\nCould not connect to the Swift simulator \n')
         raise
 
+    return socket, server
+
 
 class SwiftSocket2:
 
-    def __init__(self, outq, inq):
+    def __init__(self, outq, inq, run):
+        self.run = run
         self.outq = outq
         self.inq = inq
         self.USERS = set()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
 
         started = False
-        port = 8080
+        # port = 8080
+        # start_server = websockets.serve(self.serve, "localhost", port)
+        # self.loop.run_until_complete(start_server)
 
-        start_server = websockets.serve(self.serve, "localhost", port)
-        loop.run_until_complete(start_server)
-
-        # while not started and port < 62000:
-        #     try:
-        #         start_server = websockets.serve(self.serve, "localhost", port)
-        #         loop.run_until_complete(start_server)
-        #         started = True
-        #     except OSError:
-        #         port += 1
+        port = 53000
+        while not started and port < 62000:
+            try:
+                start_server = websockets.serve(self.serve, "localhost", port)
+                self.loop.run_until_complete(start_server)
+                started = True
+            except OSError:
+                port += 1
 
         self.inq.put(port)
-        loop.run_forever()
+        self.loop.run_forever()
 
     async def register(self, websocket):
         self.USERS.add(websocket)
@@ -108,7 +146,7 @@ class SwiftSocket2:
         self.inq.put(recieved)
 
         # Now onto send, recieve cycle
-        while True:
+        while self.run():
             message = await self.producer()
             expected = message[0]
             msg = message[1]
@@ -117,6 +155,7 @@ class SwiftSocket2:
             if expected:
                 recieved = await websocket.recv()
                 self.inq.put(recieved)
+        return
 
     async def producer(self):
         data = self.outq.get()
@@ -125,10 +164,11 @@ class SwiftSocket2:
 
 class SwiftServer2:
 
-    def __init__(self, outq, inq, socket_port, verbose=False):
+    def __init__(self, outq, inq, socket_port, run, verbose=False):
 
         server_port = 52000
         self.inq = inq
+        self.run = run
 
         root_dir = Path(sw.__file__).parent / 'out'
         # os.chdir(Path.home())
@@ -147,19 +187,21 @@ class SwiftServer2:
 
             def do_GET(self):
 
-                # home = str(Path.home())
-
-                # if self.path == '/':
-                #     self.send_response(301)
-
-                #     self.send_header(
-                #         'Location', 'http://localhost:'
-                #         + str(server_port))
-
-                #     self.end_headers()
-                #     return
+                home = str(Path.home())
 
                 if self.path == '/':
+                    self.send_response(301)
+
+                    self.send_header(
+                        'Location', 'http://localhost:'
+                        + str(server_port)
+                        + '/?'
+                        + str(socket_port))
+
+                    self.end_headers()
+                    return
+
+                if self.path == '/?' + str(socket_port):
                     self.path = str(root_dir / 'index.html')
 
                 elif self.path.endswith('css') or self.path.endswith('js') \
@@ -188,6 +230,10 @@ class SwiftServer2:
                     self.inq.put(server_port)
                     connected = True
 
+                    # while self.run():
+                    # httpd.handle_request
                     httpd.serve_forever()
             except OSError:
                 server_port += 1
+
+        print('here!')

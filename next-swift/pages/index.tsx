@@ -11,7 +11,14 @@ const Home = () => {
             </Head>
 
             <main className={styles.main}>
-                <Swift port={8080} />
+                <div className={styles.container}>
+                    {/* <div class="info">
+                    <div id="fps">60 fps</div>
+                    <div id="sim-time">00:00.000</div>
+                    </div> */}
+
+                    <Swift port={0} />
+                </div>
             </main>
         </div>
     )

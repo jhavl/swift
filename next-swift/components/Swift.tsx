@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 THREE.Object3D.DefaultUp.set(0, 0, 1)
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { Canvas } from 'react-three-fiber'
-
+import { Canvas, useFrame } from 'react-three-fiber'
+import SwiftInfo from '../components/SwiftInfo'
+import SwiftBar, { ISwiftBar } from '../components/SwiftBar'
 import styles from '../styles/Swift.module.scss'
 
 import {
@@ -51,16 +52,75 @@ export interface ISwiftProps {
 }
 
 const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
+    const DEFUALT_ELEMENTS = 3
     const [hasMounted, setHasMounted] = useState(false)
+    const [time, setTime] = useState(0.0)
+    const [FPS, setFPS] = useState('60 fps')
+    const [frameTime, setFrameTime] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    const [frameI, setFrameI] = useState(0)
     const shapes = useRef<THREE.group>()
     const ws = useRef<WebSocket>(null)
-
     const [shapeDesc, setShapeDesc] = useState<IShapeProps[][]>([])
+    const [formData, setFormData] = useState({})
+    const [connected, setConnected] = useState(false)
+
+    const [formElements, setFormElements] = useState<ISwiftBar>([])
+
+    const formCallback = (index, data) => {
+        const newFormData = { ...formData }
+        newFormData[index] = data
+        setFormData(newFormData)
+    }
+
+    const setFrames = (delta) => {
+        let newFrameTime = [...frameTime]
+        let newFrameI = frameI
+        let total = 0
+
+        newFrameI += 1
+        if (newFrameI >= 10) {
+            newFrameI = 0
+        }
+
+        newFrameTime[newFrameI] = delta
+
+        for (let j = 0; j < 10; j++) {
+            total += newFrameTime[j]
+        }
+
+        total = Math.round(total / 10.0)
+
+        setFrameTime(newFrameTime)
+        setFrameI(newFrameI)
+        if (total === Infinity) {
+            total = 60
+        }
+        setFPS(`${total} fps`)
+    }
 
     useEffect(() => {
         setHasMounted(true)
-        ws.current = new WebSocket('ws://localhost:' + props.port + '/')
-        ws.current.onopen = () => ws.current.send('Connected')
+        let port = props.port
+
+        if (port === 0) {
+            port = parseInt(window.location.search.substring(1))
+        }
+
+        if (!port) {
+            port = 0
+        }
+
+        ws.current = new WebSocket('ws://localhost:' + port + '/')
+        ws.current.onopen = () => {
+            ws.current.onclose = () => {
+                setTimeout(function () {
+                    window.close()
+                }, 5000)
+            }
+
+            ws.current.send('Connected')
+            setConnected(true)
+        }
     }, [])
 
     useEffect(() => {
@@ -103,7 +163,20 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                     }
                     break
 
+                case 'remove':
+                    const newShapeDesc = [...shapeDesc]
+                    newShapeDesc[data] = []
+                    setShapeDesc(newShapeDesc)
+                    ws.current.send('0')
+                    break
+
                 case 'shape_poses':
+                    if (Object.keys(formData).length !== 0) {
+                        ws.current.send(JSON.stringify(formData))
+                        setFormData([])
+                    } else {
+                        ws.current.send('[]')
+                    }
                     data.forEach((object) => {
                         const id = object[0]
                         const group = object[1]
@@ -123,42 +196,57 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                             shapes.current.children[id].children[
                                 i
                             ].setRotationFromQuaternion(quat)
-
-                            // console.log(
-                            //     shapes.current.children[id].children[i]
-                            //         .quaternion
-                            // )
-                            // console.log(shapes.current.children[id].children[i])
-                            // // mesh.setRotationFromQuaternion(quat);
-                            // shapes.current.children[id].children[
-                            //     i
-                            // ].setRotationFromQuaternion(quat)
-                            // shapes.current.children[id].children[
-                            //     i
-                            // ].quaternion.set(
-                            //     pose.q[0],
-                            //     pose.q[1],
-                            //     pose.q[2],
-                            //     pose.q[3]
-                            // )
-                            // console.log(shapes.current.children[id].children[i])
-                            // console.log(pose.q)
-                            // console.log(0)
                         })
                     })
-                    ws.current.send('0')
+
                     break
+
+                case 'sim_time':
+                    setTime(parseFloat(data))
+                    break
+
+                case 'close':
+                    ws.current.close()
+                    window.close()
+                    break
+
+                case 'element':
+                    const newForm = [...formElements]
+                    data.callback = formCallback
+                    data.value = [data.value]
+                    newForm.push(data)
+                    setFormElements(newForm)
+                    ws.current.send('0')
+
+                    break
+
+                case 'update_element':
+                    const updatedForm = [...formElements]
+                    console.log(updatedForm[1].value)
+                    data.callback = formCallback
+                    data.value = [data.value]
+                    updatedForm[data.id - DEFUALT_ELEMENTS] = data
+                    setFormElements(updatedForm)
+                    console.log(updatedForm[1].value)
+                    break
+
                 default:
                     break
-                // ws.send(id);
             }
         }
-    }, [shapeDesc])
+    }, [shapeDesc, formData, formElements])
 
     return (
         <div className={styles.swiftContainer}>
+            <SwiftInfo
+                time={time}
+                FPS={FPS}
+                callback={formCallback}
+                connected={connected}
+            />
+            <SwiftBar elements={formElements} />
             <Canvas gl={{ antialias: true }} shadowMap={{ enabled: true }}>
-                <Camera setDefault={true} />
+                <Camera setDefault={true} fpsCallBack={setFrames} />
                 {hasMounted && (
                     <Suspense fallback={null}>
                         <Controls />
