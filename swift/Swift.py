@@ -5,6 +5,7 @@
 
 import numpy as np
 import spatialmath as sm
+from spatialgeometry import Shape
 import time
 from queue import Queue
 import json
@@ -205,7 +206,7 @@ class Swift():
         # TODO how is the pose of shapes updated prior to step?
 
         for obj in self.swift_objects:
-            if isinstance(obj, rtb.Shape):
+            if isinstance(obj, Shape):
                 self._step_shape(obj, dt)
             elif isinstance(obj, rtb.Robot):
                 self._step_robot(obj, dt)
@@ -357,7 +358,7 @@ class Swift():
 
             self.swift_objects.append(ob)
             return int(id)
-        elif isinstance(ob, rtb.Shape):
+        elif isinstance(ob, Shape):
             if not self.headless:
                 id = int(self._send_socket('shape', [ob.to_dict()]))
 
@@ -403,7 +404,7 @@ class Swift():
         idd = None
         code = None
 
-        if isinstance(id, rtb.ERobot) or isinstance(id, rtb.Shape):
+        if isinstance(id, rtb.ERobot) or isinstance(id, Shape):
 
             for i in range(len(self.swift_objects)):
                 if self.swift_objects[i] is not None and \
@@ -563,7 +564,7 @@ class Swift():
 
         for i in range(len(self.swift_objects)):
             if self.swift_objects[i] is not None:
-                if isinstance(self.swift_objects[i], rtb.Shape):
+                if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
                 elif isinstance(self.swift_objects[i], rtb.Robot):
                     msg.append([i, self.swift_objects[i].fk_dict()])

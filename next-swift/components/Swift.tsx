@@ -3,7 +3,7 @@ THREE.Object3D.DefaultUp.set(0, 0, 1)
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Canvas, useFrame } from 'react-three-fiber'
 import SwiftInfo from '../components/SwiftInfo'
-import SwiftBar, { ISwiftBar } from '../components/SwiftBar'
+import SwiftBar, { ISwiftBar, ISwiftElement } from '../components/SwiftBar'
 import styles from '../styles/Swift.module.scss'
 
 import {
@@ -64,7 +64,7 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
     const [formData, setFormData] = useState({})
     const [connected, setConnected] = useState(false)
 
-    const [formElements, setFormElements] = useState<ISwiftBar>([])
+    const [formElements, setFormElements] = useState<ISwiftElement[]>([])
 
     const formCallback = (index, data) => {
         const newFormData = { ...formData }

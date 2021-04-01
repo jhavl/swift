@@ -179,6 +179,9 @@ class SwiftServer:
                 if self.path == '/?' + str(socket_port):
                     self.path = str(root_dir / 'index.html')
 
+                elif self.path.endswith('svg') or self.path.endswith('ico'):
+                    self.path = str(root_dir) + str(Path(self.path))
+
                 elif self.path.endswith('css') or self.path.endswith('js') \
                         or self.path.endswith('map'):
                     self.path = str(root_dir) + str(Path(self.path))

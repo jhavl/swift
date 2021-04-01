@@ -64,7 +64,6 @@ const SwiftAction = (props: ISwiftAction): JSX.Element => {
             disabled={props.connected}
         >
             <img className={styles.svg} src={props.path} />
-            {/* <span className={styles.sr}>Clink me</span> */}
         </button>
     )
 }
