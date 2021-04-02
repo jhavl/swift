@@ -3,6 +3,7 @@
 @author Jesse Haviland
 """
 
+from os import read
 import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
@@ -97,8 +98,16 @@ class Swift():
         '''
         A private initialization method to make relaunching easy
         '''
+
+        # This is the time that has been simulated according to step(dt)
         self.sim_time = 0.0
+
+        # This holds all simulated objects within swift
         self.swift_objects = []
+
+        # This is an option dict with the format id: {option: option_value}
+        # to hold custom options for simulated objects
+        self.swift_options = {}
 
         # Number of custom html elements added to page for id purposes
         self.elementid = 0
@@ -205,20 +214,16 @@ class Swift():
 
         # TODO how is the pose of shapes updated prior to step?
 
-        for obj in self.swift_objects:
+        for i, obj in enumerate(self.swift_objects):
             if isinstance(obj, Shape):
                 self._step_shape(obj, dt)
             elif isinstance(obj, rtb.Robot):
-                self._step_robot(obj, dt)
+                self._step_robot(obj, dt, self.swift_options[i]['readonly'])
 
         # Adjust sim time
         self.sim_time += dt
 
         if not self.headless:
-
-            # self.process_events()
-            # Step through user GUI changes
-            # self._step_elements()
 
             if render and self.rendering:
 
@@ -340,25 +345,7 @@ class Swift():
         # must be of an appropriate class. This adds a robot object to a
         # list of robots which will act upon the step() method being called.
 
-        if isinstance(ob, rtb.ERobot):
-            ob._swift_readonly = readonly
-            ob._show_robot = show_robot
-            ob._show_collision = show_collision
-
-            if not self.headless:
-                robob = ob.to_dict()
-                id = self._send_socket('shape', robob)
-
-                while not int(self._send_socket(
-                        'shape_mounted', [id, len(robob)])):
-                    time.sleep(0.1)
-
-            else:
-                id = len(self.swift_objects)
-
-            self.swift_objects.append(ob)
-            return int(id)
-        elif isinstance(ob, Shape):
+        if isinstance(ob, Shape):
             if not self.headless:
                 id = int(self._send_socket('shape', [ob.to_dict()]))
 
@@ -387,6 +374,33 @@ class Swift():
             self._send_socket(
                 'element',
                 ob.to_dict())
+        elif isinstance(ob, rtb.ERobot):
+
+            # ob._swift_readonly = readonly
+            # ob._show_robot = show_robot
+            # ob._show_collision = show_collision
+
+            if not self.headless:
+                robob = ob.to_dict(show_robot=show_robot,
+                                   show_collision=show_collision)
+                id = self._send_socket('shape', robob)
+
+                while not int(self._send_socket(
+                        'shape_mounted', [id, len(robob)])):
+                    time.sleep(0.1)
+
+            else:
+                id = len(self.swift_objects)
+
+            self.swift_objects.append(ob)
+
+            self.swift_options[int(id)] = {
+                'show_robot': show_robot,
+                'show_collision': show_collision,
+                'readonly': readonly
+            }
+
+            return int(id)
 
     def remove(self, id):
         """
@@ -497,11 +511,11 @@ class Swift():
         for event in events:
             self.elements[event].cb(events[event])
 
-    def _step_robot(self, robot, dt):
+    def _step_robot(self, robot, dt, readonly):
 
         # robot = robot_object['ob']
 
-        if robot._swift_readonly or robot._control_type == 'p':
+        if readonly or robot._control_type == 'p':
             pass            # pragma: no cover
 
         elif robot._control_type == 'v':
@@ -567,7 +581,10 @@ class Swift():
                 if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
                 elif isinstance(self.swift_objects[i], rtb.Robot):
-                    msg.append([i, self.swift_objects[i].fk_dict()])
+                    msg.append([i, self.swift_objects[i].fk_dict(
+                        self.swift_options[i]['show_robot'],
+                        self.swift_options[i]['show_collision']
+                    )])
 
         events = self._send_socket('shape_poses', msg, True)
         return json.loads(events)
