@@ -64,9 +64,6 @@ typings/
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
-# next.js build output
-.next
-
 # nuxt.js build output
 .nuxt
 
@@ -84,9 +81,6 @@ typings/
 
 # Webpack
 .webpack/
-
-# Electron-Forge
-out/
 
 # Vim
 *.sw*
@@ -253,3 +247,5 @@ CATKIN_IGNORE
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
+
+.next
