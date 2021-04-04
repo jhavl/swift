@@ -130,7 +130,7 @@ class Swift():
     @rate.setter
     def rate(self, new):
         self._rate = new
-        self._period = 1/new
+        self._period = 1 / new
 
     def __repr__(self):
         s = f"Swift backend, t = {self.sim_time}, scene:"
@@ -553,7 +553,8 @@ class Swift():
         R = Rdelta * R
         R = R.norm()  # renormalize to avoid numerical issues
 
-        shape.base = sm.SE3.SO3(R, t=t)
+        # shape.base = sm.SE3.SO3(R, t=t)
+        shape.base = sm.SE3.Rt(R, t=t)
 
     def _step_elements(self):
         """
