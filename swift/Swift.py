@@ -516,6 +516,8 @@ class Swift():
 
         # robot = robot_object['ob']
 
+        robot.fkine_links(robot.q)
+
         if readonly or robot._control_type == 'p':
             pass            # pragma: no cover
 
