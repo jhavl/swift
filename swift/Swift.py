@@ -509,6 +509,7 @@ class Swift():
         """
         # events = self._send_socket('check_elements')
         for event in events:
+            self.elements[event].update(events[event])
             self.elements[event].cb(events[event])
 
     def _step_robot(self, robot, dt, readonly):

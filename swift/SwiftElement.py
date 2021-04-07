@@ -36,6 +36,15 @@ class SwiftElement(ABC):
 
         pass
 
+    @abstractmethod
+    def update(self):
+        '''
+        Update state of element to reflect what's going on in the front-end
+
+        '''
+
+        pass
+
 
 class Slider(SwiftElement):
     """
@@ -145,6 +154,9 @@ class Slider(SwiftElement):
             'unit': self.unit
         }
 
+    def update(self, e):
+        self._value = e
+
 
 class Label(SwiftElement):
     """
@@ -175,6 +187,9 @@ class Label(SwiftElement):
             'id': self._id,
             'desc': self.desc
         }
+
+    def update(self, _):
+        pass
 
 
 class Button(SwiftElement):
@@ -220,6 +235,9 @@ class Button(SwiftElement):
             'id': self._id,
             'desc': self.desc
         }
+
+    def update(self, _):
+        pass
 
 
 class Select(SwiftElement):
@@ -293,6 +311,9 @@ class Select(SwiftElement):
             'value': self.value
         }
 
+    def update(self, e):
+        self._value = e
+
 
 class Checkbox(SwiftElement):
     """
@@ -353,6 +374,7 @@ class Checkbox(SwiftElement):
     @checked.setter
     @SwiftElement._update
     def checked(self, value):
+        print(value)
         if isinstance(value, int):
             new = [False] * len(self.options)
             new[value] = True
@@ -368,6 +390,9 @@ class Checkbox(SwiftElement):
             'options': self.options,
             'checked': self.checked
         }
+
+    def update(self, e):
+        self._checked = e
 
 
 class Radio(SwiftElement):
@@ -444,3 +469,6 @@ class Radio(SwiftElement):
             'options': self.options,
             'checked': self.checked
         }
+
+    def update(self, e):
+        self._checked = e
