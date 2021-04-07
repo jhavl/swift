@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import React, { useEffect, useRef, useContext } from 'react'
+import { FormDispatch } from '../components/Swift'
 import styles from '../styles/SwiftBar.module.scss'
 
 export interface ISwiftElement {
     element: string
     id: number
-    callback?: any
     desc?: string
     min?: number
     max?: number
-    value?: number[]
+    value?: number
     step?: number
     unit?: string
     options?: string[]
@@ -19,10 +19,24 @@ export interface ISwiftBar {
     elements: ISwiftElement[]
 }
 
+function useTraceUpdate(props) {
+    const prev = useRef(props)
+    useEffect(() => {
+        const changedProps = Object.entries(props).reduce((ps, [k, v]) => {
+            if (prev.current[k] !== v) {
+                ps[k] = [prev.current[k], v]
+            }
+            return ps
+        }, {})
+        if (Object.keys(changedProps).length > 0) {
+            console.log('Changed props:', changedProps)
+        }
+        prev.current = props
+    })
+}
+
 const SwiftButton = (props: ISwiftElement): JSX.Element => {
-    const callback = (e) => {
-        props.callback(props.id, 1)
-    }
+    const dispatch = useContext(FormDispatch)
 
     return (
         <div className={styles.buttonDiv}>
@@ -30,7 +44,13 @@ const SwiftButton = (props: ISwiftElement): JSX.Element => {
                 type="button"
                 className={styles.buttonButton}
                 id={'button' + props.id}
-                onClick={callback}
+                onClick={() =>
+                    dispatch({
+                        type: 'userInputNoState',
+                        index: props.id,
+                        data: 1,
+                    })
+                }
             >
                 {props.desc}
             </button>
@@ -47,20 +67,26 @@ const SwiftLabel = (props: ISwiftElement): JSX.Element => {
 }
 
 const SwiftSlider = (props: ISwiftElement): JSX.Element => {
+    const dispatch = useContext(FormDispatch)
     const slider = useRef(null)
     const label = useRef(null)
 
-    const callback = (e) => {
+    const updateSlider = () => {
         label.current.innerHTML = slider.current.value + props.unit
-        props.callback(props.id, slider.current.value)
+        dispatch({
+            type: 'userInputState',
+            index: props.id,
+            data: parseFloat(slider.current.value),
+            valueName: 'value',
+            value: parseFloat(slider.current.value),
+        })
     }
 
     useEffect(() => {
-        console.log(props.value)
-        slider.current.value = props.value[0]
-        label.current.innerHTML = props.value[0] + props.unit
-        callback(null)
+        updateSlider()
     }, [props.value])
+
+    // useTraceUpdate(props)
 
     return (
         <div className={styles.sliderDiv} id={'slider-div' + props.id}>
@@ -70,13 +96,13 @@ const SwiftSlider = (props: ISwiftElement): JSX.Element => {
             <input
                 ref={slider}
                 type="range"
-                defaultValue={props.value[0]}
+                value={props.value}
                 step={props.step}
                 min={props.min}
                 max={props.max}
                 className={styles.slider}
                 id={'slider' + props.id}
-                onInput={callback}
+                onInput={updateSlider}
             />
 
             <div
@@ -94,7 +120,7 @@ const SwiftSlider = (props: ISwiftElement): JSX.Element => {
                     className={[styles.sliderVals, styles.sliderVal].join(' ')}
                     id={'value' + props.id}
                 >
-                    {props.value[0] + props.unit}
+                    {props.value + props.unit}
                 </p>
                 <p
                     className={[styles.sliderVals, styles.sliderMax].join(' ')}
@@ -108,15 +134,25 @@ const SwiftSlider = (props: ISwiftElement): JSX.Element => {
 }
 
 const SwiftSelect = (props: ISwiftElement): JSX.Element => {
+    const dispatch = useContext(FormDispatch)
     const select = useRef(null)
 
-    const callback = (e) => {
-        props.callback(props.id, select.current.value)
+    const updateSelect = (e) => {
+        dispatch({
+            type: 'userInputState',
+            index: props.id,
+            data: parseInt(select.current.value),
+            valueName: 'value',
+            value: parseInt(select.current.value),
+        })
     }
 
     useEffect(() => {
-        select.current.value = props.value[0]
-        props.callback(props.id, select.current.value)
+        dispatch({
+            type: 'userInputNoState',
+            index: props.id,
+            data: parseInt(select.current.value),
+        })
     }, [props.value])
 
     return (
@@ -128,8 +164,8 @@ const SwiftSelect = (props: ISwiftElement): JSX.Element => {
                 ref={select}
                 id={'select' + props.id}
                 className={styles.selectSelect}
-                onChange={callback}
-                defaultValue={props.value[0]}
+                onChange={updateSelect}
+                value={props.value}
             >
                 {props.options.map((value, i) => {
                     return (
@@ -144,23 +180,38 @@ const SwiftSelect = (props: ISwiftElement): JSX.Element => {
 }
 
 const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
+    const dispatch = useContext(FormDispatch)
     const check = useRef(null)
 
-    const callback = (e) => {
+    const getChecked = () => {
         const checks = check.current.getElementsByTagName('input')
         const data = []
         for (let i = 0; i < checks.length; i++) {
             data.push(checks[i].checked)
         }
-        props.callback(props.id, data)
+        return data
+    }
+
+    const updateCheckbox = (e) => {
+        const checked = getChecked()
+
+        dispatch({
+            type: 'userInputState',
+            index: props.id,
+            data: checked,
+            valueName: 'checked',
+            value: checked,
+        })
     }
 
     useEffect(() => {
-        const checks = check.current.getElementsByTagName('input')
-        for (let i = 0; i < checks.length; i++) {
-            checks[i].checked = props.checked[i]
-        }
-        callback(null)
+        const checked = getChecked()
+
+        dispatch({
+            type: 'userInputNoState',
+            index: props.id,
+            data: checked,
+        })
     }, [props.checked])
 
     return (
@@ -170,7 +221,6 @@ const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
             </label>
             <div
                 ref={check}
-                onChange={callback}
                 className={styles.checkboxCont}
                 id={'checkboxcont' + props.id}
             >
@@ -182,7 +232,8 @@ const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
                         >
                             <input
                                 type={'checkbox'}
-                                defaultChecked={props.checked[i]}
+                                onChange={updateCheckbox}
+                                checked={props.checked[i]}
                                 id={'checkbox' + props.id + i}
                             />
                             <span> {props.options[i]} </span>
@@ -195,25 +246,42 @@ const SwiftCheckbox = (props: ISwiftElement): JSX.Element => {
 }
 
 const SwiftRadio = (props: ISwiftElement): JSX.Element => {
+    const dispatch = useContext(FormDispatch)
     const radio = useRef(null)
 
-    const callback = (e) => {
+    const getChecked = () => {
         const radios = radio.current.getElementsByTagName('input')
-        let i
+        let i, j
+        let checked = []
         for (i = 0; i < radios.length; i++) {
             if (radios[i].checked) {
-                break
+                j = i
             }
+            checked.push(radios[i].checked)
         }
-        props.callback(props.id, i)
+        return [checked, j]
+    }
+
+    const updateRadio = () => {
+        const [checked, j] = getChecked()
+
+        dispatch({
+            type: 'userInputState',
+            index: props.id,
+            data: j,
+            valueName: 'checked',
+            value: checked,
+        })
     }
 
     useEffect(() => {
-        const radios = radio.current.getElementsByTagName('input')
-        for (let i = 0; i < radios.length; i++) {
-            radios[i].checked = props.checked[i]
-        }
-        callback(null)
+        const [checked, j] = getChecked()
+
+        dispatch({
+            type: 'userInputNoState',
+            index: props.id,
+            data: j,
+        })
     }, [props.checked])
 
     return (
@@ -223,7 +291,6 @@ const SwiftRadio = (props: ISwiftElement): JSX.Element => {
             </label>
             <div
                 ref={radio}
-                onChange={callback}
                 className={styles.radioCont}
                 id={'radiocont' + props.id}
             >
@@ -235,7 +302,8 @@ const SwiftRadio = (props: ISwiftElement): JSX.Element => {
                         >
                             <input
                                 type={'radio'}
-                                defaultChecked={props.checked[i]}
+                                onChange={updateRadio}
+                                checked={props.checked[i]}
                                 id={'radio' + props.id + i}
                                 name={'radio' + props.id}
                             />
@@ -249,47 +317,23 @@ const SwiftRadio = (props: ISwiftElement): JSX.Element => {
 }
 
 const SwiftElement = (props: ISwiftElement): JSX.Element => {
-    switch (props.element) {
-        case 'button':
-            return <SwiftButton {...props} />
-            break
-
-        case 'label':
-            return <SwiftLabel {...props} />
-            break
-
-        case 'slider':
-            return <SwiftSlider {...props} />
-            break
-
-        case 'select':
-            return <SwiftSelect {...props} />
-            break
-
-        case 'checkbox':
-            return <SwiftCheckbox {...props} />
-            break
-
-        case 'radio':
-            return <SwiftRadio {...props} />
-            break
-
-        default:
-            return <SwiftButton {...props} />
-            break
-    }
+    if (props.element === 'button') return <SwiftButton {...props} />
+    if (props.element === 'label') return <SwiftLabel {...props} />
+    if (props.element === 'slider') return <SwiftSlider {...props} />
+    if (props.element === 'select') return <SwiftSelect {...props} />
+    if (props.element === 'checkbox') return <SwiftCheckbox {...props} />
+    if (props.element === 'radio') return <SwiftRadio {...props} />
+    return <SwiftButton {...props} />
 }
 
 const SwiftBar = (props: ISwiftBar): JSX.Element => {
-    const [pauseB, setPauseB] = useState('icons/pause.svg')
-
     return (
         <div
             className={styles.sidenav}
             hidden={props.elements.length > 0 ? false : true}
         >
             {props.elements.map((value, i) => {
-                return <SwiftElement key={'element ' + i} {...value} />
+                return <SwiftElement key={value.id.toString() + i} {...value} />
             })}
         </div>
     )

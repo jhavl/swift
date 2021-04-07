@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import React, { useState, useContext } from 'react'
+import { FormDispatch } from '../components/Swift'
 import styles from '../styles/SwiftInfo.module.scss'
 
 export interface ISwiftInfo {
     time: number
     FPS: string
-    callback: any
     connected: boolean
 }
 
@@ -69,6 +69,7 @@ const SwiftAction = (props: ISwiftAction): JSX.Element => {
 }
 
 const SwiftInfo = (props: ISwiftInfo): JSX.Element => {
+    const dispatch = useContext(FormDispatch)
     const [pauseB, setPauseB] = useState('icons/pause.svg')
     const [timeB, setTimeB] = useState('icons/realtime.svg')
     const [renderB, setRenderB] = useState('icons/stopRender.svg')
@@ -96,7 +97,12 @@ const SwiftInfo = (props: ISwiftInfo): JSX.Element => {
             newPaused = true
         }
         setPaused(newPaused)
-        props.callback(PAUSE_ID, newPaused)
+
+        dispatch({
+            type: 'userInputNoState',
+            index: PAUSE_ID,
+            data: newPaused,
+        })
     }
 
     const realtime = () => {
@@ -111,7 +117,12 @@ const SwiftInfo = (props: ISwiftInfo): JSX.Element => {
             newFasttime = true
         }
         setFastTime(newFasttime)
-        props.callback(TIME_ID, newFasttime)
+
+        dispatch({
+            type: 'userInputNoState',
+            index: TIME_ID,
+            data: newFasttime,
+        })
     }
 
     const startrender = () => {
@@ -126,7 +137,12 @@ const SwiftInfo = (props: ISwiftInfo): JSX.Element => {
             newRendering = true
         }
         setRendering(newRendering)
-        props.callback(RENDER_ID, newRendering)
+
+        dispatch({
+            type: 'userInputNoState',
+            index: RENDER_ID,
+            data: newRendering,
+        })
     }
 
     return (

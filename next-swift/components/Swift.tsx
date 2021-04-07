@@ -1,10 +1,19 @@
 import * as THREE from 'three'
 THREE.Object3D.DefaultUp.set(0, 0, 1)
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import React, {
+    useState,
+    useEffect,
+    useCallback,
+    useReducer,
+    useRef,
+    lazy,
+    Suspense,
+} from 'react'
 import { Canvas, useFrame } from 'react-three-fiber'
 import SwiftInfo from '../components/SwiftInfo'
 import SwiftBar, { ISwiftBar, ISwiftElement } from '../components/SwiftBar'
 import styles from '../styles/Swift.module.scss'
+import formReducer, { DEFUALT_ELEMENTS } from './Swift.reducer'
 
 import {
     Plane,
@@ -50,9 +59,9 @@ const GroupCollection = React.forwardRef<THREE.group, IGroupCollection>(
 export interface ISwiftProps {
     port: number
 }
+export const FormDispatch = React.createContext(null)
 
 const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
-    const DEFUALT_ELEMENTS = 3
     const [hasMounted, setHasMounted] = useState(false)
     const [time, setTime] = useState(0.0)
     const [FPS, setFPS] = useState('60 fps')
@@ -61,18 +70,13 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
     const shapes = useRef<THREE.group>()
     const ws = useRef<WebSocket>(null)
     const [shapeDesc, setShapeDesc] = useState<IShapeProps[][]>([])
-    const [formData, setFormData] = useState({})
     const [connected, setConnected] = useState(false)
+    const [formState, formDispatch] = useReducer(formReducer, {
+        formData: {},
+        formElements: [],
+    })
 
-    const [formElements, setFormElements] = useState<ISwiftElement[]>([])
-
-    const formCallback = (index, data) => {
-        const newFormData = { ...formData }
-        newFormData[index] = data
-        setFormData(newFormData)
-    }
-
-    const setFrames = (delta) => {
+    const setFrames = useCallback((delta) => {
         let newFrameTime = [...frameTime]
         let newFrameI = frameI
         let total = 0
@@ -90,13 +94,13 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
 
         total = Math.round(total / 10.0)
 
-        setFrameTime(newFrameTime)
-        setFrameI(newFrameI)
-        if (total === Infinity) {
-            total = 60
-        }
-        setFPS(`${total} fps`)
-    }
+        // setFrameTime(newFrameTime)
+        // setFrameI(newFrameI)
+        // if (total === Infinity) {
+        //     total = 60
+        // }
+        // setFPS(`${total} fps`)
+    }, [])
 
     useEffect(() => {
         setHasMounted(true)
@@ -124,10 +128,11 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
     }, [])
 
     useEffect(() => {
-        ws.current.onmessage = (event) => {
+        ;(ws.current.onmessage = (event) => {
             const eventdata = JSON.parse(event.data)
             const func = eventdata[0]
             const data = eventdata[1]
+
             switch (func) {
                 case 'shape_mounted':
                     {
@@ -171,12 +176,17 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                     break
 
                 case 'shape_poses':
-                    if (Object.keys(formData).length !== 0) {
-                        ws.current.send(JSON.stringify(formData))
-                        setFormData([])
+                    if (Object.keys(formState.formData).length !== 0) {
+                        ws.current.send(JSON.stringify(formState.formData))
+
+                        formDispatch({
+                            type: 'reset',
+                            indices: Object.keys(formState.formData),
+                        })
                     } else {
                         ws.current.send('[]')
                     }
+
                     data.forEach((object) => {
                         const id = object[0]
                         const group = object[1]
@@ -198,7 +208,6 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                             ].setRotationFromQuaternion(quat)
                         })
                     })
-
                     break
 
                 case 'sim_time':
@@ -211,40 +220,33 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                     break
 
                 case 'element':
-                    const newForm = [...formElements]
-                    data.callback = formCallback
-                    data.value = [data.value]
-                    newForm.push(data)
-                    setFormElements(newForm)
+                    formDispatch({ type: 'newElement', data: data })
                     ws.current.send('0')
 
                     break
 
                 case 'update_element':
-                    const updatedForm = [...formElements]
-                    console.log(updatedForm[1].value)
-                    data.callback = formCallback
-                    data.value = [data.value]
-                    updatedForm[data.id - DEFUALT_ELEMENTS] = data
-                    setFormElements(updatedForm)
-                    console.log(updatedForm[1].value)
+                    formDispatch({
+                        type: 'wsUpdate',
+                        index: data.id,
+                        data: data,
+                    })
                     break
 
                 default:
                     break
             }
-        }
-    }, [shapeDesc, formData, formElements])
+        }),
+            [shapeDesc, formState]
+    })
 
     return (
         <div className={styles.swiftContainer}>
-            <SwiftInfo
-                time={time}
-                FPS={FPS}
-                callback={formCallback}
-                connected={connected}
-            />
-            <SwiftBar elements={formElements} />
+            <FormDispatch.Provider value={formDispatch}>
+                <SwiftInfo time={time} FPS={FPS} connected={connected} />
+                <SwiftBar elements={formState.formElements} />
+            </FormDispatch.Provider>
+
             <Canvas gl={{ antialias: true }} shadowMap={{ enabled: true }}>
                 <Camera setDefault={true} fpsCallBack={setFrames} />
                 {hasMounted && (
