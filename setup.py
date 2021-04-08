@@ -5,12 +5,14 @@ import os
 here = path.abspath(path.dirname(__file__))
 
 req = [
+    'spatialgeometry>=0.1.0',
     'websockets'
 ]
 
 # Get the long description from the README file
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
+
 
 def package_files(directory):
     paths = []
