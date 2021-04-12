@@ -1,38 +1,37 @@
 {
-  "name": "next-swift",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "node server.ts",
-    "build": "next build && next export -o ../swift/out",
-    "start": "next start"
-  },
-  "dependencies": {
-    "@react-three/drei": "^3.11.2",
-    "@types/sass": "^1.16.0",
-    "ace-builds": "^1.4.12",
-    "express": "^4.17.1",
-    "next": "10.0.7",
-    "react": "17.0.1",
-    "react-dom": "17.0.1",
-    "react-three-fiber": "5.3.17",
-    "sass": "^1.32.7",
-    "three": "^0.126.1",
-    "three-orbit-controls": "^82.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^14.14.28",
-    "@types/react": "^17.0.2",
-    "@typescript-eslint/eslint-plugin": "^4.17.0",
-    "@typescript-eslint/parser": "^4.17.0",
-    "eslint": "^7.22.0",
-    "typescript": "^4.2.3",
-    "ws": "^7.4.4"
-  },
-  "prettier": {
-    "trailingComma": "es5",
-    "tabWidth": 4,
-    "semi": false,
-    "singleQuote": true
-  }
+    "name": "next-swift",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "node server.ts",
+        "build": "next build && next export -o ../swift/out",
+        "start": "next start"
+    },
+    "dependencies": {
+        "@types/sass": "^1.16.0",
+        "ace-builds": "^1.4.12",
+        "express": "^4.17.1",
+        "next": "10.0.7",
+        "react": "17.0.1",
+        "react-dom": "17.0.1",
+        "react-swift": "file:../../react-swift",
+        "react-three-fiber": "5.3.17",
+        "sass": "^1.32.7",
+        "three": "^0.126.1"
+    },
+    "devDependencies": {
+        "@types/node": "^14.14.28",
+        "@types/react": "^17.0.2",
+        "@typescript-eslint/eslint-plugin": "^4.17.0",
+        "@typescript-eslint/parser": "^4.17.0",
+        "eslint": "^7.22.0",
+        "typescript": "^4.2.3",
+        "ws": "^7.4.4"
+    },
+    "prettier": {
+        "trailingComma": "es5",
+        "tabWidth": 4,
+        "semi": false,
+        "singleQuote": true
+    }
 }

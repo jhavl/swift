@@ -514,10 +514,6 @@ class Swift():
 
     def _step_robot(self, robot, dt, readonly):
 
-        # robot = robot_object['ob']
-
-        robot.fkine_links(robot.q)
-
         if readonly or robot._control_type == 'p':
             pass            # pragma: no cover
 
@@ -541,6 +537,8 @@ class Swift():
             raise ValueError(
                 'Invalid robot.control_type. '
                 'Must be one of \'p\', \'v\', or \'a\'')
+
+        robot.fkine_links(robot._q)
 
     def _step_shape(self, shape, dt):
 

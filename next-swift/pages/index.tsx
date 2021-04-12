@@ -1,7 +1,9 @@
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
-import Swift from '../components/Swift'
+// import Swift from '../components/Swift'
+import Swift from 'react-swift'
 
+import { ExampleComponent } from 'react-swift'
 const Home = () => {
     return (
         <div className={styles.container}>
@@ -9,6 +11,8 @@ const Home = () => {
                 <title>Create Next App</title>
                 <link rel="icon" href="/favicon.ico" />
             </Head>
+
+            <ExampleComponent text={'Kelof'}></ExampleComponent>
 
             <main className={styles.main}>
                 <div className={styles.container}>

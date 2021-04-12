@@ -14,7 +14,7 @@ import SwiftInfo from '../components/SwiftInfo'
 import SwiftBar, { ISwiftBar, ISwiftElement } from '../components/SwiftBar'
 import styles from '../styles/Swift.module.scss'
 import formReducer, { DEFUALT_ELEMENTS } from './Swift.reducer'
-
+import CCapture from 'ccapture.js'
 import {
     Plane,
     ShadowedLight,
