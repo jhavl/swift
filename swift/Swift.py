@@ -376,13 +376,16 @@ class Swift():
                 ob.to_dict())
         elif isinstance(ob, rtb.ERobot):
 
+            if ob.base is None:
+                ob.base = sm.SE3()
+
             # ob._swift_readonly = readonly
             # ob._show_robot = show_robot
             # ob._show_collision = show_collision
 
             if not self.headless:
-                robob = ob.to_dict(show_robot=show_robot,
-                                   show_collision=show_collision)
+                robob = ob._to_dict(show_robot=show_robot,
+                                    show_collision=show_collision)
                 id = self._send_socket('shape', robob)
 
                 while not int(self._send_socket(
@@ -516,7 +519,7 @@ class Swift():
 
         # robot = robot_object['ob']
 
-        robot.fkine_links(robot.q)
+        robot._set_link_fk(robot.q)
 
         if readonly or robot._control_type == 'p':
             pass            # pragma: no cover
@@ -585,7 +588,7 @@ class Swift():
                 if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
                 elif isinstance(self.swift_objects[i], rtb.Robot):
-                    msg.append([i, self.swift_objects[i].fk_dict(
+                    msg.append([i, self.swift_objects[i]._fk_dict(
                         self.swift_options[i]['show_robot'],
                         self.swift_options[i]['show_collision']
                     )])

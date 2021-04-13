@@ -213,5 +213,3 @@ class SwiftServer:
                     httpd.serve_forever()
             except OSError:
                 server_port += 1
-
-        print('here!')

@@ -27,7 +27,7 @@ extra_files = package_files('swift/public')
 setup(
     name='swift-sim',
 
-    version='0.8.1',
+    version='0.9.1',
 
     description='A Python/Javascript Visualiser',
 
