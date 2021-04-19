@@ -11,9 +11,7 @@ import time
 from queue import Queue
 import json
 from swift import start_servers, SwiftElement, Button
-
-import numba
-
+import phys
 
 rtb = None
 
@@ -27,24 +25,6 @@ def _import_rtb():     # pragma nocover
         print(
             '\nYou must install the python package roboticstoolbox-python\n')
         raise
-
-
-'''
-Functional components
-'''
-
-
-@numba.njit
-def _v(q, qd, dt, qlim, valid):
-    # qn = np.copy(q)
-    # for i in range(n):
-    #     qn[i] += qd[i] * dt
-
-    q += qd * dt
-
-    if valid:
-        q = np.minimum(q, qlim[1, :])
-        q = np.maximum(q, qlim[0, :])
 
 
 class Swift():
@@ -134,10 +114,9 @@ class Swift():
 
     def __repr__(self):
         s = f"Swift backend, t = {self.sim_time}, scene:"
-        for robot in self.robots:
-            s += f"\n  {robot['ob'].name}"
-        for shape in self.shapes:
-            s += f"\n  {shape['ob'].name}"
+
+        for ob in self.swift_objects:
+            s += f"\n  {ob.name}"
         return s
 
     #
@@ -526,7 +505,11 @@ class Swift():
 
         elif robot._control_type == 'v':
 
-            _v(robot._q, robot._qd, dt, robot._qlim, robot._valid_qlim)
+            phys.step_v(
+                robot._n, robot._valid_qlim, dt,
+                robot._q, robot._qd, robot._qlim)
+
+            # _v(robot._q, robot._qd, dt, robot._qlim, robot._valid_qlim)
 
             # for i in range(robot.n):
             #     robot.q[i] += robot.qd[i] * (dt)
