@@ -139,7 +139,9 @@ class SwiftSocket:
 
 class SwiftServer:
 
-    def __init__(self, outq, inq, socket_port, run, verbose=False):
+    def __init__(
+            self, outq, inq, socket_port, run,
+            verbose=False, custom_root=None):
 
         server_port = 52000
         self.inq = inq
@@ -147,7 +149,10 @@ class SwiftServer:
 
         root_dir = Path(sw.__file__).parent / 'out'
         # os.chdir(Path.home())
-        os.chdir(Path.home().anchor)
+
+        # os.chdir(Path.home().anchor)
+        os.chdir(root_dir.anchor)
+        print(root_dir)
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
