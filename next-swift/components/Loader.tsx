@@ -49,6 +49,17 @@ const traverseChildren = (child, opacity, shadow) => {
 
 const STLAsset = (props: IMeshShapeProps): JSX.Element => {
     const model = useLoader(STLLoader, props.url)
+    const scene = useMemo(() => model.clone(), [model])
+
+    // console.log('Loading: ')
+    // console.log(props)
+
+    // useEffect(() => {
+    //     // scene.children.forEach((child) => {
+    //     //     traverseChildren(child, props.opacity, true)
+    //     // })
+    //     scene.name = 'loaded'
+    // })
 
     return (
         <mesh
@@ -57,8 +68,9 @@ const STLAsset = (props: IMeshShapeProps): JSX.Element => {
             castShadow={true}
             receiveShadow={true}
             scale={props.scale}
+            name={'loaded'}
         >
-            <primitive object={model} attach="geometry" />
+            <primitive object={scene} attach="geometry" />
             <meshStandardMaterial
                 color={props.color ? props.color : defaultColor}
                 transparent={props.opacity !== 1.0 ? true : false}
