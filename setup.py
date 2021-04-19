@@ -1,10 +1,17 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 from os import path
 import os
+
+# fmt: off
+import pip
+pip.main(['install', 'numpy>=1.18.0'])
+import numpy
+# fmt: on
 
 here = path.abspath(path.dirname(__file__))
 
 req = [
+    'numpy>=1.18.0',
     'spatialgeometry>=0.1.0',
     'websockets'
 ]
@@ -22,12 +29,28 @@ def package_files(directory):
     return paths
 
 
-extra_files = package_files('swift/public')
+extra_folders = [
+    'swift/out',
+    'swift/core',
+]
+
+extra_files = []
+for extra_folder in extra_folders:
+    extra_files += package_files(extra_folder)
+
+phys = Extension(
+    'phys',
+    sources=[
+        './swift/core/phys.c'],
+    include_dirs=[
+        './swift/core/',
+        numpy.get_include()
+    ])
 
 setup(
     name='swift-sim',
 
-    version='0.9.1',
+    version='0.9.2',
 
     description='A Python/Javascript Visualiser',
 
@@ -71,6 +94,8 @@ setup(
     package_data={'swift': extra_files},
 
     include_package_data=True,
+
+    ext_modules=[phys],
 
     install_requires=req
 )
