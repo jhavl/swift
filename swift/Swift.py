@@ -16,18 +16,18 @@ import phys
 rtb = None
 
 
-def _import_rtb():     # pragma nocover
+def _import_rtb():  # pragma nocover
     import importlib
+
     global rtb
     try:
-        rtb = importlib.import_module('roboticstoolbox')
+        rtb = importlib.import_module("roboticstoolbox")
     except ImportError:
-        print(
-            '\nYou must install the python package roboticstoolbox-python\n')
+        print("\nYou must install the python package roboticstoolbox-python\n")
         raise
 
 
-class Swift():
+class Swift:
     """
     Graphical backend using Swift
 
@@ -75,9 +75,9 @@ class Swift():
         self._init()
 
     def _init(self):
-        '''
+        """
         A private initialization method to make relaunching easy
-        '''
+        """
 
         # This is the time that has been simulated according to step(dt)
         self.sim_time = 0.0
@@ -123,9 +123,7 @@ class Swift():
     #  Basic methods to do with the state of the external program
     #
 
-    def launch(
-            self, realtime=False, headless=False, rate=60,
-            browser=None, **kwargs):
+    def launch(self, realtime=False, headless=False, rate=60, browser=None, **kwargs):
         """
         Launch a graphical backend in Swift by default in the default browser
         or in the specified browser
@@ -153,8 +151,12 @@ class Swift():
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
             self.socket, self.server = start_servers(
-                self.outq, self.inq, self._servers_running,
-                browser=browser, dev=self._dev)
+                self.outq,
+                self.inq,
+                self._servers_running,
+                browser=browser,
+                dev=self._dev,
+            )
             self.last_time = time.time()
 
     def _servers_running(self):
@@ -197,7 +199,7 @@ class Swift():
             if isinstance(obj, Shape):
                 self._step_shape(obj, dt)
             elif isinstance(obj, rtb.Robot):
-                self._step_robot(obj, dt, self.swift_options[i]['readonly'])
+                self._step_robot(obj, dt, self.swift_options[i]["readonly"])
 
         # Adjust sim time
         self.sim_time += dt
@@ -209,7 +211,7 @@ class Swift():
                 if self.realtime:
                     # If realtime is set, delay progress if we are
                     # running too quickly
-                    time_taken = (time.time() - self.last_time)
+                    time_taken = time.time() - self.last_time
                     diff = (dt * self._skipped) - time_taken
                     self._skipped = 1
 
@@ -236,7 +238,7 @@ class Swift():
                 if (time.time() - self._laststep) < self._notrenderperiod:
                     return
                 self._laststep = time.time()
-                events = json.loads(self._send_socket('shape_poses', [], True))
+                events = json.loads(self._send_socket("shape_poses", [], True))
                 self.process_events(events)
 
             # print(events)
@@ -244,7 +246,7 @@ class Swift():
             #     for i in range(len(self.robots)):
             #         self.robots[i]['ob'].fkine_all(self.robots[i]['ob'].q)
 
-            self._send_socket('sim_time', self.sim_time, expected=False)
+            self._send_socket("sim_time", self.sim_time, expected=False)
 
     def reset(self):
         """
@@ -268,12 +270,15 @@ class Swift():
 
         """
 
-        self._send_socket('close', '0', False)
+        self._send_socket("close", "0", False)
         self._stop_threads()
         self._init()
         self.launch(
-            realtime=self.realtime, headless=self.headless, rate=self.rate,
-            browser=self.browser)
+            realtime=self.realtime,
+            headless=self.headless,
+            rate=self.rate,
+            browser=self.browser,
+        )
 
     def close(self):
         """
@@ -283,16 +288,14 @@ class Swift():
         referenced by ``env``.
         """
 
-        self._send_socket('close', '0', False)
+        self._send_socket("close", "0", False)
         self._stop_threads()
 
     #
     #  Methods to interface with the robots created in other environemnts
     #
 
-    def add(
-            self, ob, show_robot=True, show_collision=False,
-            readonly=False):
+    def add(self, ob, show_robot=True, show_collision=False, readonly=False):
         """
         Add a robot to the graphical scene
 
@@ -326,9 +329,9 @@ class Swift():
 
         if isinstance(ob, Shape):
             if not self.headless:
-                id = int(self._send_socket('shape', [ob.to_dict()]))
+                id = int(self._send_socket("shape", [ob.to_dict()]))
 
-                while not int(self._send_socket('shape_mounted', [id, 1])):
+                while not int(self._send_socket("shape_mounted", [id, 1])):
                     time.sleep(0.1)
 
             else:
@@ -339,8 +342,7 @@ class Swift():
         elif isinstance(ob, SwiftElement):
 
             if ob._added_to_swift:
-                raise ValueError(
-                    "This element has already been added to Swift")
+                raise ValueError("This element has already been added to Swift")
 
             ob._added_to_swift = True
 
@@ -350,9 +352,7 @@ class Swift():
             self.elements[str(id)] = ob
             ob._id = id
 
-            self._send_socket(
-                'element',
-                ob.to_dict())
+            self._send_socket("element", ob.to_dict())
         elif isinstance(ob, rtb.ERobot):
 
             if ob.base is None:
@@ -363,12 +363,12 @@ class Swift():
             # ob._show_collision = show_collision
 
             if not self.headless:
-                robob = ob._to_dict(show_robot=show_robot,
-                                    show_collision=show_collision)
-                id = self._send_socket('shape', robob)
+                robob = ob._to_dict(
+                    show_robot=show_robot, show_collision=show_collision
+                )
+                id = self._send_socket("shape", robob)
 
-                while not int(self._send_socket(
-                        'shape_mounted', [id, len(robob)])):
+                while not int(self._send_socket("shape_mounted", [id, len(robob)])):
                     time.sleep(0.1)
 
             else:
@@ -377,9 +377,9 @@ class Swift():
             self.swift_objects.append(ob)
 
             self.swift_options[int(id)] = {
-                'show_robot': show_robot,
-                'show_collision': show_collision,
-                'readonly': readonly
+                "show_robot": show_robot,
+                "show_collision": show_collision,
+                "readonly": readonly,
             }
 
             return int(id)
@@ -403,36 +403,35 @@ class Swift():
         if isinstance(id, rtb.ERobot) or isinstance(id, Shape):
 
             for i in range(len(self.swift_objects)):
-                if self.swift_objects[i] is not None and \
-                        id == self.swift_objects[i]:
+                if self.swift_objects[i] is not None and id == self.swift_objects[i]:
                     idd = i
-                    code = 'remove'
+                    code = "remove"
                     self.swift_objects[idd] = None
                     break
         else:
             # Number corresponding to robot ID
             idd = id
-            code = 'remove'
+            code = "remove"
             self.robots[idd] = None
 
         if idd is None:
             raise ValueError(
-                'the id argument does not correspond with '
-                'a robot or shape in Swift')
+                "the id argument does not correspond with " "a robot or shape in Swift"
+            )
 
         self._send_socket(code, idd)
 
-    def hold(self):           # pragma: no cover
-        '''
+    def hold(self):  # pragma: no cover
+        """
         hold() keeps the browser tab open i.e. stops the browser tab from
         closing once the main script has finished.
 
-        '''
+        """
 
         while True:
             time.sleep(1)
 
-    def start_recording(self, file_name, framerate, format='webm'):
+    def start_recording(self, file_name, framerate, format="webm"):
         """
         Start recording the canvas in the Swift simulator
 
@@ -451,20 +450,18 @@ class Swift():
             ``env.start_recording(file_name)`` is called
         """
 
-        valid_formats = ['webm', 'gif', 'png', 'jpg']
+        valid_formats = ["webm", "gif", "png", "jpg"]
 
         if format not in valid_formats:
-            raise ValueError(
-                "Format can one of 'webm', 'gif', 'png', or 'jpg'")
+            raise ValueError("Format can one of 'webm', 'gif', 'png', or 'jpg'")
 
         if not self.recording:
-            self._send_socket(
-                'start_recording', [framerate, file_name, format])
+            self._send_socket("start_recording", [framerate, file_name, format])
             self.recording = True
         else:
             raise ValueError(
-                "You are already recording, you can only record one video"
-                " at a time")
+                "You are already recording, you can only record one video" " at a time"
+            )
 
     def stop_recording(self):
         """
@@ -476,11 +473,12 @@ class Swift():
         """
 
         if self.recording:
-            self._send_socket('stop_recording')
+            self._send_socket("stop_recording")
         else:
             raise ValueError(
                 "You must call swift.start_recording(file_name) before trying"
-                " to stop the recording")
+                " to stop the recording"
+            )
 
     def process_events(self, events):
         """
@@ -500,14 +498,14 @@ class Swift():
 
         robot._set_link_fk(robot.q)
 
-        if readonly or robot._control_type == 'p':
-            pass            # pragma: no cover
+        if readonly or robot._control_type == "p":
+            pass  # pragma: no cover
 
-        elif robot._control_type == 'v':
+        elif robot._control_type == "v":
 
             phys.step_v(
-                robot._n, robot._valid_qlim, dt,
-                robot._q, robot._qd, robot._qlim)
+                robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim
+            )
 
             # _v(robot._q, robot._qd, dt, robot._qlim, robot._valid_qlim)
 
@@ -519,31 +517,21 @@ class Swift():
             #         robot.q[i] = np.min([robot.q[i], robot.qlim[1, i]])
             #         robot.q[i] = np.max([robot.q[i], robot.qlim[0, i]])
 
-        elif robot.control_type == 'a':
+        elif robot.control_type == "a":
             pass
 
-        else:            # pragma: no cover
+        else:  # pragma: no cover
             # Should be impossible to reach
             raise ValueError(
-                'Invalid robot.control_type. '
-                'Must be one of \'p\', \'v\', or \'a\'')
+                "Invalid robot.control_type. " "Must be one of 'p', 'v', or 'a'"
+            )
 
     def _step_shape(self, shape, dt):
 
-        # for shape in self.shapes:
-        # if shape is not None:
+        phys.step_shape(dt, shape.v, shape._base, shape._sT, shape._sq)
 
-        T = shape.base
-        t = T.t.astype('float64')
-        t += shape.v[:3] * dt
-
-        R = sm.SO3(T.R)
-        Rdelta = sm.SO3.EulerVec(shape.v[3:] * dt)
-        R = Rdelta * R
-        R = R.norm()  # renormalize to avoid numerical issues
-
-        # shape.base = sm.SE3.SO3(R, t=t)
-        shape.base = sm.SE3.Rt(R, t=t)
+        # shape._sT[:] = shape._wT @ shape._base
+        # shape._sq[:] = sm.base.r2q(shape._sT[:3, :3], order="xyzs")
 
     def _step_elements(self):
         """
@@ -555,14 +543,14 @@ class Swift():
             if self.elements[element]._changed:
                 self.elements[element]._changed = False
                 self._send_socket(
-                    'update_element',
-                    self.elements[element].to_dict(), False)
+                    "update_element", self.elements[element].to_dict(), False
+                )
 
     def _draw_all(self):
-        '''
+        """
         Sends the transform of every simulated object in the scene
         Recieves bacl a list of events which has occured
-        '''
+        """
 
         msg = []
 
@@ -571,12 +559,17 @@ class Swift():
                 if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
                 elif isinstance(self.swift_objects[i], rtb.Robot):
-                    msg.append([i, self.swift_objects[i]._fk_dict(
-                        self.swift_options[i]['show_robot'],
-                        self.swift_options[i]['show_collision']
-                    )])
+                    msg.append(
+                        [
+                            i,
+                            self.swift_objects[i]._fk_dict(
+                                self.swift_options[i]["show_robot"],
+                                self.swift_options[i]["show_collision"],
+                            ),
+                        ]
+                    )
 
-        events = self._send_socket('shape_poses', msg, True)
+        events = self._send_socket("shape_poses", msg, True)
         return json.loads(events)
 
     def _send_socket(self, code, data=None, expected=True):
@@ -587,15 +580,15 @@ class Swift():
         if expected:
             return self.inq.get()
         else:
-            return '0'
+            return "0"
 
     def _pause_control(self, paused):
         # Must hold it here until unpaused
         while paused:
             time.sleep(0.1)
-            events = json.loads(self._send_socket('shape_poses', []))
+            events = json.loads(self._send_socket("shape_poses", []))
 
-            if '0' in events and not events['0']:
+            if "0" in events and not events["0"]:
                 paused = False
             self.process_events(events)
 
@@ -611,10 +604,10 @@ class Swift():
         self._time_button = Button(self._time_control)
         self._render_button = Button(self._render_control)
 
-        self._pause_button._id = '0'
-        self._time_button._id = '1'
-        self._render_button._id = '2'
-        self.elements['0'] = self._pause_button
-        self.elements['1'] = self._time_button
-        self.elements['2'] = self._render_button
+        self._pause_button._id = "0"
+        self._time_button._id = "1"
+        self._render_button._id = "2"
+        self.elements["0"] = self._pause_button
+        self.elements["1"] = self._time_button
+        self.elements["2"] = self._render_button
         self.elementid += 3
