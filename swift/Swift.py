@@ -529,6 +529,8 @@ class Swift:
     def _step_shape(self, shape, dt):
 
         phys.step_shape(dt, shape.v, shape._base, shape._sT, shape._sq)
+        if shape.collision:
+            shape._update_pyb()
 
         # shape._sT[:] = shape._wT @ shape._base
         # shape._sq[:] = sm.base.r2q(shape._sT[:3, :3], order="xyzs")

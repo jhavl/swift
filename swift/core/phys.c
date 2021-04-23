@@ -212,9 +212,23 @@ static PyObject *step_shape(PyObject *self, PyObject *args)
     base[9] = o[2] / o_norm;
     base[10] = a[2] / a_norm;
 
+    // Step translation
+    base[3] += dv[0];
+    base[7] += dv[1];
+    base[11] += dv[2];
+
     // Set other attributes
     _copy4(base, sT);
     _r2q(base, sq);
+
+    free(R);
+    free(sk);
+    free(temp);
+    free(temp2);
+    free(dv);
+    free(n);
+    free(o);
+    free(a);
 
     Py_RETURN_NONE;
 }
