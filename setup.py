@@ -50,7 +50,7 @@ phys = Extension(
 setup(
     name='swift-sim',
 
-    version='0.9.4',
+    version='0.9.5',
 
     description='A Python/Javascript Visualiser',
 
