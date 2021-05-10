@@ -50,7 +50,7 @@ phys = Extension(
 setup(
     name='swift-sim',
 
-    version='0.9.5',
+    version='0.9.6',
 
     description='A Python/Javascript Visualiser',
 
@@ -93,7 +93,7 @@ setup(
 
     package_data={'swift': extra_files},
 
-    include_package_data=True,
+    # include_package_data=True,
 
     ext_modules=[phys],
 
