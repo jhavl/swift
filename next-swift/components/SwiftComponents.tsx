@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, Suspense, lazy } from 'react'
 
 import { useThree, useFrame } from 'react-three-fiber'
 import * as THREE from 'three'
+
 THREE.Object3D.DefaultUp.set(0, 0, 1)
 const Loader = lazy(() => import('./Loader'))
 
@@ -14,7 +15,10 @@ export const Plane: React.FC = (): JSX.Element => {
     return (
         <mesh receiveShadow={true}>
             <planeBufferGeometry args={[200, 200]} />
-            <meshPhongMaterial color={0x4b4b4b} specular={0x101010} />
+            <meshPhongMaterial
+                color={0x4b4b4b}
+                specular={new THREE.Color(0x101010)}
+            />
         </mesh>
     )
 }
@@ -91,7 +95,11 @@ export const Camera = (props: ICameraProps): JSX.Element => {
 const PrimativeShapes = (props: IShapeProps): JSX.Element => {
     switch (props.stype) {
         case 'box':
-            return <boxBufferGeometry args={props.scale} />
+            return (
+                <boxBufferGeometry
+                    args={[props.scale[0], props.scale[1], props.scale[2]]}
+                />
+            )
             break
 
         case 'sphere':
@@ -107,7 +115,11 @@ const PrimativeShapes = (props: IShapeProps): JSX.Element => {
             break
 
         default:
-            return <boxBufferGeometry args={props.scale} />
+            return (
+                <boxBufferGeometry
+                    args={[props.scale[0], props.scale[1], props.scale[2]]}
+                />
+            )
     }
 }
 
@@ -126,42 +138,17 @@ export interface IShapeProps {
 }
 
 const BasicShape = (props: IShapeProps): JSX.Element => {
-    const shape = useRef<THREE.mesh>()
-    // useEffect(() => {
-    //     if (props.q) {
-    //         console.log(props.q)
-    //         // const q = new THREE.Quaternion(
-    //         //     props.q[1],
-    //         //     props.q[2],
-    //         //     props.q[3],
-    //         //     props.q[0]
-    //         // )
-    //         // shape.current.setRotationFromQuaternion(q)
-    //         // console.log(shape)
-
-    //         // shape.current.quaternion.set(
-    //         //     props.q[1],
-    //         //     props.q[2],
-    //         //     props.q[3],
-    //         //     props.q[0]
-    //         // )
-    //     }
-    // }, [])
-
-    // useFrame(() => {
-    //     if (shape.current) {
-    //         console.log(shape.current.up)
-    //     } else {
-    //         console.log(shape)
-    //     }
-    //     // console.log(shape.current.DefaultUp)
-    // })
+    const shape = useRef<THREE.Mesh>()
 
     return (
         <mesh
             ref={shape}
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={
+                props.q
+                    ? [props.q[0], props.q[1], props.q[2], props.q[3]]
+                    : [1, 0, 0, 0]
+            }
             castShadow={true}
             name={'loaded'}
         >
@@ -180,15 +167,6 @@ const MeshShape = (props: IShapeProps): JSX.Element => {
 
     useEffect(() => {
         setHasMounted(true)
-
-        // const q = new THREE.Quaternion(
-        //     props.q[1],
-        //     props.q[2],
-        //     props.q[3],
-        //     props.q[0]
-        // )
-        // shape.current.setRotationFromQuaternion(q)
-        // console.log(shape)
     }, [])
 
     return (
@@ -213,6 +191,21 @@ const MeshShape = (props: IShapeProps): JSX.Element => {
     )
 }
 
+const AxesShape = (props: IShapeProps): JSX.Element => {
+    const shape = useRef<THREE.Mesh>()
+
+    return (
+        <mesh
+            ref={shape}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            name={'loaded'}
+        >
+            <axesHelper args={[props.length]} />
+        </mesh>
+    )
+}
+
 export const Shape = (props: IShapeProps): JSX.Element => {
     if (props.display === false) {
         return <></>
@@ -221,6 +214,10 @@ export const Shape = (props: IShapeProps): JSX.Element => {
     switch (props.stype) {
         case 'mesh':
             return <MeshShape {...props} />
+            break
+
+        case 'axes':
+            return <AxesShape {...props} />
             break
 
         case 'box':

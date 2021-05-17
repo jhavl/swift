@@ -63,11 +63,11 @@ const STLAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
             name={'loaded'}
         >
             <primitive object={scene} attach="geometry" />
@@ -91,11 +91,11 @@ const GLTFAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive
                 object={model.scene}
@@ -153,7 +153,7 @@ const ColladaAsset = (props: IMeshShapeProps): JSX.Element => {
 const OBJAsset = (props: IMeshShapeProps): JSX.Element => {
     const mtlurl = props.url.slice(0, props.url.length - 3) + 'mtl'
     const materials = useLoader(MTLLoader, mtlurl)
-    const model = useLoader(OBJLoader, props.url, (loader) => {
+    const model = useLoader(OBJLoader, props.url, (loader: MTLLoader) => {
         materials.preload()
         loader.setMaterials(materials)
     })
@@ -166,11 +166,11 @@ const OBJAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive object={model} />
         </mesh>
@@ -188,11 +188,11 @@ const VRMLAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive object={model} />
         </mesh>
@@ -212,11 +212,11 @@ const PCDAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive object={model} />
         </mesh>
@@ -228,11 +228,11 @@ const PLYAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive object={model} attach="geometry" />
             <meshStandardMaterial
@@ -255,11 +255,11 @@ const FBXAsset = (props: IMeshShapeProps): JSX.Element => {
 
     return (
         <mesh
-            position={props.t}
-            quaternion={props.q}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+            scale={[props.scale[0], props.scale[1], props.scale[2]]}
             castShadow={true}
             receiveShadow={true}
-            scale={props.scale}
         >
             <primitive object={model} />
         </mesh>
@@ -280,34 +280,32 @@ const SVGShape = ({ shape, color, index, opacity }) => (
     </mesh>
 )
 
-const SVGAsset = React.memo(
-    (props: IMeshShapeProps): JSX.Element => {
-        const { paths } = useLoader(SVGLoader, props.url)
-        const shapes = useMemo(
-            () =>
-                paths.flatMap((path, index) =>
-                    path
-                        .toShapes(true)
-                        .map((shape) => ({ index, shape, color: path.color }))
-                ),
-            [paths]
-        )
-        return (
-            <group
-                children={shapes.map((newProps, key) => (
-                    <SVGShape key={key} opacity={props.opacity} {...newProps} />
-                ))}
-                scale={[
-                    -0.01 * props.scale[0],
-                    0.01 * props.scale[1],
-                    0.01 * props.scale[2],
-                ]}
-                position={props.t}
-                quaternion={props.q}
-            />
-        )
-    }
-)
+const SVGAsset = React.memo((props: IMeshShapeProps): JSX.Element => {
+    const { paths } = useLoader(SVGLoader, props.url)
+    const shapes = useMemo(
+        () =>
+            paths.flatMap((path, index) =>
+                path
+                    .toShapes(true)
+                    .map((shape) => ({ index, shape, color: path.color }))
+            ),
+        [paths]
+    )
+    return (
+        <group
+            children={shapes.map((newProps, key) => (
+                <SVGShape key={key} opacity={props.opacity} {...newProps} />
+            ))}
+            scale={[
+                -0.01 * props.scale[0],
+                0.01 * props.scale[1],
+                0.01 * props.scale[2],
+            ]}
+            position={[props.t[0], props.t[1], props.t[2]]}
+            quaternion={[props.q[0], props.q[1], props.q[2], props.q[3]]}
+        />
+    )
+})
 
 const Loader = (props: IShapeProps): JSX.Element => {
     const ext = props.filename.split('.').pop().toLowerCase()

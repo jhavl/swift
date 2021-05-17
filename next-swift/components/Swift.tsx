@@ -44,8 +44,8 @@ interface IGroupCollection {
     meshes: IShapeProps[][]
 }
 
-const GroupCollection = React.forwardRef<THREE.group, IGroupCollection>(
-    (props: IGroupCollection, ref: THREE.group): JSX.Element => {
+const GroupCollection = React.forwardRef<THREE.Group, IGroupCollection>(
+    (props, ref): JSX.Element => {
         return (
             <group ref={ref}>
                 {props.meshes.map((value, i) => {
@@ -67,7 +67,7 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
     const [FPS, setFPS] = useState('60 fps')
     const [frameTime, setFrameTime] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     const [frameI, setFrameI] = useState(0)
-    const shapes = useRef<THREE.group>()
+    const shapes = useRef<THREE.Group>()
     const ws = useRef<WebSocket>(null)
     const [shapeDesc, setShapeDesc] = useState<IShapeProps[][]>([])
     const [connected, setConnected] = useState(false)
@@ -254,7 +254,10 @@ const Swift: React.FC<ISwiftProps> = (props: ISwiftProps): JSX.Element => {
                         <Controls />
                     </Suspense>
                 )}
-                <hemisphereLight skyColor={0x443333} groundColor={0x111122} />
+                <hemisphereLight
+                    skyColor={new THREE.Color(0x443333)}
+                    groundColor={new THREE.Color(0x111122)}
+                />
                 <ShadowedLight
                     x={10}
                     y={10}
