@@ -27,7 +27,7 @@
     "@typescript-eslint/parser": "^4.17.0",
     "eslint": "^7.22.0",
     "typescript": "^4.2.3",
-    "ws": "^7.4.4"
+    "ws": "^7.4.6"
   },
   "prettier": {
     "trailingComma": "es5",
