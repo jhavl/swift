@@ -16,10 +16,6 @@ from pathlib import Path
 import os
 from queue import Empty
 
-import numpy as np
-import time
-import sys
-
 
 def start_servers(
         outq, inq, stop_servers, open_tab=True,
