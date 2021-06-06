@@ -15,12 +15,12 @@ import socketserver
 from pathlib import Path
 import os
 from queue import Empty
-
+from http import HTTPStatus
+import urllib
 
 def start_servers(
         outq, inq, stop_servers, open_tab=True,
         browser=None, dev=False):
-
     # Start our websocket server with a new clean port
     socket = Thread(
         target=SwiftSocket, args=(outq, inq, stop_servers, ), daemon=True)
@@ -144,13 +144,12 @@ class SwiftServer:
         self.run = run
 
         root_dir = Path(sw.__file__).parent / 'out'
-        # os.chdir(Path.home())
-
-        # os.chdir(Path.home().anchor)
-        os.chdir(root_dir.anchor)
         print(root_dir)
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super(MyHttpRequestHandler, self).__init__(*args, directory=str(root_dir), **kwargs)
+
             def log_message(self, format, *args):
                 if verbose:
                     http.server.SimpleHTTPRequestHandler.log_message(
@@ -163,7 +162,7 @@ class SwiftServer:
 
             def do_GET(self):
 
-                home = str(Path.home())
+                # home = str(Path.home())
 
                 if self.path == '/':
                     self.send_response(301)
@@ -176,27 +175,36 @@ class SwiftServer:
 
                     self.end_headers()
                     return
-
-                if self.path == '/?' + str(socket_port):
-                    self.path = str(root_dir / 'index.html')
-
-                elif self.path.endswith('svg') or self.path.endswith('ico'):
-                    self.path = str(root_dir) + str(Path(self.path))
-
-                elif self.path.endswith('css') or self.path.endswith('js') \
-                        or self.path.endswith('map'):
-                    self.path = str(root_dir) + str(Path(self.path))
-
-                self.path = str(Path(self.path))
-
-                # if self.path.lower().startswith(home.lower()):
-                #     self.path = self.path[len(home):]
-                # elif self.path.lower().startswith(home.lower()[2:]):
-                #     self.path = self.path[len(home)-2:]
+                elif self.path == '/?' + str(socket_port):
+                    self.path = 'index.html'
+                elif self.path.startswith("/retrieve/"):
+                    # print(f"Retrieving file: {self.path[10:]}")
+                    self.path = urllib.parse.unquote(self.path[10:])
+                    self.send_file_via_real_path()
+                    return
 
                 self.path = Path(self.path).as_posix()
 
-                return http.server.SimpleHTTPRequestHandler.do_GET(self)
+                http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+            def send_file_via_real_path(self):
+                try:
+                    f = open(self.path, 'rb')
+                except OSError:
+                    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+                    return None
+                ctype = self.guess_type(self.path)
+                try:
+                    fs = os.fstat(f.fileno())
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-type", ctype)
+                    self.send_header("Content-Length", str(fs[6]))
+                    self.send_header("Last-Modified",
+                                     self.date_time_string(fs.st_mtime))
+                    self.end_headers()
+                    self.copyfile(f, self.wfile)
+                finally:
+                    f.close()
 
         Handler = MyHttpRequestHandler
 
