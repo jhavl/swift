@@ -313,9 +313,7 @@ const Loader = (props: IShapeProps): JSX.Element => {
     const ext = props.filename.split('.').pop().toLowerCase()
     let url = props.filename
 
-    if (navigator.appVersion.indexOf('Win') != -1) {
-        url = url.slice(2)
-    }
+    url = "retrieve/" + url
 
     switch (ext) {
         case 'stl':
