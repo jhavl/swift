@@ -90,9 +90,6 @@ class SwiftSocket:
         asyncio.set_event_loop(self.loop)
 
         started = False
-        # port = 8080
-        # start_server = websockets.serve(self.serve, "localhost", port)
-        # self.loop.run_until_complete(start_server)
 
         port = 53000
         while not started and port < 62000:
@@ -144,7 +141,6 @@ class SwiftServer:
         self.run = run
 
         root_dir = Path(sw.__file__).parent / 'out'
-        print(root_dir)
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
@@ -161,8 +157,6 @@ class SwiftServer:
                 print(self)
 
             def do_GET(self):
-
-                # home = str(Path.home())
 
                 if self.path == '/':
                     self.send_response(301)
@@ -217,8 +211,6 @@ class SwiftServer:
                     self.inq.put(server_port)
                     connected = True
 
-                    # while self.run():
-                    # httpd.handle_request
                     httpd.serve_forever()
             except OSError:
                 server_port += 1
