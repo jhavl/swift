@@ -6,20 +6,15 @@ const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
   const server = express()
-    
-  server.get(['*.dae', '*.stl'], (req, res) => {
-    res.sendFile(req.path)
-  })
-
-//   server.get('/[0-9]{5}/', (req, res) => {
-//     console.log(req.path)
-//     res.path = '/'
-//     console.log(req.path)
-//     return handle(req, res)
-//   })
 
   server.get('*', (req, res) => {
-    return handle(req, res)
+    
+    if (req.path.startsWith('/retrieve/')) {
+      const path = req.path.slice(10);
+      res.sendFile(path);
+    } else {
+      return handle(req, res)
+    }
   })
     
   server.listen(3000, (err) => {
@@ -31,4 +26,4 @@ app.prepare().then(() => {
   process.exit(1)
 })
 
-export { }
+// export { }
