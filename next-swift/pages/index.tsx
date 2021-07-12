@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
-import Swift from '../components/Swift'
+// import Swift from '../components/Swift'
+import Swift from 'react-swift'
 
 const Home = () => {
     return (
