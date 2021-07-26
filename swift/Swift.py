@@ -295,24 +295,24 @@ class Swift:
     #  Methods to interface with the robots created in other environemnts
     #
 
-    def add(self, ob, show_robot=True, show_collision=False, readonly=False):
+    def add(self, ob, robot_alpha=1.0, collision_alpha=0.0, readonly=False):
         """
         Add a robot to the graphical scene
 
         :param ob: the object to add
         :type ob: Robot or Shape
-        :param show_robot: Show the robot visual geometry,
-            defaults to True
-        :type show_robot: bool, optional
-        :param show_collision: Show the collision geometry,
-            defaults to False
-        :type show_collision: bool, optional
-        :return: object id within visualizer
-        :rtype: int
-        :param readonly: If true, swif twill not modify any robot attributes,
-            the robot is only nbeing displayed, not simulated,
+        :param robot_alpha: Robot visual opacity. If 0, then the geometries
+            are invisible, defaults to 1.0
+        :type robot_alpha: bool, optional
+        :param collision_alpha: Robot collision visual opacity. If 0, then
+            the geometries defaults to 0.0
+        :type collision_alpha: float, optional
+        :param readonly: If true, swift will not modify any robot attributes,
+            the robot is only being displayed, not simulated,
             defaults to False
         :type readonly: bool, optional
+        :return: object id within visualizer
+        :rtype: int
 
         ``id = env.add(robot)`` adds the ``robot`` to the graphical
             environment.
@@ -364,7 +364,7 @@ class Swift:
 
             if not self.headless:
                 robob = ob._to_dict(
-                    show_robot=show_robot, show_collision=show_collision
+                    robot_alpha=robot_alpha, collision_alpha=collision_alpha
                 )
                 id = self._send_socket("shape", robob)
 
@@ -377,8 +377,8 @@ class Swift:
             self.swift_objects.append(ob)
 
             self.swift_options[int(id)] = {
-                "show_robot": show_robot,
-                "show_collision": show_collision,
+                "robot_alpha": robot_alpha,
+                "collision_alpha": collision_alpha,
                 "readonly": readonly,
             }
 
@@ -565,8 +565,8 @@ class Swift:
                         [
                             i,
                             self.swift_objects[i]._fk_dict(
-                                self.swift_options[i]["show_robot"],
-                                self.swift_options[i]["show_collision"],
+                                self.swift_options[i]["robot_alpha"],
+                                self.swift_options[i]["collision_alpha"],
                             ),
                         ]
                     )
