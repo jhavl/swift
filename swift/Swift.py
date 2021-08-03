@@ -164,7 +164,8 @@ class Swift:
 
     def _stop_threads(self):
         self._run_thread = False
-        self.socket.join(1)
+        if not self.headless:
+            self.socket.join(1)
         if not self._dev:
             self.server.join(1)
 
