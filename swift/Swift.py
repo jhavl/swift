@@ -493,6 +493,35 @@ class Swift:
             self.elements[event].update(events[event])
             self.elements[event].cb(events[event])
 
+    def set_camera_pose(self, position, look_at):
+        """
+        Set the camera pose of the camera within the swift scene
+
+        :param pose: The desired pose of the camera
+        :type pose: SE3 or 4x4 ndarray
+        """
+
+        # if isinstance(pose, sm.SE3):
+        #     pose = pose.A
+
+        # if look_at is None:
+        #     q = r2q(pose[:3, :3], order="xyzs").tolist()
+        # else:
+        #     q = None
+
+        if isinstance(position, np.ndarray):
+            position = position.tolist()
+
+        if isinstance(look_at, np.ndarray):
+            look_at = look_at.tolist()
+
+        transform = {
+            "t": position,
+            "look_at": look_at,
+        }
+
+        self._send_socket("camera_pose", transform, False)
+
     def _step_robot(self, robot, dt, readonly):
 
         # robot = robot_object['ob']
