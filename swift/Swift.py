@@ -496,10 +496,11 @@ class Swift:
 
     def set_camera_pose(self, position, look_at):
         """
-        Set the camera position and orientation of the camera within the
-        swift scene. The camera is located at location and is oriented to
-        look at a point in space defined by look_at. Note that the camera
-        is oriented with the positive z-axis.
+        Swift.set_camera_pose(position, look_at) will set the camera
+        position and orientation of the camera within the swift scene.
+        The camera is located at location and is oriented to look at a
+        point in space defined by look_at. Note that the camera is
+        oriented with the positive z-axis.
 
         :param position: The desired position of the camera
         :type position: 3 vector (list or ndarray)
