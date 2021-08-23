@@ -98,6 +98,7 @@ class Swift:
         # Element dict which holds the callback functions for form updates
         self.elements = {}
 
+        self.headless = False
         self.rendering = True
         self._notrenderperiod = 1
         self.recording = False
@@ -495,10 +496,15 @@ class Swift:
 
     def set_camera_pose(self, position, look_at):
         """
-        Set the camera pose of the camera within the swift scene
+        Set the camera position and orientation of the camera within the
+        swift scene. The camera is located at location and is oriented to
+        look at a point in space defined by look_at. Note that the camera
+        is oriented with the positive z-axis.
 
-        :param pose: The desired pose of the camera
-        :type pose: SE3 or 4x4 ndarray
+        :param position: The desired position of the camera
+        :type position: 3 vector (list or ndarray)
+        :param look_at: A point in the scene in which the camera will look at
+        :type look_at: 3 vector (list or ndarray)
         """
 
         # if isinstance(pose, sm.SE3):
