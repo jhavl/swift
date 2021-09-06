@@ -1,10 +1,8 @@
-import {useEffect, useRef} from 'react'
+import { useEffect, useRef, lazy } from 'react'
 import Head from 'next/head'
 import styles from '../styles/Home.module.css'
 // import Swift from '../components/Swift'
 import Swift from 'react-swift'
-
-
 
 const Home = () => {
     // const pc = useRef<RTCPeerConnection>(null)
@@ -29,7 +27,7 @@ const Home = () => {
     //         });
     //     }).then(function() {
     //         var offer = pc.current.localDescription;
-    
+
     //         return fetch('/offer', {
     //             body: JSON.stringify({
     //                 sdp: offer.sdp,
@@ -81,7 +79,6 @@ const Home = () => {
     //     });
 
     // }, [])
-
 
     return (
         <div className={styles.container}>

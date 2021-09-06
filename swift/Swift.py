@@ -482,6 +482,18 @@ class Swift:
                 " to stop the recording"
             )
 
+    def screenshot(self, file_name="swift_snap"):
+        """
+        Save a screenshot of the current Swift frame as a png file
+
+        :param file_name: The file name for which the screenshot will be saved as
+        :type file_name: string
+
+        ``env.screenshot(file_name)`` saves a screenshot and downloads it as file_name
+        """
+
+        self._send_socket("screenshot", [file_name])
+
     def process_events(self, events):
         """
         Process the event queue from Swift, this invokes the callback functions
