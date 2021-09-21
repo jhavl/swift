@@ -17,6 +17,7 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
+import sys
 
 # from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 # from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
@@ -41,46 +42,10 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
     socket.start()
     socket_port = inq.get()
 
-    if not dev:
-        # Start a http server
-        server = Thread(
-            target=SwiftServer,
-            args=(
-                outq,
-                inq,
-                socket_port,
-                stop_servers,
-            ),
-            daemon=True,
-        )
+    print(f"swift_socket: ({socket_port})")
+    sys.stdout.flush()
 
-        server.start()
-        server_port = inq.get()
-
-        if open_tab:
-
-            if browser is not None:
-                try:
-                    wb.get(browser).open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                    )
-                except wb.Error:
-                    print(
-                        "\nCould not open specified browser, " "using default instead\n"
-                    )
-                    wb.open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                    )
-            else:
-                wb.open_new_tab(
-                    "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                )
-    else:
-        server = None
-
-        wb.get(browser).open_new_tab(
-            "http://localhost:" + str(3000) + "/?" + str(socket_port)
-        )
+    server = None
 
     try:
         inq.get(timeout=10)

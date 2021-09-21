@@ -368,6 +368,10 @@ class Swift:
                 robob = ob._to_dict(
                     robot_alpha=robot_alpha, collision_alpha=collision_alpha
                 )
+                for link in robob:
+                    file = link["filename"]
+                    newFile = file.split("/robotics-toolbox-python/", 1)[1]
+                    link["filename"] = newFile
                 id = self._send_socket("shape", robob)
 
                 while not int(self._send_socket("shape_mounted", [id, len(robob)])):
