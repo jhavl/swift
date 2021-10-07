@@ -18,13 +18,13 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 
-# from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-# from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
-# import uuid
-# import cv2
-# import numpy as np
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+import uuid
+import cv2
+import numpy as np
 
-# relay = MediaRelay()
+relay = MediaRelay()
 
 
 def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
@@ -137,74 +137,78 @@ class SwiftSocket:
     async def expect_message(self, websocket, expected):
         if expected:
             recieved = await websocket.recv()
-            # if recieved[0:15] == '{"type":"offer"':
-            #     await self._connect(recieved, websocket)
-            #     await self.expect_message(websocket, expected)
-            # else:
-            #     self.inq.put(recieved)
-            self.inq.put(recieved)
+            if recieved[0:15] == '{"type":"offer"':
+                await self._connect(recieved, websocket)
+                await self.expect_message(websocket, expected)
+            else:
+                self.inq.put(recieved)
+            # self.inq.put(recieved)
 
     async def producer(self):
         data = self.outq.get()
         return data
 
-    # async def _connect(self, recieved, websocket):
-    #     params = json.loads(recieved)
-    #     params = params["offer"]
+    async def _connect(self, recieved, websocket):
+        params = json.loads(recieved)
+        params = params["offer"]
 
-    #     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-    #     pc = RTCPeerConnection()
-    #     pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    #     self.pcs.add(pc)
+        offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+        pc = RTCPeerConnection()
+        pc_id = "PeerConnection(%s)" % uuid.uuid4()
+        self.pcs.add(pc)
 
-    #     @pc.on("track")
-    #     def on_track(track):
-    #         print("Track %s received", track.kind)
+        @pc.on("track")
+        def on_track(track):
+            print("Track %s received", track.kind)
 
-    #         if track.kind == "video":
-    #             pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
+            if track.kind == "video":
+                pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
 
-    #     # handle offer
-    #     await pc.setRemoteDescription(offer)
+        @pc.on("data")
+        def data_handler(data):
+            print(data)
 
-    #     # send answer
-    #     answer = await pc.createAnswer()
-    #     await pc.setLocalDescription(answer)
-    #     await websocket.send(
-    #         json.dumps(
-    #             [
-    #                 "offer",
-    #                 {
-    #                     "sdp": pc.localDescription.sdp,
-    #                     "type": pc.localDescription.type,
-    #                 },
-    #             ]
-    #         )
-    #     )
+        # handle offer
+        await pc.setRemoteDescription(offer)
+
+        # send answer
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)
+        await websocket.send(
+            json.dumps(
+                [
+                    "offer",
+                    {
+                        "sdp": pc.localDescription.sdp,
+                        "type": pc.localDescription.type,
+                    },
+                ]
+            )
+        )
 
 
-# class VideoTransformTrack(MediaStreamTrack):
-#     """
-#     A video stream track that transforms frames from an another track.
-#     """
+class VideoTransformTrack(MediaStreamTrack):
+    """
+    A video stream track that transforms frames from an another track.
+    """
 
-#     kind = "video"
+    kind = "video"
 
-#     def __init__(self, track):
-#         super().__init__()  # don't forget this!
-#         self.track = track
-#         self.count = 0
+    def __init__(self, track):
+        super().__init__()  # don't forget this!
+        self.track = track
+        self.count = 0
 
-#     async def recv(self):
-#         print("hellooooo")
-#         frame = await self.track.recv()
-#         im = frame.to_ndarray(format="bgr24")
+    async def recv(self):
+        print("hellooooo")
+        frame = await self.track.recv()
+        im = frame.to_ndarray(format="bgr24")
 
-#         cv2.imshow("camera", im)
-#         cv2.waitKey(1)
-#         self.count += 1
-#         print(self.count)
-#         return frame
+        cv2.imshow("camera", im)
+        cv2.waitKey(1)
+        self.count += 1
+        print(self.count)
+        return frame
 
 
 class SwiftServer:
