@@ -18,11 +18,15 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+import matplotlib.pyplot as plt
+import base64
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCDataChannel
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 import uuid
 import cv2
 import numpy as np
+from imageio import imread
+import io
 
 relay = MediaRelay()
 
@@ -164,9 +168,20 @@ class SwiftSocket:
             if track.kind == "video":
                 pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
 
-        @pc.on("data")
-        def data_handler(data):
-            print(data)
+        @pc.on("datachannel")
+        def on_datachannel(channel):
+            print(channel, "-", "created by remote party")
+
+            @channel.on("message")
+            def on_message(message):
+                print("im recv")
+                im = data_uri_to_cv2_img(message)
+                cv2.imshow("camera", im)
+                cv2.waitKey(1)
+
+                # if isinstance(message, str) and message.startswith("ping"):
+                #     # reply
+                #     channel_send(channel, "pong" + message[4:])
 
         # handle offer
         await pc.setRemoteDescription(offer)
@@ -186,6 +201,15 @@ class SwiftSocket:
             )
         )
 
+
+def data_uri_to_cv2_img(uri: str):
+    encoded_data = uri.split(',')[1]
+
+    dec = base64.b64decode(encoded_data)
+    nparr = np.fromstring(dec, np.uint8)
+
+    im = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+    return im
 
 class VideoTransformTrack(MediaStreamTrack):
     """
