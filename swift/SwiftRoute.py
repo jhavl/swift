@@ -31,7 +31,7 @@ import io
 relay = MediaRelay()
 
 
-def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
+def start_servers(outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, browser=None, dev=False):
     # Start our websocket server with a new clean port
     socket = Thread(
         target=SwiftSocket,
@@ -44,6 +44,16 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
     )
     socket.start()
     socket_port = inq.get()
+
+    rtc = Thread(
+        target=SwiftRtc,
+        args=(
+            rtc_out,
+            rtc_in,
+        ),
+        daemon=True,
+    )
+    rtc.start()
 
     if not dev:
         # Start a http server
@@ -92,11 +102,15 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
         print("\nCould not connect to the Swift simulator \n")
         raise
 
-    return socket, server
+    return socket, server, rtc
 
+
+def channel_send(channel, message):
+    channel.send(message)
 
 class SwiftSocket:
     def __init__(self, outq, inq, run):
+        self.count = 0
         self.pcs = set()
         self.run = run
         self.outq = outq
@@ -106,6 +120,8 @@ class SwiftSocket:
         asyncio.set_event_loop(self.loop)
 
         started = False
+
+        self.current_image = ''
 
         port = 53000
         while not started and port < 62000:
@@ -141,26 +157,125 @@ class SwiftSocket:
     async def expect_message(self, websocket, expected):
         if expected:
             recieved = await websocket.recv()
-            if recieved[0:15] == '{"type":"offer"':
-                await self._connect(recieved, websocket)
-                await self.expect_message(websocket, expected)
-            else:
-                self.inq.put(recieved)
-            # self.inq.put(recieved)
+            # if recieved[0:15] == '{"type":"offer"':
+            #     await self._connect(recieved, websocket)
+            #     await self.expect_message(websocket, expected)
+            # else:
+            #     self.inq.put(recieved)
+            self.inq.put(recieved)
 
     async def producer(self):
         data = self.outq.get()
         return data
 
-    async def _connect(self, recieved, websocket):
-        params = json.loads(recieved)
-        params = params["offer"]
+    # async def _connect(self, recieved, websocket):
+    #     params = json.loads(recieved)
+    #     params = params["offer"]
 
-        offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+    #     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+    #     pc = RTCPeerConnection()
+    #     pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    #     self.pcs.add(pc)
+
+    #     @pc.on("track")
+    #     def on_track(track):
+    #         print("Track %s received", track.kind)
+
+    #         if track.kind == "video":
+    #             pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
+
+    #     @pc.on("datachannel")
+    #     def on_datachannel(channel):
+    #         print(channel, "-", "created by remote party")
+
+    #         @channel.on("message")
+    #         def on_message(message):
+
+    #             if isinstance(message, str):
+    #                 if message.startswith("imageStarting"):
+    #                     print("Start")
+    #                     self.current_image = ''
+    #                 elif message.startswith("imageFinished"):
+    #                     print("Finish")
+    #                     im = data_uri_to_cv2_img(self.current_image)
+    #                     cv2.imshow("camera", im)
+    #                     cv2.waitKey(1)
+    #                 elif message.startswith("ping"):
+    #                     channel_send(channel, "pong" + message[4:])
+    #                 else:
+    #                     print('Data')
+    #                     self.current_image += message
+    #             else:
+    #                 print("UNKOWN MESSGAE")
+    #                 print(message)
+
+    #             self.count += 1
+    #             print(self.count)
+    #             # print(message)
+    #             # print("im recv")
+
+
+
+
+
+    #     # handle offer
+    #     await pc.setRemoteDescription(offer)
+
+    #     # send answer
+    #     answer = await pc.createAnswer()
+    #     await pc.setLocalDescription(answer)
+    #     await websocket.send(
+    #         json.dumps(
+    #             [
+    #                 "offer",
+    #                 {
+    #                     "sdp": pc.localDescription.sdp,
+    #                     "type": pc.localDescription.type,
+    #                 },
+    #             ]
+    #         )
+    #     )
+
+class SwiftRtc:
+
+    def __init__(self, rtc_out, rtc_in):
+        self.pcs = set()
+
+        self.rtc_out = rtc_out
+        self.rtc_in = rtc_in
+
         pc = RTCPeerConnection()
-        pc_id = "PeerConnection(%s)" % uuid.uuid4()
-        self.pcs.add(pc)
+        coro = self.run_rtc(pc)
 
+        
+
+
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        self.as_inq = asyncio.Queue()
+        self.as_wq = asyncio.Queue()
+
+        try:
+            # asyncio.ensure_future(self.producer())
+            # self.loop.run_forever()
+            self.loop.run_until_complete(coro)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("Closing RTC Loop")
+            self.loop.close()
+
+    # async def producer(self):
+    #     print('ptrd')
+
+    #     while True:
+    #         data = self.rtc_out.get()
+            
+    #         if data[0:15] == '{"type":"offer"':
+    #             await self._connect(data)
+
+    async def run_rtc(self, pc):
         @pc.on("track")
         def on_track(track):
             print("Track %s received", track.kind)
@@ -174,32 +289,140 @@ class SwiftSocket:
 
             @channel.on("message")
             def on_message(message):
-                print("im recv")
-                im = data_uri_to_cv2_img(message)
-                cv2.imshow("camera", im)
-                cv2.waitKey(1)
 
-                # if isinstance(message, str) and message.startswith("ping"):
-                #     # reply
-                #     channel_send(channel, "pong" + message[4:])
+                if isinstance(message, str):
+                    if message.startswith("imageStarting"):
+                        # print("Start")
+                        self.current_image = ''
+                    elif message.startswith("imageFinished"):
+                        # print("Finish")
+                        im = data_uri_to_cv2_img(self.current_image)
+                        cv2.imshow("camera", im)
+                        cv2.waitKey(1)
+                    elif message.startswith("ping"):
+                        pass
+                        # channel_send(channel, "pong" + message[4:])
+                    else:
+                        self.current_image += message
+                else:
+                    print("UNKOWN MESSGAE")
+                    print(message)
 
-        # handle offer
-        await pc.setRemoteDescription(offer)
+                # self.count += 1
+                # print(self.count)
+                # self.asyq.put(1)
 
-        # send answer
-        answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        await websocket.send(
-            json.dumps(
-                [
-                    "offer",
-                    {
-                        "sdp": pc.localDescription.sdp,
-                        "type": pc.localDescription.type,
-                    },
-                ]
+        await self.consume_signal(pc)
+
+
+    async def consume_signal(self, pc):
+
+        # while True:
+            # try:
+        data = self.rtc_out.get(block=True)
+        # except Empty:
+        #     data = ''
+
+        if data[0:15] == '{"type":"offer"':
+            # await self._connect(data)
+            params = json.loads(data)
+            params = params["offer"]
+
+            offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+            # handle offer
+            await pc.setRemoteDescription(offer)
+
+            # send answer
+            answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+
+            self.rtc_in.put(
+                {
+                    "sdp": pc.localDescription.sdp,
+                    "type": pc.localDescription.type,
+                },
             )
-        )
+
+        # await asyncio.sleep(100000)
+        await self.as_wq.get()
+
+
+
+
+    # async def _connect(self, recieved):
+    #     params = json.loads(recieved)
+    #     params = params["offer"]
+
+    #     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+    #     # pc = RTCPeerConnection()
+    #     # pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    #     # self.pcs.add(pc)
+
+    #     # handle offer
+    #     # await pc.setRemoteDescription(offer)
+
+    #     # send answer
+    #     # answer = await pc.createAnswer()
+    #     # await pc.setLocalDescription(answer)
+
+    #     # self.rtc_in.put(
+    #     #     {
+    #     #         "sdp": pc.localDescription.sdp,
+    #     #         "type": pc.localDescription.type,
+    #     #     },
+    #     # )
+
+    #     # await websocket.send(
+    #     #     json.dumps(
+    #     #         [
+    #     #             "offer",
+    #     #             {
+    #     #                 "sdp": pc.localDescription.sdp,
+    #     #                 "type": pc.localDescription.type,
+    #     #             },
+    #     #         ]
+    #     #     )
+    #     # )
+
+    #     @pc.on("track")
+    #     def on_track(track):
+    #         print("Track %s received", track.kind)
+
+    #         if track.kind == "video":
+    #             pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
+
+    #     @pc.on("datachannel")
+    #     def on_datachannel(channel):
+    #         print(channel, "-", "created by remote party")
+
+    #         @channel.on("message")
+    #         def on_message(message):
+
+    #             if isinstance(message, str):
+    #                 if message.startswith("imageStarting"):
+    #                     print("Start")
+    #                     self.current_image = ''
+    #                 elif message.startswith("imageFinished"):
+    #                     print("Finish")
+    #                     im = data_uri_to_cv2_img(self.current_image)
+    #                     cv2.imshow("camera", im)
+    #                     cv2.waitKey(1)
+    #                 elif message.startswith("ping"):
+    #                     channel_send(channel, "pong" + message[4:])
+    #                 else:
+    #                     print('Data')
+    #                     self.current_image += message
+    #             else:
+    #                 print("UNKOWN MESSGAE")
+    #                 print(message)
+
+    #             self.count += 1
+    #             print(self.count)
+    #             # print(message)
+    #             # print("im recv")
+
+
+
 
 
 def data_uri_to_cv2_img(uri: str):
