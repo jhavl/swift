@@ -247,9 +247,6 @@ class SwiftRtc:
         pc = RTCPeerConnection()
         coro = self.run_rtc(pc)
 
-        
-
-
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
@@ -334,6 +331,8 @@ class SwiftRtc:
 
             # send answer
             answer = await pc.createAnswer()
+
+            # This line is taking forever??
             await pc.setLocalDescription(answer)
 
             self.rtc_in.put(
