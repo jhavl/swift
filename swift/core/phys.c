@@ -22,6 +22,7 @@ void _mult3(npy_float64 *A, npy_float64 *B, npy_float64 *C);
 void _cross(npy_float64 *a,npy_float64 *b, npy_float64 *c);
 void _r2q(npy_float64 *r, npy_float64 *q);
 void _copy4(npy_float64 *A, npy_float64 *B);
+void _mult4(npy_float64 *A, npy_float64 *B, npy_float64 *C);
 
 static PyObject *step_v(PyObject *self, PyObject *args);
 static PyObject *step_shape(PyObject *self, PyObject *args);
@@ -97,22 +98,24 @@ static PyObject *step_shape(PyObject *self, PyObject *args)
 {
     const double eps = 2.220446049250313e-16;
     double dt;
-    PyArrayObject *py_v, *py_base, *py_sT, *py_sq;
-    npy_float64 *v, *base, *sT, *sq, *R, *sk, *temp, *temp2, *dv;
+    PyArrayObject *py_v, *py_base, *py_wT, *py_sT, *py_sq;
+    npy_float64 *v, *base, *wT, *sT, *sq, *R, *sk, *temp, *temp2, *dv;
     npy_float64 *n, *o, *a;
     double theta, n_norm, o_norm, a_norm;
 
     if (!PyArg_ParseTuple(
-            args, "dO!O!O!O!",
+            args, "dO!O!O!O!O!",
             &dt,
             &PyArray_Type, &py_v,
             &PyArray_Type, &py_base,
+            &PyArray_Type, &py_wT,
             &PyArray_Type, &py_sT,
             &PyArray_Type, &py_sq))
         return NULL;
 
     v = (npy_float64 *)PyArray_DATA(py_v);
     base = (npy_float64 *)PyArray_DATA(py_base);
+    wT = (npy_float64 *)PyArray_DATA(py_wT);
     sT = (npy_float64 *)PyArray_DATA(py_sT);
     sq = (npy_float64 *)PyArray_DATA(py_sq);
     R = (npy_float64 *)PyMem_RawCalloc(9, sizeof(npy_float64));
@@ -218,8 +221,10 @@ static PyObject *step_shape(PyObject *self, PyObject *args)
     base[11] += dv[2];
 
     // Set other attributes
-    _copy4(base, sT);
-    _r2q(base, sq);
+    _mult4(wT, base, sT);
+    _r2q(sT, sq);
+    // _copy4(base, sT);
+    // _r2q(base, sq);
 
     free(R);
     free(sk);
@@ -374,4 +379,24 @@ void _copy4(npy_float64 *A, npy_float64 *B)
     B[13] = A[13];
     B[14] = A[14];
     B[15] = A[15];
+}
+
+void _mult4(npy_float64 *A, npy_float64 *B, npy_float64 *C)
+{
+    const int N = 4;
+    int i, j, k;
+    double num;
+
+    for (i = 0; i < N; i++)
+    {
+        for (j = 0; j < N; j++)
+        {
+            num = 0;
+            for (k = 0; k < N; k++)
+            {
+                num += A[i * N + k] * B[k * N + j];
+            }
+            C[i * N + j] = num;
+        }
+    }
 }
