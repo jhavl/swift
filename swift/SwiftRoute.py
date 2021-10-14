@@ -265,7 +265,12 @@ class SwiftServer:
 
                 self.path = Path(self.path).as_posix()
 
-                http.server.SimpleHTTPRequestHandler.do_GET(self)
+                try:
+                    http.server.SimpleHTTPRequestHandler.do_GET(self)
+                except BrokenPipeError:
+                    # After killing this error will pop up but it's of no use
+                    # to the user
+                    pass
 
             def send_file_via_real_path(self):
                 try:
