@@ -70,7 +70,6 @@ class Swift:
         self.rtc_out = Queue()
         self.rtc_in = Queue()
 
-
         self._dev = _dev
 
         if rtb is None:
@@ -551,7 +550,6 @@ class Swift:
 
         # robot = robot_object['ob']
 
-        
         if readonly or robot._control_type == "p":
             pass  # pragma: no cover
 
@@ -581,7 +579,6 @@ class Swift:
             )
 
         robot._set_link_fk(robot.q)
-
 
     def _step_shape(self, shape, dt):
 
@@ -672,12 +669,12 @@ class Swift:
         self.elementid += 3
 
     def get_frame(self, camera):
-        print('get')
-        self._send_socket("get_frame", camera.id, True)
-        print('fin\n')
+        print("get")
+        self._send_socket("get_frame", camera._id, True)
+        print("fin\n")
 
     def open_rtc(self):
-        offer_web = self._send_socket('open_rtc', True, expected=True)
+        offer_web = self._send_socket("open_rtc", True, expected=True)
         self.rtc_out.put(offer_web)
         offer_python = self.rtc_in.get()
-        self._send_socket('offer', offer_python, expected=False)
+        self._send_socket("offer", offer_python, expected=False)
