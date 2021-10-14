@@ -8,6 +8,7 @@ from swift.SwiftElement import (
     Button,
     Label,
 )
+from swift.SwiftCamera import Camera
 from swift.Swift import Swift
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "Radio",
     "Button",
     "Label",
+    "Camera",
 ]
