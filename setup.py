@@ -4,13 +4,13 @@ import os
 
 # fmt: off
 import pip
-pip.main(['install', 'numpy>=1.18.0'])
+pip.main(['install', 'numpy>=1.17.4'])
 import numpy
 # fmt: on
 
 here = path.abspath(path.dirname(__file__))
 
-req = ["numpy>=1.18.0", "spatialgeometry>=0.2.0", "websockets"]
+req = ["numpy>=1.17.4", "spatialgeometry>=0.2.0", "websockets"]
 
 # Get the long description from the README file
 with open(path.join(here, "README.md"), encoding="utf-8") as f:
