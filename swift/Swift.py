@@ -551,8 +551,7 @@ class Swift:
 
         # robot = robot_object['ob']
 
-        robot._set_link_fk(robot.q)
-
+        
         if readonly or robot._control_type == "p":
             pass  # pragma: no cover
 
@@ -581,9 +580,12 @@ class Swift:
                 "Invalid robot.control_type. " "Must be one of 'p', 'v', or 'a'"
             )
 
+        robot._set_link_fk(robot.q)
+
+
     def _step_shape(self, shape, dt):
 
-        phys.step_shape(dt, shape.v, shape._base, shape._sT, shape._sq)
+        phys.step_shape(dt, shape.v, shape._base, shape._wT, shape._sT, shape._sq)
         if shape.collision:
             shape._update_pyb()
 
@@ -669,9 +671,9 @@ class Swift:
         self.elements["2"] = self._render_button
         self.elementid += 3
 
-    def get_frame(self):
+    def get_frame(self, camera):
         print('get')
-        self._send_socket("get_frame", 0, True)
+        self._send_socket("get_frame", camera.id, True)
         print('fin\n')
 
     def open_rtc(self):
@@ -679,4 +681,3 @@ class Swift:
         self.rtc_out.put(offer_web)
         offer_python = self.rtc_in.get()
         self._send_socket('offer', offer_python, expected=False)
-        
