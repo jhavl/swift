@@ -669,9 +669,8 @@ class Swift:
         self.elementid += 3
 
     def get_frame(self, camera):
-        print("get")
         self._send_socket("get_frame", camera._id, True)
-        print("fin\n")
+        return self.rtc_in.get()
 
     def open_rtc(self):
         offer_web = self._send_socket("open_rtc", True, expected=True)
