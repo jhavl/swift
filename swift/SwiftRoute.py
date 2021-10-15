@@ -20,18 +20,23 @@ import urllib
 
 import matplotlib.pyplot as plt
 import base64
-from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription, RTCDataChannel
+from aiortc import (
+    MediaStreamTrack,
+    RTCPeerConnection,
+    RTCSessionDescription,
+    RTCDataChannel,
+)
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 import uuid
 import cv2
 import numpy as np
-from imageio import imread
-import io
 
 relay = MediaRelay()
 
 
-def start_servers(outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, browser=None, dev=False):
+def start_servers(
+    outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, browser=None, dev=False
+):
     # Start our websocket server with a new clean port
     socket = Thread(
         target=SwiftSocket,
@@ -108,6 +113,7 @@ def start_servers(outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, brows
 def channel_send(channel, message):
     channel.send(message)
 
+
 class SwiftSocket:
     def __init__(self, outq, inq, run):
         self.count = 0
@@ -121,7 +127,7 @@ class SwiftSocket:
 
         started = False
 
-        self.current_image = ''
+        self.current_image = ""
 
         port = 53000
         while not started and port < 62000:
@@ -214,10 +220,6 @@ class SwiftSocket:
     #             # print(message)
     #             # print("im recv")
 
-
-
-
-
     #     # handle offer
     #     await pc.setRemoteDescription(offer)
 
@@ -236,8 +238,8 @@ class SwiftSocket:
     #         )
     #     )
 
-class SwiftRtc:
 
+class SwiftRtc:
     def __init__(self, rtc_out, rtc_in):
         self.pcs = set()
 
@@ -254,23 +256,12 @@ class SwiftRtc:
         self.as_wq = asyncio.Queue()
 
         try:
-            # asyncio.ensure_future(self.producer())
-            # self.loop.run_forever()
             self.loop.run_until_complete(coro)
         except KeyboardInterrupt:
             pass
         finally:
             print("Closing RTC Loop")
             self.loop.close()
-
-    # async def producer(self):
-    #     print('ptrd')
-
-    #     while True:
-    #         data = self.rtc_out.get()
-            
-    #         if data[0:15] == '{"type":"offer"':
-    #             await self._connect(data)
 
     async def run_rtc(self, pc):
         @pc.on("track")
@@ -290,12 +281,14 @@ class SwiftRtc:
                 if isinstance(message, str):
                     if message.startswith("imageStarting"):
                         # print("Start")
-                        self.current_image = ''
+                        self.current_image = ""
                     elif message.startswith("imageFinished"):
+                        im = data_uri_to_im(self.current_image)
+                        self.rtc_in.put(im)
                         # print("Finish")
-                        im = data_uri_to_cv2_img(self.current_image)
-                        cv2.imshow("camera", im)
-                        cv2.waitKey(1)
+                        # im = data_uri_to_cv2_img(self.current_image)
+                        # cv2.imshow("camera", im)
+                        # cv2.waitKey(1)
                     elif message.startswith("ping"):
                         pass
                         # channel_send(channel, "pong" + message[4:])
@@ -311,11 +304,10 @@ class SwiftRtc:
 
         await self.consume_signal(pc)
 
-
     async def consume_signal(self, pc):
 
         # while True:
-            # try:
+        # try:
         data = self.rtc_out.get(block=True)
         # except Empty:
         #     data = ''
@@ -344,9 +336,6 @@ class SwiftRtc:
 
         # await asyncio.sleep(100000)
         await self.as_wq.get()
-
-
-
 
     # async def _connect(self, recieved):
     #     params = json.loads(recieved)
@@ -421,17 +410,24 @@ class SwiftRtc:
     #             # print("im recv")
 
 
-
-
-
-def data_uri_to_cv2_img(uri: str):
-    encoded_data = uri.split(',')[1]
+def data_uri_to_im(uri: str):
+    encoded_data = uri.split(",")[1]
 
     dec = base64.b64decode(encoded_data)
     nparr = np.fromstring(dec, np.uint8)
 
     im = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
     return im
+
+
+# def data_uri_to_np(uri: str):
+#     encoded_data = uri.split(",")[1]
+
+#     dec = base64.b64decode(encoded_data)
+#     arr = np.fromstring(dec, np.uint8)
+
+#     return arr
+
 
 class VideoTransformTrack(MediaStreamTrack):
     """
