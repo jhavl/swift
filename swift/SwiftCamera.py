@@ -3,22 +3,32 @@
 @author: Jesse Haviland
 """
 
+from typing import Optional
 from spatialmath import SE3
 import spatialgeometry as sg
 import numpy as np
 import uuid
 
+_mv = False
 
-class Camera(sg.Shape):
+try:
+    import machinevisiontoolbox as mv
+
+    _mv = True
+except ImportError:  # pragma nocover
+    pass
+
+
+class Camera(sg.Shape, object):
     def __init__(
         self,
-        width=None,
-        height=None,
-        fov=None,
-        fy=None,
-        fx=None,
-        cy=None,
-        cx=None,
+        width: int,
+        height: int,
+        fov: Optional[float] = None,
+        fy: Optional[float] = None,
+        fx: Optional[float] = None,
+        cy: Optional[float] = None,
+        cx: Optional[float] = None,
         **kwargs
     ):
         super().__init__(stype="camera", **kwargs)
@@ -28,7 +38,6 @@ class Camera(sg.Shape):
         self.fov = fov
 
         self._id = str(uuid.uuid4())
-        print(self._id)
 
     def to_dict(self):
         """
@@ -41,6 +50,20 @@ class Camera(sg.Shape):
         shape = super().to_dict()
         shape["width"] = self.width
         shape["height"] = self.height
-        shape["fov"] = self.fov
+        shape["fov"] = np.rad2deg(self.fov)
         shape["id"] = self._id
         return shape
+
+    @classmethod
+    def CentralCamera(cls, camera: mv.CentralCamera, **kwargs):
+        K = camera.K
+
+        height = camera.nv
+        width = camera.nu
+
+        fv = K[1, 1]
+        fov = 2 * np.arctan(height / (2 * fv))
+
+        return cls(
+            width=width, height=height, fov=fov, cx=K[0, 2], cy=K[1, 2], **kwargs
+        )
