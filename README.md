@@ -60,13 +60,13 @@ panda.plot(q=panda.qr)
 We will load a model of the Franka-Emika Panda robot and make it travel towards a goal pose defined by the variable Tep.
 
 ```python
-import roboticstoolbox as rtb
+from roboticstoolbox.backends.swift import Swift
 import spatialmath as sm
 import numpy as np
 
 # Make and instance of the Swift simulator and open it
-env = rtb.backends.Swift()
-env.launch()
+env = Swift()
+env.launch(realtime=True)
 
 # Make a panda model and set its joint angles to the ready joint configuration
 panda = rtb.models.Panda()
