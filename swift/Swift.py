@@ -74,7 +74,7 @@ class Swift:
 
         self._init()
 
-    def _init(self):
+    def _init(self, headless=False):
         """
         A private initialization method to make relaunching easy
         """
@@ -98,7 +98,7 @@ class Swift:
         # Element dict which holds the callback functions for form updates
         self.elements = {}
 
-        self.headless = False
+        self.headless = headless
         self.rendering = True
         self._notrenderperiod = 1
         self.recording = False
@@ -167,7 +167,7 @@ class Swift:
         self._run_thread = False
         if not self.headless:
             self.socket.join(1)
-        if not self._dev:
+        if not self._dev and not self.headless:
             self.server.join(1)
 
     def step(self, dt=0.05, render=True):
@@ -271,10 +271,12 @@ class Swift:
         ``launch()``.
 
         """
+        if not self.headless:
+            self._send_socket("close", "0", False)
+            self._stop_threads()
 
-        self._send_socket("close", "0", False)
-        self._stop_threads()
-        self._init()
+        self._init(headless=self.headless)
+
         self.launch(
             realtime=self.realtime,
             headless=self.headless,
