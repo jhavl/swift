@@ -17,6 +17,9 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
+from sys import version_info as pyversion
+
+PY37PLUS = pyversion.major >= 3 and pyversion.minor >= 7
 
 # from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 # from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
@@ -218,9 +221,19 @@ class SwiftServer:
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):
-                super(MyHttpRequestHandler, self).__init__(
-                    *args, directory=str(root_dir), **kwargs
-                )
+                if PY37PLUS:
+                    super(MyHttpRequestHandler, self).__init__(
+                        *args, directory=str(root_dir), **kwargs
+                    )
+                else:
+                    try:
+                        os.chdir(str(root_dir))
+                    except:
+                        pass
+                    super(MyHttpRequestHandler, self).__init__(
+                        *args, **kwargs
+                    )
+
 
             def log_message(self, format, *args):
                 if verbose:
