@@ -18,7 +18,7 @@
     "react-swift": "file:../../react-swift",
     "react-three-fiber": "5.3.18",
     "sass": "^1.32.7",
-    "three": "^0.126.1",
+    "three": "^0.137.0",
     "three-orbit-controls": "^82.1.0"
   },
   "devDependencies": {
