@@ -197,11 +197,16 @@ class Swift:
 
         # TODO how is the pose of shapes updated prior to step?
 
+        # Update local pose of objects
         for i, obj in enumerate(self.swift_objects):
             if isinstance(obj, Shape):
                 self._step_shape(obj, dt)
             elif isinstance(obj, rtb.Robot):
                 self._step_robot(obj, dt, self.swift_options[i]["readonly"])
+
+        # Update world transform of objects
+        for obj in self.swift_objects:
+            obj._propogate_scene_tree()
 
         # Adjust sim time
         self.sim_time += dt
@@ -357,12 +362,16 @@ class Swift:
             self._send_socket("element", ob.to_dict())
         elif isinstance(ob, rtb.ERobot):
 
-            if ob.base is None:
-                ob.base = sm.SE3()
+            # if ob.base is None:
+            #     ob.base = sm.SE3()
 
             # ob._swift_readonly = readonly
             # ob._show_robot = show_robot
             # ob._show_collision = show_collision
+
+            # Update robot transforms
+            ob._update_link_tf()
+            ob._propogate_scene_tree()
 
             if not self.headless:
                 robob = ob._to_dict(
@@ -543,14 +552,12 @@ class Swift:
 
     def _step_robot(self, robot, dt, readonly):
 
-        # robot = robot_object['ob']
+        # robot._set_link_fk(robot.q)
 
-        robot._set_link_fk(robot.q)
-
-        if readonly or robot._control_type == "p":
+        if readonly or robot._control_mode == "p":
             pass  # pragma: no cover
 
-        elif robot._control_type == "v":
+        elif robot._control_mode == "v":
 
             phys.step_v(
                 robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim
@@ -566,18 +573,23 @@ class Swift:
             #         robot.q[i] = np.min([robot.q[i], robot.qlim[1, i]])
             #         robot.q[i] = np.max([robot.q[i], robot.qlim[0, i]])
 
-        elif robot.control_type == "a":
+        elif robot.control_mode == "a":
             pass
 
         else:  # pragma: no cover
             # Should be impossible to reach
             raise ValueError(
-                "Invalid robot.control_type. " "Must be one of 'p', 'v', or 'a'"
+                "Invalid robot.control_mode. " "Must be one of 'p', 'v', or 'a'"
             )
+
+        # Update the robot link transofrms based on the new q
+        robot._update_link_tf()
 
     def _step_shape(self, shape, dt):
 
-        phys.step_shape(dt, shape.v, shape._base, shape._sT, shape._sq)
+        phys.step_shape(
+            dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
+        )
         if shape.collision:
             shape._update_pyb()
 
