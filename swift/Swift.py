@@ -501,6 +501,9 @@ class Swift:
         ``env.screenshot(file_name)`` saves a screenshot and downloads it as file_name
         """
 
+        if file_name.endswith(".png"):
+            file_name = file_name[:-4]
+
         self._send_socket("screenshot", [file_name])
 
     def process_events(self, events):
