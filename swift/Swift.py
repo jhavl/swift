@@ -335,6 +335,7 @@ class Swift:
         # list of robots which will act upon the step() method being called.
 
         if isinstance(ob, Shape):
+            ob._propogate_scene_tree()
             if not self.headless:
                 id = int(self._send_socket("shape", [ob.to_dict()]))
 
