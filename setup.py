@@ -36,7 +36,7 @@ for extra_folder in extra_folders:
 
 phys = Extension(
     "phys",
-    sources=["./swift/core/phys.c"],
+    sources=["./swift/core/phys.cpp"],
     include_dirs=["./swift/core/", numpy.get_include()],
 )
 
