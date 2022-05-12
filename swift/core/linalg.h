@@ -33,7 +33,7 @@ extern "C"
 #define Vector4 Eigen::Vector4d
 #define MapVector4 Eigen::Map<Vector4>
 
-#define Vector6 Eigen::Vector<double, 6>
+#define Vector6 Eigen::Matrix<double, 6, 1>
 #define MapVector6 Eigen::Map<Vector6>
 
 #ifdef __cplusplus
