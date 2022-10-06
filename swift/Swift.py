@@ -336,6 +336,7 @@ class Swift:
 
         if isinstance(ob, Shape):
             ob._propogate_scene_tree()
+            ob._added_to_swift = True
             if not self.headless:
                 id = int(self._send_socket("shape", [ob.to_dict()]))
 
@@ -590,6 +591,11 @@ class Swift:
         robot._update_link_tf()
 
     def _step_shape(self, shape, dt):
+
+        if shape._changed:
+            shape._changed = False
+            id = self.swift_objects.index(shape)
+            self._send_socket("shape_update", [id, shape.to_dict()])
 
         phys.step_shape(
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
