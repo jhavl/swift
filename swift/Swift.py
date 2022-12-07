@@ -375,6 +375,9 @@ class Swift:
             ob._update_link_tf()
             ob._propogate_scene_tree()
 
+            # Update robot qlim
+            ob._qlim = ob.qlim
+
             if not self.headless:
                 robob = ob._to_dict(
                     robot_alpha=robot_alpha, collision_alpha=collision_alpha
