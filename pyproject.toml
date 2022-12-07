@@ -1,0 +1,154 @@
+[project]
+
+name = "swift-sim"
+
+description = "A Python/Javascript Robot Simulator and Visualiser"
+
+version = "1.0.1"
+
+authors = [
+    { name = "Jesse Haviland", email = "j.haviland@qut.edu.au" },
+    { name = "Peter Corke", email = "rvc@petercorke.com" },
+]
+
+dependencies = [
+    "numpy>=1.17.4",
+    "spatialgeometry~=1.0.0",
+    "websockets",
+]
+
+license = {file = "LICENSE"}
+
+readme = "README.md"
+
+requires-python = ">=3.7"
+
+keywords = ["python", "robotics", "robotics-toolbox", "kinematics", "dynamics", "motion-planning", "trajectory-generation", "jacobian", "hessian", "control", "simulation", "robot-manipulator", "mobile-robot"]
+
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        # Indicate who your project is intended for
+        "Intended Audience :: Developers",
+        # Pick your license as you wish (should match "license" above)
+        "License :: OSI Approved :: MIT License",
+        # Specify the Python versions you support here.
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+]
+
+
+[project.urls]
+homepage = "https://github.com/jhavl/swift"
+documentation = "https://jhavl.github.io/swift/"
+repository = "https://github.com/jhavl/swift"
+
+
+
+[project.optional-dependencies]
+
+dev = [
+    "black",
+    "roboticstoolbox-python~=1.0.0",
+    "swift-sim",
+    "pytest",
+    "pytest-cov",
+    "flake8",
+    "pyyaml",
+]
+
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+    "sphinx-autorun", 
+]
+
+
+
+[build-system]
+
+requires = [
+    "setuptools",
+    "oldest-supported-numpy"
+]
+
+build-backend = "setuptools.build_meta"
+
+
+
+[tool.setuptools]
+
+packages = ["swift"]
+
+
+
+[tool.black]
+
+line-length = 88
+target_version = ['py37']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | \.github
+    | _build
+    | buck-out
+    | build
+    | dist
+    | docs
+  )/
+)
+'''
+
+
+
+[tool.flake8]
+
+max-line-length = 88
+extend-ignore = 'E203'
+
+
+[tool.cibuildwheel]
+
+# Will cause the wheel to be installed with `pip install <wheel_file>[dev,collision]`
+# test-extras = ["dev", "collision"]
+# test-requires = "pytest"
+# test-command = "pytest {project}/tests"
+
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+
+# Build CPython 3.7 - 3.11
+build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+
+# Disable building musllinux wheels on all platforms
+skip = ["pp*", "*musllinux*"]
+
+
+[tool.cibuildwheel.macos]
+
+# Build `x86_64` and `arm64` wheels on an Intel runner.
+# Note that the `arm64` wheel cannot be tested in this configuration.
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.linux]
+
+# On an Linux Intel runner with qemu installed, build Intel and ARM wheels
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.windows]
+
+# On an Windows Intel runner build wheels
+archs = ["AMD64", "x86"]
+
+
+

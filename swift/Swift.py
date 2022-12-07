@@ -11,7 +11,7 @@ import time
 from queue import Queue
 import json
 from swift import start_servers, SwiftElement, Button
-import phys
+from swift.phys import step_v, step_shape
 
 rtb = None
 
@@ -567,9 +567,7 @@ class Swift:
 
         elif robot._control_mode == "v":
 
-            phys.step_v(
-                robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim
-            )
+            step_v(robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim)
 
             # _v(robot._q, robot._qd, dt, robot._qlim, robot._valid_qlim)
 
@@ -600,7 +598,7 @@ class Swift:
             id = self.swift_objects.index(shape)
             self._send_socket("shape_update", [id, shape.to_dict()])
 
-        phys.step_shape(
+        step_shape(
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
         )
         if shape.collision:
