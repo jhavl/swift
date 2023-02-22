@@ -362,7 +362,7 @@ class Swift:
             ob._id = id
 
             self._send_socket("element", ob.to_dict())
-        elif isinstance(ob, rtb.ERobot):
+        elif isinstance(ob, rtb.Robot):
 
             # if ob.base is None:
             #     ob.base = sm.SE3()
@@ -429,7 +429,7 @@ class Swift:
 
         if idd is None:
             raise ValueError(
-                "the id argument does not correspond with " "a robot or shape in Swift"
+                "the id argument does not correspond with a robot or shape in Swift"
             )
 
         self._send_socket(code, idd)
@@ -473,7 +473,7 @@ class Swift:
             self.recording = True
         else:
             raise ValueError(
-                "You are already recording, you can only record one video" " at a time"
+                "You are already recording, you can only record one video at a time"
             )
 
     def stop_recording(self):
@@ -584,7 +584,7 @@ class Swift:
         else:  # pragma: no cover
             # Should be impossible to reach
             raise ValueError(
-                "Invalid robot.control_mode. " "Must be one of 'p', 'v', or 'a'"
+                "Invalid robot.control_mode. Must be one of 'p', 'v', or 'a'"
             )
 
         # Update the robot link transofrms based on the new q

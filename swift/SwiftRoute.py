@@ -18,6 +18,11 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 
+from IPython.core.display import HTML
+from IPython.display import display
+from IPython.display import IFrame
+
+
 # from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 # from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 # import uuid
@@ -40,6 +45,7 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
     )
     socket.start()
     socket_port = inq.get()
+    server_port = 3000
 
     if not dev:
         # Start a http server
@@ -59,22 +65,29 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
 
         if open_tab:
 
+            url = f"http://localhost:{server_port}/?{socket_port}"
+
             if browser is not None:
-                try:
-                    wb.get(browser).open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
+
+                if browser == "notebook":
+                    display(
+                        IFrame(
+                            src=url,
+                            width="600",
+                            height="400",
+                        )
                     )
-                except wb.Error:
-                    print(
-                        "\nCould not open specified browser, " "using default instead\n"
-                    )
-                    wb.open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                    )
+                else:
+                    try:
+                        wb.get(browser).open_new_tab(url)
+                    except wb.Error:
+                        print(
+                            "\nCould not open specified browser, using default"
+                            " instead\n"
+                        )
+                        wb.open_new_tab(url)
             else:
-                wb.open_new_tab(
-                    "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                )
+                wb.open_new_tab(url)
     else:
         server = None
 
