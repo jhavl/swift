@@ -18,10 +18,23 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 
-from IPython.core.display import HTML
 from IPython.display import display
 from IPython.display import IFrame
 
+try:
+    # Check if we are in Google Colab
+    from google.colab.output import eval_js
+
+    # from ipykernel import comm
+
+    # from IPython import get_ipython
+
+    COLAB = True
+except ImportError:
+    COLAB = False
+
+COLAB = True
+print(COLAB)
 
 # from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 # from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
@@ -34,38 +47,62 @@ from IPython.display import IFrame
 
 def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
     # Start our websocket server with a new clean port
-    socket = Thread(
-        target=SwiftSocket,
-        args=(
-            outq,
-            inq,
-            stop_servers,
-        ),
-        daemon=True,
-    )
-    socket.start()
-    socket_port = inq.get()
-    server_port = 3000
 
-    if not dev:
-        # Start a http server
-        server = Thread(
-            target=SwiftServer,
+    if COLAB:
+        print("starting Colab Thread")
+        socket = Thread(
+            target=SwiftColab,
             args=(
                 outq,
                 inq,
-                socket_port,
                 stop_servers,
             ),
             daemon=True,
         )
+        socket.start()
+        socket_port = 12345
+    else:
+        socket = Thread(
+            target=SwiftSocket,
+            args=(
+                outq,
+                inq,
+                stop_servers,
+            ),
+            daemon=True,
+        )
+        socket.start()
+        socket_port = inq.get()
 
-        server.start()
-        server_port = inq.get()
+    server_port = 3000
+
+    if not dev:
+        # Start a http server
+        # server = Thread(
+        #     target=SwiftServer,
+        #     args=(
+        #         outq,
+        #         inq,
+        #         socket_port,
+        #         stop_servers,
+        #     ),
+        #     daemon=True,
+        # )
+
+        # server.start()
+        # server_port = inq.get()
+        server = None
 
         if open_tab:
 
-            url = f"http://localhost:{server_port}/?{socket_port}"
+            if COLAB:
+                # colab_url = eval_js(f"google.colab.kernel.proxyPort({server_port})")
+                # url = colab_url + f"?{socket_port}"
+                url = f"http://localhost:{server_port}/?{socket_port}"
+
+                print(url)
+            else:
+                url = f"http://localhost:{server_port}/?{socket_port}"
 
             if browser is not None:
 
@@ -77,6 +114,7 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
                             height="400",
                         )
                     )
+                    pass
                 else:
                     try:
                         wb.get(browser).open_new_tab(url)
@@ -95,13 +133,79 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
             "http://localhost:" + str(3000) + "/?" + str(socket_port)
         )
 
-    try:
-        inq.get(timeout=10)
-    except Empty:
-        print("\nCould not connect to the Swift simulator \n")
-        raise
+    # try:
+    #     inq.get(timeout=10)
+    # except Empty:
+    #     print("\nCould not connect to the Swift simulator \n")
+    #     raise
 
     return socket, server
+
+
+class SwiftColab:
+    def __init__(self, outq, inq, run):
+        print("Starting Swift Colab")
+        self.outq = outq
+        self.inq = inq
+        self.run = run
+        self.comm = None
+
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self.start())
+
+    async def start(self):
+        def comm_target(_comm, open_msg):
+            """
+            comm is the kernel Comm instance
+            msg is the comm_open message
+
+            """
+
+            self.comm = _comm
+
+            # Channel has been opened
+            print(f"Open message: {open_msg['content']['data']}")
+            # _comm.send({"echo": "Hello"})
+            self.inq.put(open_msg["content"]["data"])
+
+            # Register handler for later messages
+            @_comm.on_msg
+            def _recv(msg):
+                # Use msg['content']['data'] for the data in the message
+                # print(msg["content"]["data"])
+                _comm.send({"echo": msg["content"]["data"]})
+
+            @_comm.on_close
+            def _close(msg):
+                print("CLOSED")
+
+        get_ipython().kernel.comm_manager.register_target("swift_channel", comm_target)
+
+        print("HELLP")
+
+        while self.comm is None:
+            print("i")
+            await asyncio.sleep(1)
+
+        print("Comm opened")
+
+        while self.run():
+            print("Waiting for message")
+
+            message = await self.producer()
+            expected = message[0]
+            msg = message[1]
+            self.comm.send(json.dumps(msg))
+
+    async def expect_message(self, websocket, expected):
+        if expected:
+            recieved = await websocket.recv()
+            self.inq.put(recieved)
+
+    async def producer(self):
+        data = self.outq.get()
+        return data
 
 
 class SwiftSocket:
