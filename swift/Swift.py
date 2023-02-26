@@ -67,6 +67,9 @@ class Swift:
         self.outq = Queue()
         self.inq = Queue()
 
+        self.rtc_out = Queue()
+        self.rtc_in = Queue()
+
         self._dev = _dev
 
         if rtb is None:
@@ -155,6 +158,8 @@ class Swift:
                 self.outq,
                 self.inq,
                 self._servers_running,
+                self.rtc_out,
+                self.rtc_in,
                 browser=browser,
                 dev=self._dev,
             )
@@ -382,6 +387,7 @@ class Swift:
                 id = self._send_socket("shape", robob)
 
                 while not int(self._send_socket("shape_mounted", [id, len(robob)])):
+                    print("sleep")
                     time.sleep(0.1)
 
             else:
@@ -684,3 +690,9 @@ class Swift:
         self.elements["1"] = self._time_button
         self.elements["2"] = self._render_button
         self.elementid += 3
+
+    def open_rtc(self):
+        offer_web = self._send_socket("open_rtc", True, expected=True)
+        self.rtc_out.put(offer_web)
+        offer_python = self.rtc_in.get()
+        self._send_socket("offer", offer_python, expected=False)
