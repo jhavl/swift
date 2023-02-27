@@ -18,16 +18,22 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 
-# from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
-# from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
-# import uuid
-# import cv2
-# import numpy as np
+import base64
+from aiortc import (
+    MediaStreamTrack,
+    RTCPeerConnection,
+    RTCSessionDescription,
+    RTCDataChannel,
+)
+from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+import uuid
+import cv2
+import numpy as np
 
-# relay = MediaRelay()
 
-
-def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
+def start_servers(
+    outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, browser=None, dev=False
+):
     # Start our websocket server with a new clean port
     socket = Thread(
         target=SwiftSocket,
@@ -40,6 +46,16 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
     )
     socket.start()
     socket_port = inq.get()
+
+    rtc = Thread(
+        target=SwiftRtc,
+        args=(
+            rtc_out,
+            rtc_in,
+        ),
+        daemon=True,
+    )
+    rtc.start()
 
     if not dev:
         # Start a http server
@@ -65,9 +81,7 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
                         "http://localhost:" + str(server_port) + "/?" + str(socket_port)
                     )
                 except wb.Error:
-                    print(
-                        "\nCould not open specified browser, " "using default instead\n"
-                    )
+                    print("\nCould not open specified browser, using default instead\n")
                     wb.open_new_tab(
                         "http://localhost:" + str(server_port) + "/?" + str(socket_port)
                     )
@@ -89,6 +103,102 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
         raise
 
     return socket, server
+
+
+class SwiftRtc:
+    def __init__(self, rtc_out, rtc_in):
+        self.pcs = set()
+
+        self.rtc_out = rtc_out
+        self.rtc_in = rtc_in
+
+        pc = RTCPeerConnection()
+        coro = self.run_rtc(pc)
+
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        self.as_inq = asyncio.Queue()
+        self.as_wq = asyncio.Queue()
+
+        try:
+            self.loop.run_until_complete(coro)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("Closing RTC Loop")
+            self.loop.close()
+
+    async def run_rtc(self, pc):
+        @pc.on("track")
+        def on_track(track):
+            print("Track %s received", track.kind)
+
+            # if track.kind == "video":
+            #     pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
+
+        @pc.on("datachannel")
+        def on_datachannel(channel):
+            print(channel, "-", "created by remote party")
+
+            @channel.on("message")
+            def on_message(message):
+
+                if isinstance(message, str):
+                    print("Hello")
+                    # if message.startswith("imageStarting"):
+                    #     # print("Start")
+                    #     self.current_image = ""
+                    # elif message.startswith("imageFinished"):
+                    #     im = data_uri_to_im(self.current_image)
+                    #     self.rtc_in.put(im)
+                    #     # print("Finish")
+                    #     # im = data_uri_to_cv2_img(self.current_image)
+                    #     # cv2.imshow("camera", im)
+                    #     # cv2.waitKey(1)
+                    # elif message.startswith("ping"):
+                    #     pass
+                    #     # channel_send(channel, "pong" + message[4:])
+                    # else:
+                    #     self.current_image += message
+                else:
+                    print("UNKOWN MESSGAE")
+                    print(message)
+
+                # self.count += 1
+                # print(self.count)
+                # self.asyq.put(1)
+
+        await self.consume_signal(pc)
+
+    async def consume_signal(self, pc):
+
+        data = self.rtc_out.get(block=True)
+
+
+        if data[0:15] == '{"type":"offer"':
+            # await self._connect(data)
+            params = json.loads(data)
+            params = params["offer"]
+
+            offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+            # handle offer
+            await pc.setRemoteDescription(offer)
+
+            # send answer
+            answer = await pc.createAnswer()
+
+            # This line is taking forever??
+            await pc.setLocalDescription(answer)
+
+            self.rtc_in.put(
+                {
+                    "sdp": pc.localDescription.sdp,
+                    "type": pc.localDescription.type,
+                },
+            )
+
+        await self.as_wq.get()
 
 
 class SwiftSocket:
