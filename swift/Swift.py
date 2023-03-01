@@ -12,6 +12,9 @@ from queue import Queue
 import json
 from swift import start_servers, SwiftElement, Button
 from swift.phys import step_v, step_shape
+from typing import Union
+from typing_extensions import Literal as L
+
 
 rtb = None
 
@@ -35,16 +38,8 @@ class Swift:
     primitives including meshes, boxes, ellipsoids and lines. It can render
     Collada objects in full color.
 
-    :param realtime: Force the simulator to display no faster than real time,
-        note that it may still run slower due to complexity
-    :type realtime: bool
-    :param display: Do not launch the graphical front-end of the simulator.
-        Will still simulate the robot. Runs faster due to not needing to
-        display anything.
-    :type display: bool
-
-    Example:
-
+    Examples
+    --------
     .. code-block:: python
         :linenos:
 
@@ -57,18 +52,11 @@ class Swift:
         robot.q = robot.qz             # set the robot configuration
         pyplot.step()                  # update the backend and graphical view
 
-    :references:
-
-        - https://github.com/jhavl/swift
-
     """
 
     def __init__(self, _dev=False):
         self.outq = Queue()
         self.inq = Queue()
-
-        self.rtc_out = Queue()
-        self.rtc_in = Queue()
 
         self._dev = _dev
 
@@ -127,19 +115,41 @@ class Swift:
     #  Basic methods to do with the state of the external program
     #
 
-    def launch(self, realtime=False, headless=False, rate=60, browser=None, **kwargs):
+    def launch(
+        self,
+        realtime: bool = False,
+        headless: bool = False,
+        rate: int = 60,
+        browser: Union[str, None] = None,
+        comms: L["websocket", "rtc"] = "websocket",
+        **kwargs,
+    ):
         """
-        Launch a graphical backend in Swift by default in the default browser
-        or in the specified browser
-
-        :param browser: browser to open in: one of
-            'google-chrome', 'chrome', 'firefox', 'safari', 'opera'
-            or see for full list
-            https://docs.python.org/3.8/library/webbrowser.html#webbrowser.open_new
-        :type browser: string
+        Launch the Swift Simulator
 
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
+
+        Parameters
+        ----------
+        realtime
+            Force the simulator to display no faster than real time, note that
+            it may still run slower due to complexity
+        headless
+            Do not launch the graphical front-end of the simulator. Will still
+            simulate the robot. Runs faster due to not needing to display
+            anything.
+        rate
+            The rate (Hz) at which the simulator will be run, defaults to 60Hz
+        browser
+            browser to open in: one of 'google-chrome', 'chrome', 'firefox',
+            'safari', 'opera' or see for full list
+            https://docs.python.org/3.8/library/webbrowser.html#webbrowser.open_new
+        comms
+            The type of communication to use between the Python and Swift
+            instances.  Can be either 'websocket' or 'rtc' (WebRTC).  The
+            default is 'websocket'. The 'rtc' option requires a browser that
+            supports WebRTC, such as Chrome or Firefox.
 
         """
 
@@ -147,6 +157,11 @@ class Swift:
         self.rate = rate
         self.realtime = realtime
         self.headless = headless
+
+        if comms == "rtc":
+            self._comms = "rtc"
+        else:
+            self._comms = "websocket"
 
         if not self.headless:
             # The realtime, render and pause buttons
@@ -158,10 +173,9 @@ class Swift:
                 self.outq,
                 self.inq,
                 self._servers_running,
-                self.rtc_out,
-                self.rtc_in,
                 browser=browser,
                 dev=self._dev,
+                comms=self._comms,
             )
             self.last_time = time.time()
 

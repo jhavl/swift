@@ -17,6 +17,7 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
+from typing import Union
 
 import base64
 from aiortc import (
@@ -29,88 +30,118 @@ from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, Med
 import uuid
 import cv2
 import numpy as np
+from queue import Queue
+
+from IPython.display import display
+from IPython.display import IFrame
+
+try:
+    # Check if we are in Google Colab
+    from google.colab.output import eval_js  # type: ignore
+
+    # from ipykernel import comm
+
+    # from IPython import get_ipython
+
+    COLAB = True
+except ImportError:
+    COLAB = False
 
 
-def start_servers(
-    outq, inq, stop_servers, rtc_out, rtc_in, open_tab=True, browser=None, dev=False
-):
-    # Start our websocket server with a new clean port
-    socket = Thread(
-        target=SwiftSocket,
-        args=(
-            outq,
-            inq,
-            stop_servers,
-        ),
-        daemon=True,
-    )
-    socket.start()
-    socket_port = inq.get()
+def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
+    socket_port = 0
 
+    # We are going to attempt to set up an RTC connection
     rtc = Thread(
         target=SwiftRtc,
         args=(
-            rtc_out,
-            rtc_in,
+            outq,
+            inq,
         ),
         daemon=True,
     )
     rtc.start()
 
-    if not dev:
-        # Start a http server
-        server = Thread(
-            target=SwiftServer,
-            args=(
-                outq,
-                inq,
-                socket_port,
-                stop_servers,
-            ),
-            daemon=True,
-        )
+    # Start a http server
+    server = Thread(
+        target=SwiftServer,
+        args=(
+            outq,
+            inq,
+            socket_port,
+            stop_servers,
+        ),
+        daemon=True,
+    )
 
-        server.start()
-        server_port = inq.get()
+    server.start()
+    server_port = inq.get()
 
-        if open_tab:
+    # # Start our websocket server with a new port
+    # socket = Thread(
+    #     target=SwiftSocket,
+    #     args=(
+    #         outq,
+    #         inq,
+    #         stop_servers,
+    #     ),
+    #     daemon=True,
+    # )
+    # socket.start()
+    # socket_port = inq.get()
 
-            if browser is not None:
-                try:
-                    wb.get(browser).open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
+    if open_tab:
+
+        if COLAB:
+            colab_url = eval_js(f"google.colab.kernel.proxyPort({server_port})")
+            url = colab_url + f"?{socket_port}"
+        else:
+            url = f"http://localhost:{server_port}/?{socket_port}"
+
+        if browser is not None:
+
+            if browser == "notebook":
+                display(
+                    IFrame(
+                        src=url,
+                        width="600",
+                        height="400",
                     )
+                )
+            else:
+                try:
+                    wb.get(browser).open_new_tab(url)
                 except wb.Error:
                     print("\nCould not open specified browser, using default instead\n")
-                    wb.open_new_tab(
-                        "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                    )
-            else:
-                wb.open_new_tab(
-                    "http://localhost:" + str(server_port) + "/?" + str(socket_port)
-                )
-    else:
-        server = None
+                    wb.open_new_tab(url)
+        else:
+            wb.open_new_tab(url)
 
-        wb.get(browser).open_new_tab(
-            "http://localhost:" + str(3000) + "/?" + str(socket_port)
-        )
-
+    # Get the RTC offer from the HTTP Server
     try:
-        inq.get(timeout=10)
+        offer = inq.get(timeout=30)
     except Empty:
-        print("\nCould not connect to the Swift simulator \n")
+        print("\nCould not connect to the Swift simulator, RTC Connection timed out \n")
         raise
 
-    return socket, server
+    # Send the offer to the RTC server
+    outq.put(offer)
+
+    # Get the answer from the RTC server
+    offer_python = inq.get()
+
+    # Send the answer to the HTTP server
+    outq.put(offer_python)
+
+    return rtc, server
 
 
 class SwiftRtc:
-    def __init__(self, rtc_out, rtc_in):
+    def __init__(self, outq, inq):
         self.pcs = set()
 
-        self.rtc_out = rtc_out
-        self.rtc_in = rtc_in
+        self.outq = outq
+        self.inq = inq
 
         pc = RTCPeerConnection()
         coro = self.run_rtc(pc)
@@ -121,6 +152,9 @@ class SwiftRtc:
         self.as_inq = asyncio.Queue()
         self.as_wq = asyncio.Queue()
 
+        self.run = True
+        self.connected = False
+
         try:
             self.loop.run_until_complete(coro)
         except KeyboardInterrupt:
@@ -130,75 +164,83 @@ class SwiftRtc:
             self.loop.close()
 
     async def run_rtc(self, pc):
-        @pc.on("track")
-        def on_track(track):
-            print("Track %s received", track.kind)
-
-            # if track.kind == "video":
-            #     pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
-
         @pc.on("datachannel")
-        def on_datachannel(channel):
+        async def on_datachannel(channel):
+            self.connected = True
             print(channel, "-", "created by remote party")
 
             @channel.on("message")
-            def on_message(message):
+            async def on_message(message):
 
                 if isinstance(message, str):
-                    print("Hello")
-                    # if message.startswith("imageStarting"):
-                    #     # print("Start")
-                    #     self.current_image = ""
-                    # elif message.startswith("imageFinished"):
-                    #     im = data_uri_to_im(self.current_image)
-                    #     self.rtc_in.put(im)
-                    #     # print("Finish")
-                    #     # im = data_uri_to_cv2_img(self.current_image)
-                    #     # cv2.imshow("camera", im)
-                    #     # cv2.waitKey(1)
-                    # elif message.startswith("ping"):
-                    #     pass
-                    #     # channel_send(channel, "pong" + message[4:])
-                    # else:
-                    #     self.current_image += message
+                    print(message)
+                    await self.as_inq.put(message)
                 else:
                     print("UNKOWN MESSGAE")
                     print(message)
 
-                # self.count += 1
-                # print(self.count)
-                # self.asyq.put(1)
+            while self.connected:
 
-        await self.consume_signal(pc)
+                if channel.bufferedAmount < 10000:
+                    try:
+                        data = await self.producer(0.001)
+                    except Empty:
+                        await asyncio.sleep(0.001)
+                        continue
 
-    async def consume_signal(self, pc):
+                    expected = data[0]
+                    msg = data[1]
 
-        data = self.rtc_out.get(block=True)
+                    print(f"Sending: {msg}")
 
+                    channel.send(json.dumps(msg))
 
-        if data[0:15] == '{"type":"offer"':
-            # await self._connect(data)
-            params = json.loads(data)
-            params = params["offer"]
+                    if expected:
+                        print("waitnig for response")
+                        recieved = await self.as_inq.get()
+                        print("got response")
+                        self.inq.put(recieved)
+                        print("put response in queue")
+                else:
+                    await asyncio.sleep(0.001)
 
-            offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-            # handle offer
-            await pc.setRemoteDescription(offer)
+        while self.run:
+            if self.connected:
+                await asyncio.sleep(5)
+            else:
+                message = await self.producer()
 
-            # send answer
-            answer = await pc.createAnswer()
+                params = message["offer"]
 
-            # This line is taking forever??
-            await pc.setLocalDescription(answer)
+                offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-            self.rtc_in.put(
-                {
-                    "sdp": pc.localDescription.sdp,
-                    "type": pc.localDescription.type,
-                },
-            )
+                # handle offer
+                await pc.setRemoteDescription(offer)
 
-        await self.as_wq.get()
+                # send answer
+                answer = await pc.createAnswer()
+
+                # This line is taking forever??
+                await pc.setLocalDescription(answer)
+
+                self.inq.put(
+                    json.dumps(
+                        {
+                            "sdp": pc.localDescription.sdp,
+                            "type": pc.localDescription.type,
+                        }
+                    )
+                )
+
+                while not pc.iceConnectionState == "completed":
+                    await asyncio.sleep(0.1)
+
+                self.connected = True
+
+    async def producer(self, timeout: Union[float, None] = None) -> Union[str, dict]:
+        """Get a message from the queue."""
+        data = self.outq.get(timeout=timeout)
+        return data
 
 
 class SwiftSocket:
@@ -293,30 +335,6 @@ class SwiftSocket:
     #     )
 
 
-# class VideoTransformTrack(MediaStreamTrack):
-#     """
-#     A video stream track that transforms frames from an another track.
-#     """
-
-#     kind = "video"
-
-#     def __init__(self, track):
-#         super().__init__()  # don't forget this!
-#         self.track = track
-#         self.count = 0
-
-#     async def recv(self):
-#         print("hellooooo")
-#         frame = await self.track.recv()
-#         im = frame.to_ndarray(format="bgr24")
-
-#         cv2.imshow("camera", im)
-#         cv2.waitKey(1)
-#         self.count += 1
-#         print(self.count)
-#         return frame
-
-
 class SwiftServer:
     def __init__(self, outq, inq, socket_port, run, verbose=False, custom_root=None):
 
@@ -341,14 +359,23 @@ class SwiftServer:
                     pass
 
             def do_POST(self):
-                pass
-                # print(self)
-                # if self.path == "/offer":
-                #     print("hello")
 
-                #     length = int(self.headers.get("content-length"))
-                #     params = json.loads(self.rfile.read(length))
-                #     self._connect(params)
+                # Handle RTC Offer
+                if self.path == "/offer":
+
+                    # Get the initial offer
+                    length = int(self.headers.get("content-length"))  # type: ignore
+                    params = json.loads(self.rfile.read(length))
+
+                    inq.put(params)
+                    answer = outq.get()
+
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(str.encode(answer))
+
+                    return
 
             def do_GET(self):
 

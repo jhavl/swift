@@ -85,6 +85,9 @@ const Home = () => {
             <Head>
                 <title>Swift</title>
                 <link rel="icon" href="/favicon.ico" />
+                <meta http-equiv='cache-control' content='no-cache' />
+                <meta http-equiv='expires' content='0' />
+                <meta http-equiv='pragma' content='no-cache' />
             </Head>
 
             <main className={styles.main}>
