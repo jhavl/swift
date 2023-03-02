@@ -31,6 +31,8 @@ import uuid
 import cv2
 import numpy as np
 from queue import Queue
+from typing import Union
+from typing_extensions import Literal as L
 
 from IPython.display import display
 from IPython.display import IFrame
@@ -48,19 +50,44 @@ except ImportError:
     COLAB = False
 
 
-def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=False):
-    socket_port = 0
+def start_servers(
+    outq: Queue,
+    inq: Queue,
+    stop_servers,
+    open_tab: bool = True,
+    browser: Union[str, None] = None,
+    comms: L["websocket", "rtc"] = "websocket",
+):
+    comms = "rtc"
 
     # We are going to attempt to set up an RTC connection
-    rtc = Thread(
-        target=SwiftRtc,
-        args=(
-            outq,
-            inq,
-        ),
-        daemon=True,
-    )
-    rtc.start()
+
+    if comms == "rtc":
+        # Start the RTC server
+        socket = Thread(
+            target=SwiftRtc,
+            args=(
+                outq,
+                inq,
+            ),
+            daemon=True,
+        )
+        socket.start()
+
+        socket_port = 1 if COLAB else 0
+    else:
+        # Start our websocket server with a new port
+        socket = Thread(
+            target=SwiftSocket,
+            args=(
+                outq,
+                inq,
+                stop_servers,
+            ),
+            daemon=True,
+        )
+        socket.start()
+        socket_port = inq.get()
 
     # Start a http server
     server = Thread(
@@ -76,19 +103,6 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
 
     server.start()
     server_port = inq.get()
-
-    # # Start our websocket server with a new port
-    # socket = Thread(
-    #     target=SwiftSocket,
-    #     args=(
-    #         outq,
-    #         inq,
-    #         stop_servers,
-    #     ),
-    #     daemon=True,
-    # )
-    # socket.start()
-    # socket_port = inq.get()
 
     if open_tab:
 
@@ -117,23 +131,33 @@ def start_servers(outq, inq, stop_servers, open_tab=True, browser=None, dev=Fals
         else:
             wb.open_new_tab(url)
 
-    # Get the RTC offer from the HTTP Server
-    try:
-        offer = inq.get(timeout=30)
-    except Empty:
-        print("\nCould not connect to the Swift simulator, RTC Connection timed out \n")
-        raise
+    if comms == "rtc":
+        # Get the RTC offer from the HTTP Server
+        try:
+            offer = inq.get(timeout=30)
+        except Empty:
+            print(
+                "\nCould not connect to the Swift simulator, RTC Connection timed"
+                " out \n"
+            )
+            raise
 
-    # Send the offer to the RTC server
-    outq.put(offer)
+        # Send the offer to the RTC server
+        outq.put(offer)
 
-    # Get the answer from the RTC server
-    offer_python = inq.get()
+        # Get the answer from the RTC server
+        offer_python = inq.get()
 
-    # Send the answer to the HTTP server
-    outq.put(offer_python)
+        # Send the answer to the HTTP server
+        outq.put(offer_python)
+    else:
+        try:
+            inq.get(timeout=10)
+        except Empty:
+            print("\nCould not connect to the Swift simulator \n")
+            raise
 
-    return rtc, server
+    return socket, server
 
 
 class SwiftRtc:
@@ -163,20 +187,27 @@ class SwiftRtc:
             print("Closing RTC Loop")
             self.loop.close()
 
-    async def run_rtc(self, pc):
+    async def run_rtc(self, pc: RTCPeerConnection):
+        @pc.on("connectionstatechange")
+        async def on_connectionstatechange():
+            if pc.connectionState == "failed":
+                print(f"RTC Connection state is {pc.connectionState}")
+                await pc.close()
+                self.run = False
+                self.connected = False
+
         @pc.on("datachannel")
-        async def on_datachannel(channel):
+        async def on_datachannel(channel: RTCDataChannel):
             self.connected = True
-            print(channel, "-", "created by remote party")
 
             @channel.on("message")
             async def on_message(message):
 
                 if isinstance(message, str):
-                    print(message)
-                    await self.as_inq.put(message)
+                    if not message == "PING":
+                        await self.as_inq.put(message)
                 else:
-                    print("UNKOWN MESSGAE")
+                    print("Recieved Unknown RTC Message")
                     print(message)
 
             while self.connected:
@@ -191,16 +222,11 @@ class SwiftRtc:
                     expected = data[0]
                     msg = data[1]
 
-                    print(f"Sending: {msg}")
-
                     channel.send(json.dumps(msg))
 
                     if expected:
-                        print("waitnig for response")
                         recieved = await self.as_inq.get()
-                        print("got response")
                         self.inq.put(recieved)
-                        print("put response in queue")
                 else:
                     await asyncio.sleep(0.001)
 
@@ -289,50 +315,11 @@ class SwiftSocket:
     async def expect_message(self, websocket, expected):
         if expected:
             recieved = await websocket.recv()
-            # if recieved[0:15] == '{"type":"offer"':
-            #     await self._connect(recieved, websocket)
-            #     await self.expect_message(websocket, expected)
-            # else:
-            #     self.inq.put(recieved)
             self.inq.put(recieved)
 
     async def producer(self):
         data = self.outq.get()
         return data
-
-    # async def _connect(self, recieved, websocket):
-    #     params = json.loads(recieved)
-    #     params = params["offer"]
-
-    #     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-    #     pc = RTCPeerConnection()
-    #     pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    #     self.pcs.add(pc)
-
-    #     @pc.on("track")
-    #     def on_track(track):
-    #         print("Track %s received", track.kind)
-
-    #         if track.kind == "video":
-    #             pc.addTrack(VideoTransformTrack(relay.subscribe(track)))
-
-    #     # handle offer
-    #     await pc.setRemoteDescription(offer)
-
-    #     # send answer
-    #     answer = await pc.createAnswer()
-    #     await pc.setLocalDescription(answer)
-    #     await websocket.send(
-    #         json.dumps(
-    #             [
-    #                 "offer",
-    #                 {
-    #                     "sdp": pc.localDescription.sdp,
-    #                     "type": pc.localDescription.type,
-    #                 },
-    #             ]
-    #         )
-    #     )
 
 
 class SwiftServer:
@@ -396,7 +383,7 @@ class SwiftServer:
                     self.path = "index.html"
                 elif self.path.startswith("/retrieve/"):
                     # print(f"Retrieving file: {self.path[10:]}")
-                    self.path = urllib.parse.unquote(self.path[10:])
+                    self.path = urllib.parse.unquote(self.path[9:])
                     self.send_file_via_real_path()
                     return
 

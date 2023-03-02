@@ -174,7 +174,6 @@ class Swift:
                 self.inq,
                 self._servers_running,
                 browser=browser,
-                dev=self._dev,
                 comms=self._comms,
             )
             self.last_time = time.time()
@@ -704,9 +703,3 @@ class Swift:
         self.elements["1"] = self._time_button
         self.elements["2"] = self._render_button
         self.elementid += 3
-
-    def open_rtc(self):
-        offer_web = self._send_socket("open_rtc", True, expected=True)
-        self.rtc_out.put(offer_web)
-        offer_python = self.rtc_in.get()
-        self._send_socket("offer", offer_python, expected=False)
