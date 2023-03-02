@@ -58,7 +58,6 @@ def start_servers(
     browser: Union[str, None] = None,
     comms: L["websocket", "rtc"] = "websocket",
 ):
-    comms = "rtc"
 
     # We are going to attempt to set up an RTC connection
 
