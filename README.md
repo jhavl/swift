@@ -1,9 +1,11 @@
 # Swift
 
+[![A Python Robotics Package](https://raw.githubusercontent.com/petercorke/robotics-toolbox-python/master/.github/svg/py_collection.min.svg)](https://github.com/petercorke/robotics-toolbox-python)
+[![QUT Centre for Robotics Open Source](https://github.com/qcr/qcr.github.io/raw/master/misc/badge.svg)](https://qcr.github.io)
+
 [![PyPI version](https://badge.fury.io/py/swift-sim.svg)](https://badge.fury.io/py/swift-sim)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![QUT Centre for Robotics Open Source](https://github.com/qcr/qcr.github.io/raw/master/misc/badge.svg)](https://qcr.github.io)
 
 Swift is a light-weight browser-based simulator built on top of the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python). This simulator provides robotics-specific functionality for rapid prototyping of algorithms, research, and education. Built using Python and Javascript, Swift is cross-platform (Linux, MacOS, and Windows) while also leveraging the ubiquity and support of these languages.
 
@@ -29,6 +31,17 @@ Otherwise, Swift can be install by
 
 ```shell script
 pip3 install swift-sim
+```
+
+Available options are:
+
+- `nb` provides the ability for Swift to be embedded within a Jupyter Notebook
+- `vision` implements an RTC communication strategy allowing for visual feedback from Swift and allows Swift to be run on Google Colab
+
+Put the options in a comma-separated list like
+
+```shell script
+pip3 install swift-sim[optionlist]
 ```
 
 ### From GitHub
@@ -63,10 +76,12 @@ We will load a model of the Franka-Emika Panda robot and make it travel towards 
 import roboticstoolbox as rtb
 import spatialmath as sm
 import numpy as np
+from swift import Swift
+
 
 # Make and instance of the Swift simulator and open it
-env = rtb.backends.Swift()
-env.launch()
+env = Swift()
+env.launch(realtime=True)
 
 # Make a panda model and set its joint angles to the ready joint configuration
 panda = rtb.models.Panda()
@@ -94,3 +109,41 @@ while not arrived:
 <p align="center">
  <img src="./.github/figures/panda.gif">
 </p>
+
+### Embed within a Jupyter Notebook
+To embed within a Jupyter Notebook Cell, use the `browser="notebook"` option when launching the simulator.
+
+```python
+# Try this example within a Jupyter Notebook Cell!
+import roboticstoolbox as rtb
+import spatialmath as sm
+import numpy as np
+from swift import Swift
+
+# Make and instance of the Swift simulator and open it
+env = Swift()
+env.launch(realtime=True, browser="notebook")
+
+# Make a panda model and set its joint angles to the ready joint configuration
+panda = rtb.models.Panda()
+panda.q = panda.qr
+
+# Set a desired and effector pose an an offset from the current end-effector pose
+Tep = panda.fkine(panda.q) * sm.SE3.Tx(0.2) * sm.SE3.Ty(0.2) * sm.SE3.Tz(0.45)
+
+# Add the robot to the simulator
+env.add(panda)
+
+# Simulate the robot while it has not arrived at the goal
+arrived = False
+while not arrived:
+
+    # Work out the required end-effector velocity to go towards the goal
+    v, arrived = rtb.p_servo(panda.fkine(panda.q), Tep, 1)
+    
+    # Set the Panda's joint velocities
+    panda.qd = np.linalg.pinv(panda.jacobe(panda.q)) @ v
+    
+    # Step the simulator by 50 milliseconds
+    env.step(0.05)
+```
