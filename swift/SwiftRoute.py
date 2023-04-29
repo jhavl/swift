@@ -19,31 +19,35 @@ from http import HTTPStatus
 import urllib
 from typing import Union
 
-import base64
-from aiortc import (
-    MediaStreamTrack,
-    RTCPeerConnection,
-    RTCSessionDescription,
-    RTCDataChannel,
-)
-from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
-import uuid
-import cv2
-import numpy as np
+
 from queue import Queue
-from typing import Union
 from typing_extensions import Literal as L
 
-from IPython.display import display
-from IPython.display import IFrame
+# Check for notebook support
+try:
+    from IPython.display import display
+    from IPython.display import IFrame
+
+    NB = True
+except ImportError:
+    NB = False
+
+# Check for RTC Support
+try:
+    from aiortc import (
+        RTCPeerConnection,
+        RTCSessionDescription,
+        RTCDataChannel,
+    )
+
+    RTC = True
+except ImportError:
+    RTCPeerConnection = None
+    RTC = False
 
 try:
     # Check if we are in Google Colab
     from google.colab.output import eval_js  # type: ignore
-
-    # from ipykernel import comm
-
-    # from IPython import get_ipython
 
     COLAB = True
 except ImportError:
@@ -58,7 +62,6 @@ def start_servers(
     browser: Union[str, None] = None,
     comms: L["websocket", "rtc"] = "websocket",
 ):
-
     # We are going to attempt to set up an RTC connection
 
     if comms == "rtc":
@@ -104,7 +107,6 @@ def start_servers(
     server_port = inq.get()
 
     if open_tab:
-
         if COLAB:
             colab_url = eval_js(f"google.colab.kernel.proxyPort({server_port})")
             url = colab_url + f"?{socket_port}"
@@ -112,8 +114,13 @@ def start_servers(
             url = f"http://localhost:{server_port}/?{socket_port}"
 
         if browser is not None:
-
             if browser == "notebook":
+                if not NB:
+                    raise ImportError(
+                        "\nCould not open in notebook mode, install ipython with 'pip"
+                        " install ipython'\n"
+                    )
+
                 display(
                     IFrame(
                         src=url,
@@ -131,6 +138,11 @@ def start_servers(
             wb.open_new_tab(url)
 
     if comms == "rtc":
+        if not RTC:
+            raise ImportError(
+                "\nCould not start RTC server, install aiortc with 'pip install"
+                " aiortc'\n"
+            )
         # Get the RTC offer from the HTTP Server
         try:
             offer = inq.get(timeout=30)
@@ -201,7 +213,6 @@ class SwiftRtc:
 
             @channel.on("message")
             async def on_message(message):
-
                 if isinstance(message, str):
                     if not message == "PING":
                         await self.as_inq.put(message)
@@ -210,7 +221,6 @@ class SwiftRtc:
                     print(message)
 
             while self.connected:
-
                 if channel.bufferedAmount < 10000:
                     try:
                         data = await self.producer(0.001)
@@ -296,9 +306,8 @@ class SwiftSocket:
         self.USERS.add(websocket)
 
     async def serve(self, websocket, path):
-
         # Initial connection handshake
-        await (self.register(websocket))
+        await self.register(websocket)
         recieved = await websocket.recv()
         self.inq.put(recieved)
 
@@ -323,7 +332,6 @@ class SwiftSocket:
 
 class SwiftServer:
     def __init__(self, outq, inq, socket_port, run, verbose=False, custom_root=None):
-
         server_port = 52000
         self.inq = inq
         self.run = run
@@ -345,10 +353,8 @@ class SwiftServer:
                     pass
 
             def do_POST(self):
-
                 # Handle RTC Offer
                 if self.path == "/offer":
-
                     # Get the initial offer
                     length = int(self.headers.get("content-length"))  # type: ignore
                     params = json.loads(self.rfile.read(length))
@@ -364,7 +370,6 @@ class SwiftServer:
                     return
 
             def do_GET(self):
-
                 if self.path == "/":
                     self.send_response(301)
 
