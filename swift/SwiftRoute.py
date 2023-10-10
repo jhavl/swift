@@ -387,7 +387,7 @@ class SwiftServer:
                     self.path = "index.html"
                 elif self.path.startswith("/retrieve/"):
                     # print(f"Retrieving file: {self.path[10:]}")
-                    self.path = urllib.parse.unquote(self.path[9:])
+                    self.path = urllib.parse.unquote(self.path[10:])
                     self.send_file_via_real_path()
                     return
 
