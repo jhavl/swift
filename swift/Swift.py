@@ -224,7 +224,9 @@ class Swift:
 
         # Update world transform of objects
         for obj in self.swift_objects:
-            obj._propogate_scene_tree()
+            # check if object is deleted
+            if obj is not None:
+                obj._propogate_scene_tree()
 
         # Adjust sim time
         self.sim_time += dt
