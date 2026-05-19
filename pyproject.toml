@@ -4,20 +4,20 @@ name = "swift-sim"
 
 description = "A Python/Javascript Robot Simulator and Visualiser"
 
-version = "1.1.0"
+version = "2.0.0"
 
 authors = [
     { name = "Jesse Haviland", email = "j.haviland@qut.edu.au" },
     { name = "Peter Corke", email = "rvc@petercorke.com" },
 ]
 
-dependencies = ["numpy>=1.17.4", "spatialgeometry>=1.0.0", "websockets"]
+dependencies = ["numpy>=2.0", "spatialgeometry>=1.0.0", "websockets"]
 
 license = { file = "LICENSE" }
 
 readme = "README.md"
 
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 keywords = [
     "python",
@@ -42,11 +42,10 @@ classifiers = [
     # Pick your license as you wish (should match "license" above)
     "License :: OSI Approved :: MIT License",
     # Specify the Python versions you support here.
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 
