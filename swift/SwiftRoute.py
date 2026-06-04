@@ -12,6 +12,7 @@ import webbrowser as wb
 import json
 import http.server
 import socketserver
+socketserver.TCPServer.allow_reuse_address = True
 from pathlib import Path
 import os
 from queue import Empty
@@ -99,6 +100,7 @@ def start_servers(
             inq,
             socket_port,
             stop_servers,
+            True,
         ),
         daemon=True,
     )
@@ -163,7 +165,7 @@ def start_servers(
         outq.put(offer_python)
     else:
         try:
-            inq.get(timeout=10)
+            inq.get(timeout=1800)
         except Empty:
             print("\nCould not connect to the Swift simulator \n")
             raise
@@ -293,7 +295,7 @@ class SwiftSocket:
         port = 53000
         while not started and port < 62000:
             try:
-                start_server = websockets.serve(self.serve, "localhost", port)
+                start_server = websockets.serve(self.serve, "0.0.0.0", port)
                 self.loop.run_until_complete(start_server)
                 started = True
             except OSError:
@@ -372,15 +374,11 @@ class SwiftServer:
             def do_GET(self):
                 if self.path == "/":
                     self.send_response(301)
-
+                    host = self.headers.get('Host', f'localhost:{server_port}')
                     self.send_header(
                         "Location",
-                        "http://localhost:"
-                        + str(server_port)
-                        + "/?"
-                        + str(socket_port),
+                        f"http://{host}/?{socket_port}",
                     )
-
                     self.end_headers()
                     return
                 elif self.path == "/?" + str(socket_port):
