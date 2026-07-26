@@ -98,6 +98,79 @@ when this lands.
 
 ---
 
+## Google Colab support: real bugs fixed, but `proxyPort()` itself appears unreliable
+
+### Background
+
+README.md claims the `vision` extra's WebRTC support "allows Swift to
+be run on Google Colab." Investigated 2026-07-26, after dropping
+WebRTC entirely in the frontend rebuild, by actually running
+`examples/teach_swift.py` on a real Colab notebook (installing RTB/
+spatialgeometry/swift from git branches, since none of the three had a
+current PyPI release at the time).
+
+Found and fixed three real, confirmed, comms-mode-independent bugs in
+`SwiftRoute.py`'s Colab path (none of which were about WebRTC/video at
+all):
+
+1. `start_servers()` computed `colab_url` correctly via `eval_js`
+   (Colab's JS bridge), but then fell through to the shared
+   `wb.open_new_tab(url)` call -- Python's desktop `webbrowser`
+   module, which tries to open a browser on the (headless, remote)
+   Colab VM itself. Nothing ever navigated the user's actual browser
+   to the URL.
+2. The first fix (`eval_js(f'window.open("{url}")')`) hit two further
+   problems: browsers commonly block a `window.open()` triggered this
+   way as a popup (not a direct user click), and even with the popup
+   allowed through, `eval_js` raised `MessageError: DataCloneError`
+   trying to structured-clone `window.open()`'s return value (a JS
+   `Window` object) back to Python -- browsers explicitly disallow
+   cloning `Window`/DOM objects. Fixed by displaying a clickable HTML
+   link instead (`display(HTML(...))`) -- a genuine click always
+   bypasses popup blockers, and nothing round-trips through `eval_js`.
+   Also extended the post-open handshake wait from 10s to 60s for
+   Colab, since opening now requires the user to notice and click a
+   link rather than happening automatically.
+3. `SwiftServer`'s static/HTTP server used a plain, single-threaded
+   `socketserver.TCPServer` -- switched to `ThreadingTCPServer`, since
+   a proxying layer in front of it may hold open or make concurrent
+   requests while establishing its tunnel, which a single-threaded
+   server can't handle without stalling the real request.
+
+After all three fixes, the initial request through
+`google.colab.kernel.proxyPort()` still fails **intermittently** --
+same code, same steps, sometimes a 404 (on `favicon.ico`, harmless)
+with the actual page still blank, sometimes the request never
+completes at all (no status, no response headers, indistinguishable
+from a hang). Ruled out browser caching as the cause (tested in a
+private/incognito window, same intermittent failure). The
+inconsistency itself -- identical steps producing different outcomes
+-- points at Colab's proxy infrastructure rather than a deterministic
+bug in this code, consistent with a documented history of `proxyPort`
+reliability issues (e.g. googlecolab/colabtools#4270, #3308, #4738 --
+the last of these was from 2024, already closed, not the current
+issue, but establishes the pattern).
+
+### Implication for the WebRTC decision
+
+Confirmed this isn't a reason to reconsider dropping WebRTC: RTC would
+only have replaced the *data channel* after the page loads. The
+observed failure is in the *initial page load* through `proxyPort()`
+itself, before any comms-mode-specific code runs -- RTC wouldn't have
+helped with what's actually breaking.
+
+### Status
+
+Not resolved. The three fixes above are real, confirmed improvements
+worth keeping regardless (any Colab user gets further than before),
+but further progress needs either reproducing this outside of live
+back-and-forth debugging (a throwaway minimal `proxyPort()` Colab
+notebook with no Swift involved, to isolate whether *any* custom local
+server behaves reliably through it) or accepting Colab support as
+presently unreliable for reasons outside this repo's control.
+
+---
+
 ## JupyterLite / Pyodide transport (not yet designed against, just not blocked)
 
 `swift/public/js/comms.js`'s `WebSocketTransport` class deliberately
