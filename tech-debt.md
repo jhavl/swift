@@ -90,11 +90,47 @@ implemented. See the matching entry in `roboticstoolbox-python`'s
 scene-graph/rendering state") — the two repos' redesigns are coupled
 and should land together.
 
-**Not done now** — this session's Swift work (frontend rebuild, wire
-protocol, control panel) was deliberately built against the *current*
-stateful-`robot.q` API, but using the pure-FK-computation path
-underneath where practical, so it doesn't have to be re-architected
-when this lands.
+**Partial progress (2026-07-26):** implemented the narrow-scope slice
+of this. `Swift.py`'s per-step rendering hot path (`_draw_all()`/
+`_step_robot()`) now calls RTB's new `Robot.fkine_geometry(robot.q,
+robot_alpha, collision_alpha)` (added to `roboticstoolbox-python`,
+verified bit-for-bit against the old `SceneNode` path including
+gripper joints and base offsets) instead of `_update_link_tf()`/
+`_propogate_scene_tree()` -- so the actual per-frame rendering no
+longer depends on the scene-graph mutation machinery at all. Confirmed
+working live (two robots + gripper fingers + a moving shape, ~90s run).
+
+This is **not** the full handle redesign described above: `env.add()`
+still doesn't return a handle, `robot.q` is still read as ordinary
+mutable state each step (just no longer the *scene-graph* state, still
+the robot's own `.q` attribute), and `base`/`tool`/`clone=True` are
+untouched. What changed is narrower and more mechanical: swap which
+computation produces the poses `_draw_all()` sends over the wire, from
+a stateful/cached one to a pure one, without changing Swift's public
+API or the wire protocol at all. The full handle-based redesign is
+still open, coupled to the matching (also partial) entry in
+`roboticstoolbox-python`'s `tech-debt.md`.
+
+**Follow-up not done:** `_se3_to_wire()` (`Swift.py`) uses
+`sm.base.r2q` (spatialmath, pure Python) to convert each part's
+rotation to the wire-format quaternion -- called once per geometry
+part per step. RTB's `roboticstoolbox.ets.fknm.r2q()` is C-accelerated
+and could be faster for robots with many parts, but unlike
+`sm.base.r2q` it has no pure-Python fallback -- it raises
+`RuntimeError` outright when the `_fknm_c` extension isn't built (e.g.
+a pure-Python Pyodide wheel), which would break Swift's rendering
+entirely in exactly the contexts (JupyterLite/Pyodide) this repo is
+trying to support gracefully. Not swapped in without first wrapping it
+the same way `phys.cpp`'s `step_v`/`step_shape` already are (try the C
+path, fall back to `sm.base.r2q` on `ImportError`/`RuntimeError`).
+
+**Follow-up not done:** Playwright (headless browser automation) as an
+automated replacement for this session's live, manual
+screenshot-and-console back-and-forth debugging -- would let CI (or a
+single local command) catch console errors, failed network requests,
+and blank/broken renders automatically instead of needing a human to
+open DevTools and describe what they see. Discussed but not installed
+in this environment or wired into `swift`'s test suite.
 
 ---
 

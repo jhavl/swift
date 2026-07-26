@@ -14,6 +14,11 @@ from swift import start_servers, SwiftElement, Button, Select
 from typing import Union
 
 
+def _se3_to_wire(T):
+    """Matches spatialgeometry Shape.fk_dict()'s wire format: t + xyzw q."""
+    return {"t": T.t.tolist(), "q": sm.base.r2q(T.R, order="xyzs").tolist()}
+
+
 def _step_v_py(n, valid, dt, q, qd, qlim):
     q += qd * dt
     if valid:
@@ -661,8 +666,10 @@ class Swift:
                 "Invalid robot.control_mode. Must be one of 'p', 'v', or 'a'"
             )
 
-        # Update the robot link transofrms based on the new q
-        robot._update_link_tf()
+        # No _update_link_tf()/_propogate_scene_tree() call here -- _draw_all()
+        # computes geometry poses via Robot.fkine_geometry(robot.q), a pure
+        # function of q, rather than reading the scene-graph's mutated/
+        # cached world transform. See tech-debt.md.
 
     def _step_shape(self, shape, dt):
 
@@ -703,15 +710,13 @@ class Swift:
                 if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
                 elif isinstance(self.swift_objects[i], rtb.Robot):
-                    msg.append(
-                        [
-                            i,
-                            self.swift_objects[i]._fk_dict(
-                                self.swift_options[i]["robot_alpha"],
-                                self.swift_options[i]["collision_alpha"],
-                            ),
-                        ]
+                    robot = self.swift_objects[i]
+                    poses = robot.fkine_geometry(
+                        robot.q,
+                        self.swift_options[i]["robot_alpha"],
+                        self.swift_options[i]["collision_alpha"],
                     )
+                    msg.append([i, [_se3_to_wire(T) for T in poses]])
 
         events = self._send_socket("shape_poses", msg, True)
         return json.loads(events)
