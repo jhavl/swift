@@ -110,6 +110,11 @@ added later without touching `main.js`. See
 framing of this same problem ("JupyterLite runs Python in-browser...
 localhost Python server assumptions do not hold").
 
+See also `FUTURE-NO-MICROSERVER.md` for the broader version of this
+problem — replacing not just the comms channel but also the
+`/retrieve/` local-filesystem asset passthrough with hosted HTTPS
+delivery, with JupyterLite as one of several motivating contexts.
+
 No design work has gone into the actual transport swap or how
 `SwiftRoute.py`'s server-thread model would need to change for a
 Pyodide context — this is purely "the seam exists," not "the seam has
