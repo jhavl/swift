@@ -39,6 +39,72 @@ body {
   border-radius: 0px 0px 0px 15px;
 }
 
+.disconnected-banner {
+  position: fixed;
+  z-index: 10000;
+  top: 0px;
+  left: 0px;
+  padding: 6px 14px;
+  color: #cccccc;
+  background-color: #1e1e1e;
+  border-radius: 0px 0px 15px 0px;
+}
+
+/* Built-in pause/realtime-speed controls (Swift._add_controls()) -- kept
+   visually distinct from the generic .sidenav so they read as permanent
+   playback controls rather than user-defined sliders/buttons. display is
+   set to "flex" by ui.js's insert() once the first control is added. */
+.control-panel {
+  position: fixed;
+  z-index: 10000;
+  bottom: 0px;
+  left: 0px;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0px 12px;
+  color: #d3d3d3;
+  background-color: #1e1e1e;
+  border-radius: 0px 15px 0px 0px;
+  display: none;
+}
+
+.control-button-div {
+  display: flex;
+}
+
+.control-button {
+  background-color: transparent;
+  border: none;
+  color: #d3d3d3;
+  font-size: 16px;
+  line-height: 1;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition-duration: 0.2s;
+}
+
+.control-button:hover {
+  background-color: #383838;
+  color: white;
+}
+
+.control-button:active {
+  background-color: #616161;
+  color: white;
+}
+
+.control-select {
+  min-width: 55px;
+  border-radius: 2px;
+  height: 22px;
+  background-color: #383838;
+  color: #d3d3d3;
+  border-color: #383838;
+}
+
 .info #fps {
   position: absolute;
   top: 50%;

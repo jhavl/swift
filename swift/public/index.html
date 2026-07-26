@@ -2,20 +2,33 @@
 <html lang="en">
 	<head>
 		<title>Swift</title>
-		<!-- <base href="app://./" /> -->
-		<meta http-equiv="Content-Security-Policy" content="script-src 'self' app:; object-src 'self' app:;">
+		<!-- 'unsafe-inline' is required for the inline import map below --
+		     browsers don't yet allow CSP-exempting import maps any other
+		     way from a static file (no server-side nonce here). Swift only
+		     ever serves this page on localhost to the one local user, so
+		     there's no untrusted-content threat model this CSP is guarding
+		     against in the first place. -->
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' app:; object-src 'self' app:;">
 		<link rel="stylesheet" href="./style/index.css">
 		<meta charset="utf-8">
 		<meta http-equiv='cache-control' content='no-cache'>
 		<meta http-equiv='expires' content='0'>
 		<meta http-equiv='pragma' content='no-cache'>
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+		<script type="importmap">
+		{
+			"imports": {
+				"three": "./js/vendor/build/three.module.js",
+				"three/addons/": "./js/vendor/examples/jsm/"
+			}
+		}
+		</script>
+		<!-- CCapture isn't published as an ES module -- classic global script. -->
+		<script src="js/vendor/build/CCapture.all.min.js"></script>
 	</head>
 	<body>
-		<script src="js/vendor/build/three.min.js">THREE.Object3D.DefaultUp.set(0, 0, 1);</script>
-		<script src="js/vendor/build/CCapture.all.min.js"></script>
-		<script type="module" src="js/index.js"></script>
-
+		<script type="module" src="js/main.js"></script>
 
 		<div id="canvas">
 			<div class="info">
@@ -23,61 +36,8 @@
 				<div id="sim-time">00:00.000</div>
 			</div>
 		</div>
-		
-		<div class="sidenav" id='sidenav'>
 
-			<!-- <div class="select-div">
-				<label class="select-label">Choose a car:</label>
-				<select class="select-select">
-				  <option value="volvo">Volvo</option>
-				  <option value="saab">Saab</option>
-				  <option value="opel">Opel</option>
-				  <option value="audi">Audi</option>
-				</select>
-			</div> -->
-
-			<!-- <div class="button-div">
-				<button type="button" class="button-button">Click Me!</button>
-			</div> -->
-
-			<!-- <div class="slider-div">
-				<p class="slider-p">
-					This describes the slider
-				</p>
-				<input type="range" step="1" min="0" max="1000" class='slider'>
-
-				<div class="slider-val-div">
-					<p class="slider-vals slider-min">
-						0
-					</p>
-					<p class="slider-vals slider-val">
-						389
-					</p>
-					<p class="slider-vals slider-max">
-						1000
-					</p>
-				</div>
-			</div> -->
-
-			<!-- <div class="checkbox-div">
-				<p>Checkbox desc</p>
-				<label for="x"><input type="checkbox" id="x" /> <span>Label  x</span></label><br>
-				<label for="y"><input type="checkbox" id="y" /> <span>Label text y</span></label><br>
-				<label for="z"><input type="checkbox" id="z" /> <span>Label text z hgfh</span></label>
-			</div> -->
-
-			<!-- <div class="label-div">
-				<p>I am a standalone label</p>
-			</div> -->
-
-			<!-- <div class="radio-div">
-				<p>Radio Desc</p>
-				<label for="i"><input type="radio" id="i" name="x"/> <span>Label text x</span></label><br>
-				<label for="j"><input type="radio" checked id="j" name="x"/> <span>Label text y</span></label><br>
-				<label for="k"><input type="radio" id="k" name="x"/> <span>Label text z</span></label>
-			</div> -->
-
-		</div>
-
+		<div class="sidenav" id="sidenav"></div>
+		<div class="control-panel" id="control-panel"></div>
 	</body>
 </html>
