@@ -69,8 +69,6 @@ dev = [
 
 docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun"]
 
-vision = ["aiortc", "opencv-python"]
-
 nb = ["ipython", "notebook"]
 
 [build-system]

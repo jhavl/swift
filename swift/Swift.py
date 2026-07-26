@@ -11,7 +11,6 @@ import time
 from queue import Queue
 import json
 from swift import start_servers, SwiftElement, Button, Select
-from typing import Union
 
 
 def _se3_to_wire(T):
@@ -56,8 +55,6 @@ try:
 except ImportError:
     step_v = _step_v_py
     step_shape = _step_shape_py
-
-from typing_extensions import Literal as L
 
 
 # Options for the built-in realtime-speed control -- None means uncapped
@@ -174,8 +171,7 @@ class Swift:
         realtime: bool | float = False,
         headless: bool = False,
         rate: int = 60,
-        browser: Union[str, None] = None,
-        comms: L["websocket", "rtc"] = "websocket",
+        browser: str | None = None,
         **kwargs,
     ):
         """
@@ -184,28 +180,23 @@ class Swift:
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
 
-        Parameters
-        ----------
-        realtime
-            Force the simulator to display no faster than real time, note that
-            it may still run slower due to complexity. ``True`` is 1x speed;
-            a float (e.g. ``0.5``) sets a specific wall-clock-per-sim-time
-            multiplier (slow motion below 1.0); ``False`` runs uncapped.
-        headless
-            Do not launch the graphical front-end of the simulator. Will still
-            simulate the robot. Runs faster due to not needing to display
-            anything.
-        rate
-            The rate (Hz) at which the simulator will be run, defaults to 60Hz
-        browser
-            browser to open in: one of 'google-chrome', 'chrome', 'firefox',
-            'safari', 'opera' or see for full list
-            https://docs.python.org/3.8/library/webbrowser.html#webbrowser.open_new
-        comms
-            The type of communication to use between the Python and Swift
-            instances.  Can be either 'websocket' or 'rtc' (WebRTC).  The
-            default is 'websocket'. The 'rtc' option requires a browser that
-            supports WebRTC, such as Chrome or Firefox.
+        :param realtime: Force the simulator to display no faster than real
+            time, note that it may still run slower due to complexity.
+            ``True`` is 1x speed; a float (e.g. ``0.5``) sets a specific
+            wall-clock-per-sim-time multiplier (slow motion below 1.0);
+            ``False`` runs uncapped.
+        :type realtime: bool | float
+        :param headless: Do not launch the graphical front-end of the
+            simulator. Will still simulate the robot. Runs faster due to not
+            needing to display anything.
+        :type headless: bool
+        :param rate: The rate (Hz) at which the simulator will be run,
+            defaults to 60Hz
+        :type rate: int
+        :param browser: browser to open in: one of 'google-chrome', 'chrome',
+            'firefox', 'safari', 'opera' or see for full list
+            https://docs.python.org/3/library/webbrowser.html#webbrowser.open_new
+        :type browser: str | None
 
         """
 
@@ -217,11 +208,6 @@ class Swift:
             self.realtime_speed = float(realtime)
         self.headless = headless
 
-        if comms == "rtc":
-            self._comms = "rtc"
-        else:
-            self._comms = "websocket"
-
         if not self.headless:
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
@@ -230,7 +216,6 @@ class Swift:
                 self.inq,
                 self._servers_running,
                 browser=browser,
-                comms=self._comms,
             )
             self.last_time = time.time()
 

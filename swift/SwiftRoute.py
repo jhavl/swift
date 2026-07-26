@@ -16,11 +16,9 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
-from typing import Union
 
 
 from queue import Queue
-from typing_extensions import Literal as L
 
 # Check for notebook support
 try:
@@ -31,19 +29,6 @@ try:
     NB = True
 except ImportError:
     NB = False
-
-# Check for RTC Support
-try:
-    from aiortc import (
-        RTCPeerConnection,
-        RTCSessionDescription,
-        RTCDataChannel,
-    )
-
-    RTC = True
-except ImportError:
-    RTCPeerConnection = None
-    RTC = False
 
 try:
     # Check if we are in Google Colab
@@ -59,37 +44,20 @@ def start_servers(
     inq: Queue,
     stop_servers,
     open_tab: bool = True,
-    browser: Union[str, None] = None,
-    comms: L["websocket", "rtc"] = "websocket",
+    browser: str | None = None,
 ):
-    # We are going to attempt to set up an RTC connection
-
-    if comms == "rtc":
-        # Start the RTC server
-        socket = Thread(
-            target=SwiftRtc,
-            args=(
-                outq,
-                inq,
-            ),
-            daemon=True,
-        )
-        socket.start()
-
-        socket_port = 1 if COLAB else 0
-    else:
-        # Start our websocket server with a new port
-        socket = Thread(
-            target=SwiftSocket,
-            args=(
-                outq,
-                inq,
-                stop_servers,
-            ),
-            daemon=True,
-        )
-        socket.start()
-        socket_port = inq.get()
+    # Start our websocket server with a new port
+    socket = Thread(
+        target=SwiftSocket,
+        args=(
+            outq,
+            inq,
+            stop_servers,
+        ),
+        daemon=True,
+    )
+    socket.start()
+    socket_port = inq.get()
 
     # Start a http server
     server = Thread(
@@ -147,154 +115,21 @@ def start_servers(
         else:
             wb.open_new_tab(url)
 
-    if comms == "rtc":
-        if not RTC:
-            raise ImportError(
-                "\nCould not start RTC server, install aiortc with 'pip install"
-                " aiortc'\n"
-            )
-        # Get the RTC offer from the HTTP Server
-        try:
-            offer = inq.get(timeout=30)
-        except Empty:
-            print(
-                "\nCould not connect to the Swift simulator, RTC Connection timed"
-                " out \n"
-            )
-            raise
-
-        # Send the offer to the RTC server
-        outq.put(offer)
-
-        # Get the answer from the RTC server
-        offer_python = inq.get()
-
-        # Send the answer to the HTTP server
-        outq.put(offer_python)
-    else:
-        # On Colab the tab only opens once the user manually clicks the
-        # displayed link (see the COLAB branch above) rather than
-        # auto-opening -- give them realistic time to notice and click it.
-        handshake_timeout = 60 if COLAB else 10
-        try:
-            inq.get(timeout=handshake_timeout)
-        except Empty:
-            print("\nCould not connect to the Swift simulator \n")
-            raise
+    # On Colab the tab only opens once the user manually clicks the
+    # displayed link (see the COLAB branch above) rather than
+    # auto-opening -- give them realistic time to notice and click it.
+    handshake_timeout = 60 if COLAB else 10
+    try:
+        inq.get(timeout=handshake_timeout)
+    except Empty:
+        print("\nCould not connect to the Swift simulator \n")
+        raise
 
     return socket, server
 
 
-class SwiftRtc:
-    def __init__(self, outq, inq):
-        self.pcs = set()
-
-        self.outq = outq
-        self.inq = inq
-
-        pc = RTCPeerConnection()
-        coro = self.run_rtc(pc)
-
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-        self.as_inq = asyncio.Queue()
-        self.as_wq = asyncio.Queue()
-
-        self.run = True
-        self.connected = False
-
-        try:
-            self.loop.run_until_complete(coro)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            print("Closing RTC Loop")
-            self.loop.close()
-
-    async def run_rtc(self, pc: RTCPeerConnection):
-        @pc.on("connectionstatechange")
-        async def on_connectionstatechange():
-            if pc.connectionState == "failed":
-                print(f"RTC Connection state is {pc.connectionState}")
-                await pc.close()
-                self.run = False
-                self.connected = False
-
-        @pc.on("datachannel")
-        async def on_datachannel(channel: RTCDataChannel):
-            self.connected = True
-
-            @channel.on("message")
-            async def on_message(message):
-                if isinstance(message, str):
-                    if not message == "PING":
-                        await self.as_inq.put(message)
-                else:
-                    print("Recieved Unknown RTC Message")
-                    print(message)
-
-            while self.connected:
-                if channel.bufferedAmount < 10000:
-                    try:
-                        data = await self.producer(0.001)
-                    except Empty:
-                        await asyncio.sleep(0.001)
-                        continue
-
-                    expected = data[0]
-                    msg = data[1]
-
-                    channel.send(json.dumps(msg))
-
-                    if expected:
-                        recieved = await self.as_inq.get()
-                        self.inq.put(recieved)
-                else:
-                    await asyncio.sleep(0.001)
-
-        while self.run:
-            if self.connected:
-                await asyncio.sleep(5)
-            else:
-                message = await self.producer()
-
-                params = message["offer"]
-
-                offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-                # handle offer
-                await pc.setRemoteDescription(offer)
-
-                # send answer
-                answer = await pc.createAnswer()
-
-                # This line is taking forever??
-                await pc.setLocalDescription(answer)
-
-                self.inq.put(
-                    json.dumps(
-                        {
-                            "sdp": pc.localDescription.sdp,
-                            "type": pc.localDescription.type,
-                        }
-                    )
-                )
-
-                while not pc.iceConnectionState == "completed":
-                    await asyncio.sleep(0.1)
-
-                self.connected = True
-
-    async def producer(self, timeout: Union[float, None] = None) -> Union[str, dict]:
-        """Get a message from the queue."""
-        data = self.outq.get(timeout=timeout)
-        return data
-
-
 class SwiftSocket:
     def __init__(self, outq, inq, run):
-        self.pcs = set()
         self.run = run
         self.outq = outq
         self.inq = inq
@@ -368,23 +203,6 @@ class SwiftServer:
                     )
                 else:
                     pass
-
-            def do_POST(self):
-                # Handle RTC Offer
-                if self.path == "/offer":
-                    # Get the initial offer
-                    length = int(self.headers.get("content-length"))  # type: ignore
-                    params = json.loads(self.rfile.read(length))
-
-                    inq.put(params)
-                    answer = outq.get()
-
-                    self.send_response(HTTPStatus.OK)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(str.encode(answer))
-
-                    return
 
             def do_GET(self):
                 if self.path == "/":
