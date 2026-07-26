@@ -133,6 +133,13 @@ def start_servers(
                 except wb.Error:
                     print("\nCould not open specified browser, using default instead\n")
                     wb.open_new_tab(url)
+        elif COLAB:
+            # wb.open_new_tab() would try to open a browser on the
+            # (headless, remote) Colab VM itself, not the user's actual
+            # browser -- nothing would ever navigate to `url`, so the
+            # handshake wait below always times out. Use Colab's JS
+            # bridge instead, same mechanism colab_url above came from.
+            eval_js(f'window.open("{url}");')
         else:
             wb.open_new_tab(url)
 
