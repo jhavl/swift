@@ -443,7 +443,16 @@ class SwiftServer:
 
         while not connected and server_port < 62000:
             try:
-                with socketserver.TCPServer(("", server_port), Handler) as httpd:
+                # ThreadingTCPServer, not plain TCPServer: a single-
+                # threaded server can only serve one connection at a
+                # time, and a proxying layer in front of it (e.g. Colab's
+                # google.colab.kernel.proxyPort()) may hold open or make
+                # concurrent requests while establishing its tunnel --
+                # with a single-threaded server that can stall the real
+                # navigation request behind an unrelated one, with no
+                # visible error on either side.
+                with socketserver.ThreadingTCPServer(("", server_port), Handler) as httpd:
+                    httpd.daemon_threads = True
                     self.inq.put(server_port)
                     connected = True
 
