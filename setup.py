@@ -4,16 +4,26 @@ import os
 import numpy
 
 
+# Maintainer-only tooling in swift/public/ (npm vendoring scripts, not
+# needed to serve the frontend) -- excluded so a locally-present
+# node_modules/ (gitignored, ~25MB) never leaks into a build.
+PACKAGE_DATA_EXCLUDE_DIRS = {"node_modules"}
+PACKAGE_DATA_EXCLUDE_FILES = {"package.json", "package-lock.json"}
+
+
 def package_files(directory):
     paths = []
-    for pathhere, _, filenames in os.walk(directory):
+    for pathhere, dirnames, filenames in os.walk(directory):
+        dirnames[:] = [d for d in dirnames if d not in PACKAGE_DATA_EXCLUDE_DIRS]
         for filename in filenames:
+            if filename in PACKAGE_DATA_EXCLUDE_FILES:
+                continue
             paths.append(os.path.join("..", pathhere, filename))
     return paths
 
 
 extra_folders = [
-    "swift/out",
+    "swift/public",
     "swift/core",
 ]
 

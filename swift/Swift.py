@@ -10,11 +10,55 @@ from spatialgeometry import Shape
 import time
 from queue import Queue
 import json
-from swift import start_servers, SwiftElement, Button
-from swift.phys import step_v, step_shape
+from swift import start_servers, SwiftElement, Button, Select
 from typing import Union
+
+
+def _step_v_py(n, valid, dt, q, qd, qlim):
+    q += qd * dt
+    if valid:
+        np.clip(q, qlim[0], qlim[1], out=q)
+
+
+def _step_shape_py(dt, v, base, sT, sq):
+    eps = 2.220446049250313e-16
+    dv = v * dt
+    theta = np.linalg.norm(dv[3:6])
+    R = np.eye(3)
+    if theta > 10 * eps:
+        axis = dv[3:6] / theta
+        sk = np.array(
+            [
+                [0, -axis[2], axis[1]],
+                [axis[2], 0, -axis[0]],
+                [-axis[1], axis[0], 0],
+            ]
+        )
+        R += np.sin(theta) * sk + (1.0 - np.cos(theta)) * (sk @ sk)
+    base[:3, :3] = R @ base[:3, :3]
+    o = base[:3, 1].copy()
+    a = base[:3, 2].copy()
+    n = np.cross(o, a)
+    o = np.cross(a, n)
+    base[:3, 0] = n / np.linalg.norm(n)
+    base[:3, 1] = o / np.linalg.norm(o)
+    base[:3, 2] = a / np.linalg.norm(a)
+    base[:3, 3] += dv[:3]
+
+
+try:
+    from swift.phys import step_v, step_shape
+except ImportError:
+    step_v = _step_v_py
+    step_shape = _step_shape_py
+
 from typing_extensions import Literal as L
 
+
+# Options for the built-in realtime-speed control -- None means uncapped
+# (run as fast as possible), otherwise a wall-clock-per-sim-time multiplier.
+_REALTIME_SPEED_LABELS = ["Max", "1x", "0.5x", "0.25x"]
+_REALTIME_SPEEDS = [None, 1.0, 0.5, 0.25]
 
 rtb = None
 
@@ -94,6 +138,11 @@ class Swift:
         self._notrenderperiod = 1
         self.recording = False
         self._laststep = time.time()
+        self._paused = False
+        # None means uncapped (run as fast as possible); otherwise a
+        # multiplier on wall-clock time per unit of simulated time -- 1.0
+        # matches real time, 0.5 is half speed (slow motion), etc.
+        self.realtime_speed = None
 
     @property
     def rate(self):
@@ -117,7 +166,7 @@ class Swift:
 
     def launch(
         self,
-        realtime: bool = False,
+        realtime: bool | float = False,
         headless: bool = False,
         rate: int = 60,
         browser: Union[str, None] = None,
@@ -134,7 +183,9 @@ class Swift:
         ----------
         realtime
             Force the simulator to display no faster than real time, note that
-            it may still run slower due to complexity
+            it may still run slower due to complexity. ``True`` is 1x speed;
+            a float (e.g. ``0.5``) sets a specific wall-clock-per-sim-time
+            multiplier (slow motion below 1.0); ``False`` runs uncapped.
         headless
             Do not launch the graphical front-end of the simulator. Will still
             simulate the robot. Runs faster due to not needing to display
@@ -155,7 +206,10 @@ class Swift:
 
         self.browser = browser
         self.rate = rate
-        self.realtime = realtime
+        if isinstance(realtime, bool):
+            self.realtime_speed = 1.0 if realtime else None
+        else:
+            self.realtime_speed = float(realtime)
         self.headless = headless
 
         if comms == "rtc":
@@ -164,9 +218,6 @@ class Swift:
             self._comms = "websocket"
 
         if not self.headless:
-            # The realtime, render and pause buttons
-            self._add_controls()
-
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
             self.socket, self.server = start_servers(
@@ -177,6 +228,11 @@ class Swift:
                 comms=self._comms,
             )
             self.last_time = time.time()
+
+            # The realtime, render and pause buttons -- added after the
+            # browser has connected, since sending them any earlier would
+            # block waiting for a reply from a client that isn't there yet.
+            self._add_controls()
 
     def _servers_running(self):
         return self._run_thread
@@ -224,7 +280,8 @@ class Swift:
 
         # Update world transform of objects
         for obj in self.swift_objects:
-            obj._propogate_scene_tree()
+            if obj is not None:
+                obj._propogate_scene_tree()
 
         # Adjust sim time
         self.sim_time += dt
@@ -233,11 +290,13 @@ class Swift:
 
             if render and self.rendering:
 
-                if self.realtime:
-                    # If realtime is set, delay progress if we are
-                    # running too quickly
+                if self.realtime_speed:
+                    # Delay progress if we're running too quickly for the
+                    # target speed -- 0.5x should take twice as long (wall
+                    # clock) per dt of simulated time as 1x, 0.25x four
+                    # times as long, etc.
                     time_taken = time.time() - self.last_time
-                    diff = (dt * self._skipped) - time_taken
+                    diff = (dt * self._skipped) / self.realtime_speed - time_taken
                     self._skipped = 1
 
                     if diff > 0:
@@ -295,15 +354,17 @@ class Swift:
 
         """
 
+        prior_speed = self.realtime_speed
+
         self._send_socket("close", "0", False)
         self._stop_threads()
         self._init()
         self.launch(
-            realtime=self.realtime,
             headless=self.headless,
             rate=self.rate,
             browser=self.browser,
         )
+        self.realtime_speed = prior_speed
 
     def close(self):
         """
@@ -400,7 +461,7 @@ class Swift:
                 robob = ob._to_dict(
                     robot_alpha=robot_alpha, collision_alpha=collision_alpha
                 )
-                id = self._send_socket("shape", robob)
+                id = int(self._send_socket("shape", robob))
 
                 while not int(self._send_socket("shape_mounted", [id, len(robob)])):
                     time.sleep(0.1)
@@ -462,8 +523,12 @@ class Swift:
 
         """
 
-        while True:
-            time.sleep(1)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            self.close()
+            raise
 
     def start_recording(self, file_name, framerate, format="webm"):
         """
@@ -587,16 +652,6 @@ class Swift:
 
             step_v(robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim)
 
-            # _v(robot._q, robot._qd, dt, robot._qlim, robot._valid_qlim)
-
-            # for i in range(robot.n):
-            #     robot.q[i] += robot.qd[i] * (dt)
-
-            #     if np.any(robot.qlim[:, i] != 0) and \
-            #             not np.any(np.isnan(robot.qlim[:, i])):
-            #         robot.q[i] = np.min([robot.q[i], robot.qlim[1, i]])
-            #         robot.q[i] = np.max([robot.q[i], robot.qlim[0, i]])
-
         elif robot.control_mode == "a":
             pass
 
@@ -620,10 +675,7 @@ class Swift:
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
         )
         if shape.collision:
-            shape._update_pyb()
-
-        # shape._sT[:] = shape._wT @ shape._base
-        # shape._sq[:] = sm.base.r2q(shape._sT[:3, :3], order="xyzs")
+            shape._update_coal()
 
     def _step_elements(self):
         """
@@ -674,32 +726,44 @@ class Swift:
         else:
             return "0"
 
-    def _pause_control(self, paused):
-        # Must hold it here until unpaused
-        while paused:
+    def _pause_control(self, _):
+        # Button's cb() contract is "argument can be disregarded" -- the
+        # click carries no state of its own, so pause/resume is tracked
+        # here and just flipped on each click. A second click, arriving
+        # while the loop below is polling, recurses back into this same
+        # method (via process_events -> cb) and flips it back to False,
+        # which is what breaks the outer loop.
+        self._paused = not self._paused
+        self._pause_button.desc = "▶" if self._paused else "||"
+        # The loop below bypasses the normal step()/_step_elements() path
+        # entirely (it only polls shape_poses directly), so the icon
+        # change above would otherwise sit queued and unsent for as long
+        # as we're paused -- flush it immediately instead.
+        self._step_elements()
+        while self._paused:
             time.sleep(0.1)
             events = json.loads(self._send_socket("shape_poses", []))
-
-            if "0" in events and not events["0"]:
-                paused = False
             self.process_events(events)
 
-    def _render_control(self, rendering):
-        self.rendering = rendering
-
-    def _time_control(self, realtime):
+    def _time_control(self, index):
         self._skipped = 1
-        self.realtime = not realtime
+        self.realtime_speed = _REALTIME_SPEEDS[int(index)]
 
     def _add_controls(self):
-        self._pause_button = Button(self._pause_control)
-        self._time_button = Button(self._time_control)
-        self._render_button = Button(self._render_control)
+        self._pause_button = Button(self._pause_control, desc="||")
+        self._pause_button.builtin = True
+        self.add(self._pause_button)
 
-        self._pause_button._id = "0"
-        self._time_button._id = "1"
-        self._render_button._id = "2"
-        self.elements["0"] = self._pause_button
-        self.elements["1"] = self._time_button
-        self.elements["2"] = self._render_button
-        self.elementid += 3
+        # self.realtime_speed may be an arbitrary float set directly via
+        # launch(realtime=<float>) rather than one of the dropdown presets
+        # -- fall back to "Max" in the display without touching the actual
+        # (still fully respected) speed.
+        try:
+            speed_index = _REALTIME_SPEEDS.index(self.realtime_speed)
+        except ValueError:
+            speed_index = 0
+        speed_select = Select(
+            self._time_control, desc="Speed", options=_REALTIME_SPEED_LABELS, value=speed_index
+        )
+        speed_select.builtin = True
+        self.add(speed_select)

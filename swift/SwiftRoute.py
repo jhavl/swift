@@ -3,7 +3,6 @@
 @author Jesse Haviland
 """
 
-
 import swift as sw
 import websockets
 import asyncio
@@ -293,8 +292,7 @@ class SwiftSocket:
         port = 53000
         while not started and port < 62000:
             try:
-                start_server = websockets.serve(self.serve, "localhost", port)
-                self.loop.run_until_complete(start_server)
+                self.loop.run_until_complete(self._start_server(port))
                 started = True
             except OSError:
                 port += 1
@@ -302,10 +300,14 @@ class SwiftSocket:
         self.inq.put(port)
         self.loop.run_forever()
 
+    async def _start_server(self, port: int):
+        # websockets>=11 requires serve() to be created from a running loop.
+        self._server = await websockets.serve(self.serve, "localhost", port)
+
     async def register(self, websocket):
         self.USERS.add(websocket)
 
-    async def serve(self, websocket, path):
+    async def serve(self, websocket, path=None):
         # Initial connection handshake
         await self.register(websocket)
         recieved = await websocket.recv()
@@ -336,7 +338,7 @@ class SwiftServer:
         self.inq = inq
         self.run = run
 
-        root_dir = Path(sw.__file__).parent / "out"
+        root_dir = Path(sw.__file__).parent / "public"
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             def __init__(self, *args, **kwargs):

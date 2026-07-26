@@ -14,6 +14,10 @@ class SwiftElement(ABC):
         self._id = None
         self._added_to_swift = False
         self._changed = False
+        # Set True only for the pause/realtime-speed controls Swift adds
+        # itself (see Swift._add_controls()) -- lets the frontend route
+        # them into its own control panel instead of the user sidebar.
+        self.builtin = False
 
         super().__init__()
 
@@ -146,6 +150,7 @@ class Slider(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'min': self.min,
             'max': self.max,
             'step': self.step,
@@ -185,6 +190,7 @@ class Label(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'desc': self.desc
         }
 
@@ -233,6 +239,7 @@ class Button(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'desc': self.desc
         }
 
@@ -306,6 +313,7 @@ class Select(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'desc': self.desc,
             'options': self.options,
             'value': self.value
@@ -386,6 +394,7 @@ class Checkbox(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'desc': self.desc,
             'options': self.options,
             'checked': self.checked
@@ -465,6 +474,7 @@ class Radio(SwiftElement):
         return {
             'element': self._element,
             'id': self._id,
+            'builtin': self.builtin,
             'desc': self.desc,
             'options': self.options,
             'checked': self.checked
