@@ -1,0 +1,109 @@
+"""
+Wire-format tests for SwiftElement subclasses (Slider/Button/Label/Select/
+Checkbox/Radio). These dicts are the contract the browser's ui.js classes
+are built against (see swift/public/js/ui.js) -- a change here without a
+matching browser-side change silently breaks the UI panel.
+"""
+
+from swift.SwiftElement import Button, Checkbox, Label, Radio, Select, Slider
+
+
+def test_slider_to_dict():
+    s = Slider(lambda v: None, min=0, max=10, step=0.5, value=2.5, desc="d", unit="u")
+    s._id = 3
+    assert s.to_dict() == {
+        "element": "slider",
+        "id": 3,
+        "builtin": False,
+        "min": 0.0,
+        "max": 10.0,
+        "step": 0.5,
+        "value": 2.5,
+        "desc": "d",
+        "unit": "u",
+    }
+
+
+def test_slider_update_from_browser():
+    s = Slider(lambda v: None, value=0)
+    s.update(7.5)
+    assert s.value == 7.5
+
+
+def test_button_to_dict():
+    b = Button(lambda v: None, desc="Click Me")
+    b._id = 0
+    assert b.to_dict() == {"element": "button", "id": 0, "builtin": False, "desc": "Click Me"}
+
+
+def test_label_to_dict():
+    lab = Label(desc="hello")
+    lab._id = 1
+    assert lab.to_dict() == {"element": "label", "id": 1, "builtin": False, "desc": "hello"}
+
+
+def test_select_to_dict_and_update():
+    sel = Select(lambda v: None, desc="pick one", options=["a", "b", "c"], value=1)
+    sel._id = 2
+    assert sel.to_dict() == {
+        "element": "select",
+        "id": 2,
+        "builtin": False,
+        "desc": "pick one",
+        "options": ["a", "b", "c"],
+        "value": 1,
+    }
+    sel.update(2)
+    assert sel.value == 2
+
+
+def test_checkbox_to_dict_and_update():
+    cb = Checkbox(lambda v: None, desc="opts", options=["x", "y"], checked=[True, False])
+    cb._id = 4
+    assert cb.to_dict() == {
+        "element": "checkbox",
+        "id": 4,
+        "builtin": False,
+        "desc": "opts",
+        "options": ["x", "y"],
+        "checked": [True, False],
+    }
+    cb.update([False, True])
+    assert cb.checked == [False, True]
+
+
+def test_checkbox_checked_from_int_index():
+    cb = Checkbox(lambda v: None, options=["x", "y", "z"], checked=1)
+    assert cb.checked == [False, True, False]
+
+
+def test_radio_to_dict_and_update():
+    r = Radio(lambda v: None, desc="pick", options=["x", "y"], checked=0)
+    r._id = 5
+    assert r.to_dict() == {
+        "element": "radio",
+        "id": 5,
+        "builtin": False,
+        "desc": "pick",
+        "options": ["x", "y"],
+        "checked": [True, False],
+    }
+    r.update(1)
+    assert r.checked == 1
+
+
+def test_builtin_flag_defaults_false_and_is_settable():
+    b = Button(lambda v: None, desc="||")
+    assert b.builtin is False
+    b.builtin = True
+    assert b.to_dict()["builtin"] is True
+
+
+def test_changed_flag_only_set_once_added_to_swift():
+    s = Slider(lambda v: None)
+    s.value = 1
+    assert s._changed is False
+
+    s._added_to_swift = True
+    s.value = 2
+    assert s._changed is True
