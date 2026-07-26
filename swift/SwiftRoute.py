@@ -26,6 +26,7 @@ from typing_extensions import Literal as L
 try:
     from IPython.display import display
     from IPython.display import IFrame
+    from IPython.display import HTML
 
     NB = True
 except ImportError:
@@ -136,10 +137,13 @@ def start_servers(
         elif COLAB:
             # wb.open_new_tab() would try to open a browser on the
             # (headless, remote) Colab VM itself, not the user's actual
-            # browser -- nothing would ever navigate to `url`, so the
-            # handshake wait below always times out. Use Colab's JS
-            # bridge instead, same mechanism colab_url above came from.
-            eval_js(f'window.open("{url}");')
+            # browser -- nothing would ever navigate to `url`. A
+            # window.open() triggered via eval_js isn't a direct user
+            # click either, so browsers commonly block it as a popup
+            # (confirmed 2026-07-26 -- silent, no visible error, just
+            # the same handshake timeout below). A clickable link always
+            # bypasses popup blockers since it's a genuine user gesture.
+            display(HTML(f'<a href="{url}" target="_blank">Click here to open Swift</a>'))
         else:
             wb.open_new_tab(url)
 
@@ -168,8 +172,12 @@ def start_servers(
         # Send the answer to the HTTP server
         outq.put(offer_python)
     else:
+        # On Colab the tab only opens once the user manually clicks the
+        # displayed link (see the COLAB branch above) rather than
+        # auto-opening -- give them realistic time to notice and click it.
+        handshake_timeout = 60 if COLAB else 10
         try:
-            inq.get(timeout=10)
+            inq.get(timeout=handshake_timeout)
         except Empty:
             print("\nCould not connect to the Swift simulator \n")
             raise
