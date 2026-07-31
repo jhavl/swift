@@ -9,6 +9,7 @@ from swift.SwiftElement import (
     Label,
 )
 from swift.Swift import Swift
+from swift.Handle import AssemblyHandle
 
 __all__ = [
     "Swift",
@@ -22,4 +23,5 @@ __all__ = [
     "Radio",
     "Button",
     "Label",
+    "AssemblyHandle",
 ]

@@ -11,6 +11,7 @@ import time
 from queue import Queue
 import json
 from swift import start_servers, SwiftElement, Button, Select
+from swift.Handle import AssemblyHandle
 
 
 def _se3_to_wire(T):
@@ -119,12 +120,26 @@ class Swift:
         # This is the time that has been simulated according to step(dt)
         self.sim_time = 0.0
 
-        # This holds all simulated objects within swift
+        # This holds all simulated objects within swift (Shape instances
+        # directly, assemblies/robots wrapped in an AssemblyHandle -- see
+        # Handle.py)
         self.swift_objects = []
 
-        # This is an option dict with the format id: {option: option_value}
-        # to hold custom options for simulated objects
-        self.swift_options = {}
+        # Debug/display names, keyed by the same id as swift_objects --
+        # not stored on the objects themselves (Shape isn't swift's to
+        # extend). Set via the name= kwarg on any add_*() method.
+        self.swift_names: dict[int, str] = {}
+
+        # Per-step pose callbacks for plain shapes, keyed by swift_objects
+        # index -- see add_shape(..., callback=...). AssemblyHandle carries
+        # its own .callback directly since it's swift's own class.
+        self.shape_callbacks = {}
+
+        # Current value of every named UI element with a .value, kept
+        # current by each element pushing into this dict on change (see
+        # SwiftElement._notify_value_changed()) rather than being
+        # rescanned each step -- passed to per-step callbacks as `values`.
+        self.values: dict[str, object] = {}
 
         # Number of custom html elements added to page for id purposes
         self.elementid = 0
@@ -156,12 +171,35 @@ class Swift:
         self._rate = new
         self._period = 1 / new
 
+    def _describe(self, i, obj):
+        name = self.swift_names.get(i)
+        if isinstance(obj, AssemblyHandle):
+            kind = "AssemblyHandle(robot)" if obj.robot is not None else "AssemblyHandle"
+        else:
+            kind = type(obj).__name__
+        return f"[{i}] {kind}" + (f' "{name}"' if name else "")
+
     def __repr__(self):
         s = f"Swift backend, t = {self.sim_time}, scene:"
 
-        for ob in self.swift_objects:
-            s += f"\n  {ob.name}"
+        for i, ob in enumerate(self.swift_objects):
+            if ob is None:
+                continue
+            s += f"\n  {self._describe(i, ob)}"
         return s
+
+    def show(self):
+        """
+        Print the current display list, for debugging.
+
+        ``env.show()`` prints every object currently added to the scene
+        (shapes, assemblies/robots, and UI elements) with its id, type,
+        and name if one was given via ``name=`` at add time.
+        """
+        print(repr(self))
+        for eid, el in self.elements.items():
+            name = getattr(el, "name", None)
+            print(f"  UI[{eid}] {type(el).__name__}" + (f' "{name}"' if name else ""))
 
     #
     #  Basic methods to do with the state of the external program
@@ -268,22 +306,36 @@ class Swift:
 
         """
 
-        # TODO how is the pose of shapes updated prior to step?
+        # Sim time is incremented first -- callbacks registered via
+        # add_shape()/add_assembly()/add_robot()'s callback= see the *new*
+        # t for this step, not the one before it.
+        self.sim_time += dt
+        t = self.sim_time
+        values = self.values
 
-        # Update local pose of objects
+        # Update local pose of objects. A registered callback(t, values)
+        # -- returning an SE3 for a shape, or a q vector for an assembly/
+        # robot -- takes over entirely for that object; otherwise fall
+        # back to the existing velocity-integration/shape.v path.
         for i, obj in enumerate(self.swift_objects):
             if isinstance(obj, Shape):
-                self._step_shape(obj, dt)
-            elif isinstance(obj, rtb.Robot):
-                self._step_robot(obj, dt, self.swift_options[i]["readonly"])
+                cb = self.shape_callbacks.get(i)
+                if cb is not None:
+                    obj.T = cb(t, values)
+                else:
+                    self._step_shape(obj, dt)
+            elif isinstance(obj, AssemblyHandle):
+                if obj.callback is not None:
+                    obj.q = np.asarray(obj.callback(t, values), dtype=float)
+                else:
+                    self._step_assembly(obj, dt)
 
-        # Update world transform of objects
+        # Update world transform of shapes (assemblies/robots render via
+        # AssemblyHandle.part_poses(), a pure function of handle.q -- no
+        # scene-graph propagation needed, see tech-debt.md)
         for obj in self.swift_objects:
-            if obj is not None:
+            if isinstance(obj, Shape):
                 obj._propogate_scene_tree()
-
-        # Adjust sim time
-        self.sim_time += dt
 
         if not self.headless:
 
@@ -382,12 +434,19 @@ class Swift:
     #  Methods to interface with the robots created in other environemnts
     #
 
-    def add(self, ob, robot_alpha=1.0, collision_alpha=0.0, readonly=False):
+    def add(self, ob, robot_alpha=1.0, collision_alpha=0.0, readonly=False, name=None):
         """
-        Add a robot to the graphical scene
+        Add an object to the graphical scene
+
+        .. deprecated:: 2.0
+
+            Kept for backward compatibility. Prefer the explicit
+            :meth:`add_shape`, :meth:`add_ui`, :meth:`add_assembly`, or
+            :meth:`add_robot` -- one entry point per kind of thing, no
+            type-checking required.
 
         :param ob: the object to add
-        :type ob: Robot or Shape
+        :type ob: Robot, Shape, or SwiftElement
         :param robot_alpha: Robot visual opacity. If 0, then the geometries
             are invisible, defaults to 1.0
         :type robot_alpha: bool, optional
@@ -398,87 +457,211 @@ class Swift:
             the robot is only being displayed, not simulated,
             defaults to False
         :type readonly: bool, optional
-        :return: object id within visualizer
-        :rtype: int
-
-        ``id = env.add(robot)`` adds the ``robot`` to the graphical
-            environment.
-
-        .. note::
-
-            - Adds the robot object to a list of robots which will be updated
-              when the ``step()`` method is called.
-
+        :param name: optional debug/display name, see :meth:`show`
+        :type name: str | None
+        :return: for a ``Shape``, its object id within the visualizer; for
+            a ``Robot``, an :class:`~swift.Handle.AssemblyHandle` owning
+            that instance's live joint state; for a ``SwiftElement``, the
+            element itself
+        :rtype: int | AssemblyHandle | SwiftElement
         """
-        # id = add(robot) adds the robot to the external environment. robot
-        # must be of an appropriate class. This adds a robot object to a
-        # list of robots which will act upon the step() method being called.
 
         if isinstance(ob, Shape):
-            ob._propogate_scene_tree()
-            ob._added_to_swift = True
-            if not self.headless:
-                id = int(self._send_socket("shape", [ob.to_dict()]))
-
-                while not int(self._send_socket("shape_mounted", [id, 1])):
-                    time.sleep(0.1)
-
-            else:
-                id = len(self.swift_objects)
-
-            self.swift_objects.append(ob)
-            return int(id)
+            return self.add_shape(ob, name=name)
         elif isinstance(ob, SwiftElement):
-
-            if ob._added_to_swift:
-                raise ValueError("This element has already been added to Swift")
-
-            ob._added_to_swift = True
-
-            # id = 'customelement' + str(self.elementid)
-            id = self.elementid
-            self.elementid += 1
-            self.elements[str(id)] = ob
-            ob._id = id
-
-            self._send_socket("element", ob.to_dict())
+            return self.add_ui(ob, name=name)
         elif isinstance(ob, rtb.Robot):
+            return self.add_robot(
+                ob,
+                robot_alpha=robot_alpha,
+                collision_alpha=collision_alpha,
+                readonly=readonly,
+                name=name,
+            )
 
-            # if ob.base is None:
-            #     ob.base = sm.SE3()
+    def add_shape(self, shape, callback=None, name=None):
+        """
+        Add a single shape to the graphical scene
 
-            # ob._swift_readonly = readonly
-            # ob._show_robot = show_robot
-            # ob._show_collision = show_collision
+        :param shape: the shape to add
+        :type shape: Shape
+        :param callback: optional per-step pose callback ``(t, values) ->
+            SE3``, called each ``env.step()`` instead of the default
+            velocity/``shape.v``-driven update -- see :meth:`step`
+        :type callback: Callable[[float, dict], SE3] | None
+        :param name: optional debug/display name, see :meth:`show`
+        :type name: str | None
+        :return: the shape's object id within the visualizer
+        :rtype: int
 
-            # Update robot transforms
-            ob._update_link_tf()
-            ob._propogate_scene_tree()
+        ``id = env.add_shape(shape)`` adds ``shape`` to the graphical
+        environment and returns its id.
+        """
+        shape._propogate_scene_tree()
+        shape._added_to_swift = True
+        if not self.headless:
+            id = int(self._send_socket("shape", [shape.to_dict()]))
 
-            # Update robot qlim
-            ob._qlim = ob.qlim
+            while not int(self._send_socket("shape_mounted", [id, 1])):
+                time.sleep(0.1)
 
-            if not self.headless:
-                robob = ob._to_dict(
-                    robot_alpha=robot_alpha, collision_alpha=collision_alpha
-                )
-                id = int(self._send_socket("shape", robob))
+        else:
+            id = len(self.swift_objects)
 
-                while not int(self._send_socket("shape_mounted", [id, len(robob)])):
-                    time.sleep(0.1)
+        self.swift_objects.append(shape)
+        if name is not None:
+            self.swift_names[int(id)] = name
+        if callback is not None:
+            self.shape_callbacks[int(id)] = callback
+        return int(id)
 
-            else:
-                id = len(self.swift_objects)
+    def add_ui(self, element, name=None):
+        """
+        Add a UI element (Slider, Button, ...) to the graphical scene
 
-            self.swift_objects.append(ob)
+        :param element: the element to add
+        :type element: SwiftElement
+        :param name: optional name, collected into the ``values`` dict
+            per-step callbacks receive -- see :meth:`step`. Only elements
+            with a ``.value`` attribute (e.g. ``Slider``, ``Select``)
+            contribute a value.
+        :type name: str | None
+        :return: the element itself
+        :rtype: SwiftElement
 
-            self.swift_options[int(id)] = {
-                "robot_alpha": robot_alpha,
-                "collision_alpha": collision_alpha,
-                "readonly": readonly,
-            }
+        ``env.add_ui(element)`` adds ``element`` to the sidebar.
+        """
+        if element._added_to_swift:
+            raise ValueError("This element has already been added to Swift")
 
-            return int(id)
+        element._added_to_swift = True
+        element.name = name
+
+        if name is not None and hasattr(element, "value"):
+            element._on_change = lambda v, name=name: self.values.__setitem__(name, v)
+            self.values[name] = element.value
+
+        id = self.elementid
+        self.elementid += 1
+        self.elements[str(id)] = element
+        element._id = id
+
+        if not self.headless:
+            self._send_socket("element", element.to_dict())
+        return element
+
+    def add_assembly(self, fk, parts, q0=None, callback=None, readonly=False, name=None):
+        """
+        Add an assembly of parts driven by a pure forward-kinematics function
+
+        :param fk: pure function mapping this assembly's current ``q`` to
+            one world-frame :class:`~spatialmath.SE3` pose per entry in
+            ``parts``, in the same order
+        :type fk: Callable[[ArrayLike], list[SE3]]
+        :param parts: the shapes making up this assembly, in the order
+            ``fk`` returns poses for
+        :type parts: list[Shape]
+        :param q0: initial configuration, defaults to an empty array (set
+            ``handle.q`` before the first :meth:`step` if ``fk`` needs
+            one)
+        :type q0: ArrayLike | None
+        :param callback: optional per-step callback ``(t, values) -> q``,
+            called each ``env.step()`` to compute the new ``q`` directly
+            -- see :meth:`step`
+        :type callback: Callable[[float, dict], ArrayLike] | None
+        :param readonly: if True, swift will not advance this assembly's
+            ``q`` itself, defaults to False
+        :type readonly: bool
+        :param name: optional debug/display name, see :meth:`show`
+        :type name: str | None
+        :return: a handle owning this assembly's live joint state
+        :rtype: AssemblyHandle
+
+        ``handle = env.add_assembly(fk, parts)`` adds ``parts`` to the
+        graphical environment as one unit, positioned each step by
+        ``fk(handle.q)``.
+        """
+        for part in parts:
+            part._propogate_scene_tree()
+            part._added_to_swift = True
+
+        if not self.headless:
+            parts_dict = [p.to_dict() for p in parts]
+            id = int(self._send_socket("shape", parts_dict))
+
+            while not int(self._send_socket("shape_mounted", [id, len(parts_dict)])):
+                time.sleep(0.1)
+
+        else:
+            id = len(self.swift_objects)
+
+        handle = AssemblyHandle(
+            fk, np.zeros(0) if q0 is None else q0, readonly=readonly,
+            name=name, callback=callback,
+        )
+        handle.id = int(id)
+        self.swift_objects.append(handle)
+        if name is not None:
+            self.swift_names[int(id)] = name
+
+        return handle
+
+    def add_robot(self, robot, robot_alpha=1.0, collision_alpha=0.0, readonly=False, callback=None, name=None):
+        """
+        Add an ``rtb.Robot`` to the graphical scene
+
+        :param robot: the robot to add
+        :type robot: roboticstoolbox.Robot
+        :param robot_alpha: Robot visual opacity. If 0, then the geometries
+            are invisible, defaults to 1.0
+        :type robot_alpha: bool, optional
+        :param collision_alpha: Robot collision visual opacity. If 0, then
+            the geometries defaults to 0.0
+        :type collision_alpha: float, optional
+        :param readonly: If true, swift will not modify any robot attributes,
+            the robot is only being displayed, not simulated,
+            defaults to False
+        :type readonly: bool, optional
+        :param callback: optional per-step callback ``(t, values) -> q``,
+            see :meth:`add_assembly`
+        :type callback: Callable[[float, dict], ArrayLike] | None
+        :param name: optional debug/display name, see :meth:`show`
+        :type name: str | None
+        :return: a handle owning this robot instance's live joint state
+        :rtype: AssemblyHandle
+
+        ``handle = env.add_robot(robot)`` adds ``robot`` to the graphical
+        environment and returns a handle. ``robot`` itself stays a plain
+        kinematic model -- drive it with ``handle.q``/``handle.qd``
+        (mutating ``robot.q``/``robot.qd`` directly still works, but is
+        deprecated, see :class:`~swift.Handle.AssemblyHandle`).
+        """
+        robot._update_link_tf()
+        robot._propogate_scene_tree()
+        robot._qlim = robot.qlim
+
+        if not self.headless:
+            robob = robot._to_dict(
+                robot_alpha=robot_alpha, collision_alpha=collision_alpha
+            )
+            id = int(self._send_socket("shape", robob))
+
+            while not int(self._send_socket("shape_mounted", [id, len(robob)])):
+                time.sleep(0.1)
+
+        else:
+            id = len(self.swift_objects)
+
+        handle = AssemblyHandle(
+            lambda q: robot.fkine_geometry(q, robot_alpha, collision_alpha),
+            robot.q, robot=robot, readonly=readonly, name=name, callback=callback,
+        )
+        handle.id = int(id)
+        self.swift_objects.append(handle)
+        if name is not None:
+            self.swift_names[int(id)] = name
+
+        return handle
 
     def remove(self, id):
         """
@@ -496,26 +679,34 @@ class Swift:
         idd = None
         code = None
 
-        if isinstance(id, rtb.ERobot) or isinstance(id, Shape):
+        if isinstance(id, AssemblyHandle):
+            idd = id.id
+            code = "remove"
+            self.swift_objects[idd] = None
+        elif isinstance(id, rtb.ERobot) or isinstance(id, Shape):
 
             for i in range(len(self.swift_objects)):
-                if self.swift_objects[i] is not None and id == self.swift_objects[i]:
+                obj = self.swift_objects[i]
+                if obj is None:
+                    continue
+                if obj is id or (isinstance(obj, AssemblyHandle) and obj.robot is id):
                     idd = i
                     code = "remove"
                     self.swift_objects[idd] = None
                     break
         else:
-            # Number corresponding to robot ID
+            # Number corresponding to swift_objects index
             idd = id
             code = "remove"
-            self.robots[idd] = None
+            self.swift_objects[idd] = None
 
         if idd is None:
             raise ValueError(
                 "the id argument does not correspond with a robot or shape in Swift"
             )
 
-        self._send_socket(code, idd)
+        if not self.headless:
+            self._send_socket(code, idd)
 
     def hold(self):  # pragma: no cover
         """
@@ -643,30 +834,39 @@ class Swift:
 
         self._send_socket("camera_pose", transform, False)
 
-    def _step_robot(self, robot, dt, readonly):
+    def _step_assembly(self, handle, dt):
 
-        # robot._set_link_fk(robot.q)
+        handle._sync_legacy()
 
-        if readonly or robot._control_mode == "p":
+        if handle.readonly or handle.control_mode == "p":
             pass  # pragma: no cover
 
-        elif robot._control_mode == "v":
+        elif handle.control_mode == "v":
 
-            step_v(robot._n, robot._valid_qlim, dt, robot._q, robot._qd, robot._qlim)
+            if handle.robot is None:
+                raise ValueError(
+                    "control_mode='v' needs a robot's qlim/joint count to "
+                    "integrate against -- only available on a handle from "
+                    "add_robot(), not a bare add_assembly() handle. Drive "
+                    "handle.q directly, or use a callback, instead."
+                )
 
-        elif robot.control_mode == "a":
+            robot = handle.robot
+            step_v(robot._n, robot._valid_qlim, dt, handle.q, handle.qd, robot._qlim)
+
+        elif handle.control_mode == "a":
             pass
 
         else:  # pragma: no cover
             # Should be impossible to reach
             raise ValueError(
-                "Invalid robot.control_mode. Must be one of 'p', 'v', or 'a'"
+                "Invalid handle.control_mode. Must be one of 'p', 'v', or 'a'"
             )
 
         # No _update_link_tf()/_propogate_scene_tree() call here -- _draw_all()
-        # computes geometry poses via Robot.fkine_geometry(robot.q), a pure
-        # function of q, rather than reading the scene-graph's mutated/
-        # cached world transform. See tech-debt.md.
+        # computes geometry poses via AssemblyHandle.part_poses(), a pure
+        # function of handle.q, rather than reading the scene-graph's
+        # mutated/cached world transform. See tech-debt.md.
 
     def _step_shape(self, shape, dt):
 
@@ -706,13 +906,10 @@ class Swift:
             if self.swift_objects[i] is not None:
                 if isinstance(self.swift_objects[i], Shape):
                     msg.append([i, [self.swift_objects[i].fk_dict()]])
-                elif isinstance(self.swift_objects[i], rtb.Robot):
-                    robot = self.swift_objects[i]
-                    poses = robot.fkine_geometry(
-                        robot.q,
-                        self.swift_options[i]["robot_alpha"],
-                        self.swift_options[i]["collision_alpha"],
-                    )
+                elif isinstance(self.swift_objects[i], AssemblyHandle):
+                    handle = self.swift_objects[i]
+                    handle._sync_legacy()
+                    poses = handle.part_poses()
                     msg.append([i, [_se3_to_wire(T) for T in poses]])
 
         events = self._send_socket("shape_poses", msg, True)
@@ -754,7 +951,7 @@ class Swift:
     def _add_controls(self):
         self._pause_button = Button(self._pause_control, desc="||")
         self._pause_button.builtin = True
-        self.add(self._pause_button)
+        self.add_ui(self._pause_button)
 
         # self.realtime_speed may be an arbitrary float set directly via
         # launch(realtime=<float>) rather than one of the dropdown presets
@@ -768,4 +965,4 @@ class Swift:
             self._time_control, desc="Speed", options=_REALTIME_SPEED_LABELS, value=speed_index
         )
         speed_select.builtin = True
-        self.add(speed_select)
+        self.add_ui(speed_select)

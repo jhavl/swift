@@ -14,12 +14,24 @@ class SwiftElement(ABC):
         self._id = None
         self._added_to_swift = False
         self._changed = False
+        # Optional debug/display name, also the key under which this
+        # element's value is pushed into Swift.values -- see
+        # Swift.add_ui()/_notify_value_changed() below.
+        self.name = None
+        # Set by Swift.add_ui() for named elements with a .value; called
+        # by that subclass's value.setter on every change so Swift.values
+        # stays current without Swift having to scan every element.
+        self._on_change = None
         # Set True only for the pause/realtime-speed controls Swift adds
         # itself (see Swift._add_controls()) -- lets the frontend route
         # them into its own control panel instead of the user sidebar.
         self.builtin = False
 
         super().__init__()
+
+    def _notify_value_changed(self):
+        if self._on_change is not None:
+            self._on_change(self.value)
 
     def _update(func):   # pragma nocover
         @wraps(func)
@@ -127,6 +139,7 @@ class Slider(SwiftElement):
     @SwiftElement._update
     def value(self, value):
         self._value = float(value)
+        self._notify_value_changed()
 
     @property
     def desc(self):
@@ -161,6 +174,7 @@ class Slider(SwiftElement):
 
     def update(self, e):
         self._value = e
+        self._notify_value_changed()
 
 
 class Label(SwiftElement):
@@ -308,6 +322,7 @@ class Select(SwiftElement):
     @SwiftElement._update
     def value(self, nvalue):
         self._value = nvalue
+        self._notify_value_changed()
 
     def to_dict(self):
         return {
@@ -321,6 +336,7 @@ class Select(SwiftElement):
 
     def update(self, e):
         self._value = e
+        self._notify_value_changed()
 
 
 class Checkbox(SwiftElement):
