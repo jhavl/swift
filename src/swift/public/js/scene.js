@@ -63,7 +63,9 @@ export function createScene() {
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(40, 40),
-    new THREE.MeshPhongMaterial({ color: 0x4b4b4b, specular: 0x101010 })
+    // DoubleSide -- materials are single-sided by default, which made
+    // the ground invisible when the camera orbited below it.
+    new THREE.MeshPhongMaterial({ color: 0x4b4b4b, specular: 0x101010, side: THREE.DoubleSide })
   );
   ground.receiveShadow = true;
   scene.add(ground);
