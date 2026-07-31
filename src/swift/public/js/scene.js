@@ -74,7 +74,8 @@ export function createScene() {
   addShadowedLight(scene, 1, 1, 1, 0xffffff, 1.35);
   addShadowedLight(scene, 0.5, 1, -1, 0xffffff, 1);
 
-  scene.add(new THREE.AxesHelper(5));
+  const axesHelper = new THREE.AxesHelper(5);
+  scene.add(axesHelper);
 
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -82,5 +83,5 @@ export function createScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, camera, renderer, controls };
+  return { scene, camera, renderer, controls, axesHelper };
 }
