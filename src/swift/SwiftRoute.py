@@ -160,16 +160,25 @@ class SwiftSocket:
     async def serve(self, websocket, path=None):
         # Initial connection handshake
         await self.register(websocket)
-        recieved = await websocket.recv()
-        self.inq.put(recieved)
+        try:
+            recieved = await websocket.recv()
+            self.inq.put(recieved)
 
-        # Now onto send, recieve cycle
-        while self.run():
-            message = await self.producer()
-            expected = message[0]
-            msg = message[1]
-            await websocket.send(json.dumps(msg))
-            await self.expect_message(websocket, expected)
+            # Now onto send, recieve cycle
+            while self.run():
+                message = await self.producer()
+                expected = message[0]
+                msg = message[1]
+                await websocket.send(json.dumps(msg))
+                await self.expect_message(websocket, expected)
+        except websockets.exceptions.ConnectionClosed:
+            # Browser tab closed (or connection otherwise dropped) mid-run
+            # -- not an error, just the end of this session. websockets
+            # would otherwise log this as a failed connection handler,
+            # full traceback and all.
+            pass
+        finally:
+            self.USERS.discard(websocket)
         return
 
     async def expect_message(self, websocket, expected):

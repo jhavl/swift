@@ -81,7 +81,10 @@ transport.onMessage((func, data) => {
     }
     case "shape_mounted": {
       const [id, _count] = data;
-      transport.send(objects[id].isMounted() ? 1 : 0);
+      const obj = objects[id];
+      // -1 tells Swift.py's poll loop to stop and raise, rather than retry
+      // forever -- see SwiftObject.hasError() and Swift._wait_mounted().
+      transport.send(obj.hasError() ? -1 : obj.isMounted() ? 1 : 0);
       break;
     }
     case "remove": {
