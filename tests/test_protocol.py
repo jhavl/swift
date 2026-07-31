@@ -10,14 +10,22 @@ spec beyond its own source) -- a silent change here is a change the
 frontend has no way to detect on its own.
 """
 
+import importlib
 import json
 import threading
 
+import pytest
 import roboticstoolbox as rtb
 import spatialgeometry as sg
 import spatialmath as sm
 
 from swift import Swift
+
+# swift/__init__.py's `from swift.Swift import Swift` rebinds the `Swift`
+# package's `Swift` attribute from the submodule to the class, shadowing it
+# -- fetch the actual submodule (holding _REPLY_TIMEOUT) by qualified name
+# instead of `import swift.Swift`, which would resolve to that same class.
+swift_module = importlib.import_module("swift.Swift")
 
 
 class FakeBrowser:
@@ -82,6 +90,33 @@ def test_add_shape_sends_a_one_element_part_list():
     browser.stop()
 
 
+def test_add_shape_raises_when_browser_reports_a_load_error():
+    # Regression test for bugs.md Bug 2: adding a mesh whose file the
+    # browser can't load used to poll "shape_mounted" forever since a
+    # failed load never became mounted=1 -- see shapes.js's onError
+    # handlers, which now report failure as -1 instead of leaving the
+    # SwiftObject stuck at loaded < len(parts) forever.
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", "-1"])
+
+    box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3())
+    with pytest.raises(RuntimeError, match="failed to load"):
+        env.add(box)
+    browser.stop()
+
+
+def test_send_socket_raises_timeout_instead_of_hanging_forever(monkeypatch):
+    # Regression test for bugs.md Bug 1: a browser tab that goes away
+    # (closed, crashed, dropped into another window/profile mid-drag)
+    # mid-request used to leave Swift.py blocked on inq.get() forever,
+    # requiring ^C -- _send_socket() must instead give up after
+    # _REPLY_TIMEOUT and raise, since nothing will ever reply.
+    monkeypatch.setattr(swift_module, "_REPLY_TIMEOUT", 0.05)
+    env = make_env()
+    with pytest.raises(TimeoutError):
+        env._send_socket("shape", ["dummy"])
+
+
 def test_add_robot_sends_flat_list_of_all_link_parts():
     env = make_env()
     panda = rtb.models.Panda()
@@ -99,7 +134,7 @@ def test_add_robot_sends_flat_list_of_all_link_parts():
     assert isinstance(shape_data, list)
     assert len(shape_data) == n_parts
 
-    assert robot_id == 0
+    assert robot_id.id == 0
     _, mounted_data = browser.received[1]
     assert mounted_data == [0, n_parts]
     browser.stop()

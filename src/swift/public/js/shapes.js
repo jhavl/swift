@@ -69,7 +69,7 @@ function loadPrimitive(part, scene, cb) {
   finish(part, mesh, scene, cb);
 }
 
-function loadMesh(part, scene, cb) {
+function loadMesh(part, scene, cb, errCb) {
   const ext = part.filename.split(".").pop().toLowerCase();
 
   // Mesh filenames arrive as absolute filesystem paths (e.g. rtbdata's
@@ -82,30 +82,49 @@ function loadMesh(part, scene, cb) {
   }
   const url = "/retrieve" + encodeURI(filename);
 
-  const onError = (label) => (error) => console.error(`Error loading ${label} file`, error);
+  // Every loader below must be given this (or call errCb() directly on an
+  // unsupported/malformed input) -- Swift.py's add_shape()/add_assembly()/
+  // add_robot() poll "shape_mounted" in a loop that only terminates on
+  // load-complete or load-failed (see SwiftObject.hasError() in this file
+  // and Swift._wait_mounted() in Swift.py); a swallowed error here means
+  // that poll spins forever with no way for the caller to find out why.
+  const onError = (label) => (error) => {
+    console.error(`Error loading ${label} file`, error);
+    errCb();
+  };
   const onProgress = (xhr) => {
     if (xhr.total) console.log(`${((xhr.loaded / xhr.total) * 100).toFixed(0)}% loaded`);
   };
 
   if (ext === "dae") {
-    daeLoader.load(url, (collada) => {
-      const mesh = collada.scene;
-      setPose(mesh, part.t, part.q);
-      mesh.traverse((child) => {
-        if (child.isMesh) child.castShadow = true;
-        else if (child.type === "PointLight") child.visible = false;
-      });
-      finish(part, mesh, scene, cb);
-    });
+    daeLoader.load(
+      url,
+      (collada) => {
+        const mesh = collada.scene;
+        setPose(mesh, part.t, part.q);
+        mesh.traverse((child) => {
+          if (child.isMesh) child.castShadow = true;
+          else if (child.type === "PointLight") child.visible = false;
+        });
+        finish(part, mesh, scene, cb);
+      },
+      onProgress,
+      onError("Collada")
+    );
   } else if (ext === "stl") {
-    stlLoader.load(url, (geometry) => {
-      const mesh = new THREE.Mesh(geometry, materialFor(part));
-      mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
-      setPose(mesh, part.t, part.q);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      finish(part, mesh, scene, cb);
-    });
+    stlLoader.load(
+      url,
+      (geometry) => {
+        const mesh = new THREE.Mesh(geometry, materialFor(part));
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        setPose(mesh, part.t, part.q);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        finish(part, mesh, scene, cb);
+      },
+      onProgress,
+      onError("STL")
+    );
   } else if (ext === "obj") {
     mtlLoader.load(
       part.filename.slice(0, part.filename.length - 3) + "mtl",
@@ -189,13 +208,17 @@ function loadMesh(part, scene, cb) {
     );
   } else {
     console.error(`Unsupported mesh extension: ${ext}`);
+    errCb();
   }
 }
 
-function load(part, scene, cb) {
-  if (part.stype === "mesh") loadMesh(part, scene, cb);
+function load(part, scene, cb, errCb) {
+  if (part.stype === "mesh") loadMesh(part, scene, cb, errCb);
   else if (["cuboid", "box", "sphere", "cylinder"].includes(part.stype)) loadPrimitive(part, scene, cb);
-  else console.error(`Unsupported shape type: ${part.stype}`);
+  else {
+    console.error(`Unsupported shape type: ${part.stype}`);
+    errCb();
+  }
 }
 
 /**
@@ -213,15 +236,24 @@ export class SwiftObject {
     this.scene = scene;
     this.parts = parts;
     this.loaded = 0;
+    this.failed = 0;
 
     const cb = () => {
       this.loaded++;
     };
-    for (const part of this.parts) load(part, scene, cb);
+    const errCb = () => {
+      this.failed++;
+    };
+    for (const part of this.parts) load(part, scene, cb, errCb);
   }
 
   isMounted() {
     return this.loaded === this.parts.length;
+  }
+
+  /** True once any part has failed to load -- see loadMesh()'s onError handlers. */
+  hasError() {
+    return this.failed > 0;
   }
 
   setPoses(poses) {
@@ -241,9 +273,16 @@ export class SwiftObject {
       this.loaded--;
     }
     this.parts[index] = partData;
-    load(partData, this.scene, () => {
-      this.loaded++;
-    });
+    load(
+      partData,
+      this.scene,
+      () => {
+        this.loaded++;
+      },
+      () => {
+        this.failed++;
+      }
+    );
   }
 
   remove(scene) {

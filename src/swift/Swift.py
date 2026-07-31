@@ -8,7 +8,7 @@ import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
 import time
-from queue import Queue
+from queue import Queue, Empty
 import json
 from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
@@ -62,6 +62,14 @@ except ImportError:
 # (run as fast as possible), otherwise a wall-clock-per-sim-time multiplier.
 _REALTIME_SPEED_LABELS = ["Max", "1x", "0.5x", "0.25x"]
 _REALTIME_SPEEDS = [None, 1.0, 0.5, 0.25]
+
+# How long to wait for a reply to a message that expects one. The browser
+# always replies synchronously -- even "shape_mounted" polls report
+# load-in-progress rather than blocking on the load itself (see
+# shapes.js:SwiftObject) -- so a hang past this means the tab has gone away
+# (closed, crashed, or dropped into a different window/profile mid-drag,
+# see bugs.md) rather than being legitimately busy.
+_REPLY_TIMEOUT = 15
 
 rtb = None
 
@@ -501,9 +509,7 @@ class Swift:
         shape._added_to_swift = True
         if not self.headless:
             id = int(self._send_socket("shape", [shape.to_dict()]))
-
-            while not int(self._send_socket("shape_mounted", [id, 1])):
-                time.sleep(0.1)
+            self._wait_mounted(id, 1)
 
         else:
             id = len(self.swift_objects)
@@ -588,9 +594,7 @@ class Swift:
         if not self.headless:
             parts_dict = [p.to_dict() for p in parts]
             id = int(self._send_socket("shape", parts_dict))
-
-            while not int(self._send_socket("shape_mounted", [id, len(parts_dict)])):
-                time.sleep(0.1)
+            self._wait_mounted(id, len(parts_dict))
 
         else:
             id = len(self.swift_objects)
@@ -645,9 +649,7 @@ class Swift:
                 robot_alpha=robot_alpha, collision_alpha=collision_alpha
             )
             id = int(self._send_socket("shape", robob))
-
-            while not int(self._send_socket("shape_mounted", [id, len(robob)])):
-                time.sleep(0.1)
+            self._wait_mounted(id, len(robob))
 
         else:
             id = len(self.swift_objects)
@@ -921,9 +923,51 @@ class Swift:
         self.outq.put(msg)
 
         if expected:
-            return self.inq.get()
+            try:
+                return self.inq.get(timeout=_REPLY_TIMEOUT)
+            except Empty:
+                raise TimeoutError(
+                    "Swift browser tab stopped responding (no reply to "
+                    f"'{code}' within {_REPLY_TIMEOUT}s) -- it may have been "
+                    "closed, crashed, or dropped into a different window/"
+                    "profile mid-drag. Call env.close() then env.launch() "
+                    "again to reconnect."
+                ) from None
         else:
             return "0"
+
+    def _wait_mounted(self, id, count):
+        """
+        Block until the browser confirms every part of object ``id`` has
+        finished loading (see shapes.js's ``SwiftObject``).
+
+        A "shape_mounted" reply of ``1`` means loaded, ``0`` means still
+        loading (poll again), and ``-1`` means at least one part's asset
+        failed to load in the browser (bad path, unsupported/corrupt mesh
+        format, ...) -- see ``shapes.js``'s ``onError`` handlers, which
+        report failure this way rather than leaving this loop to poll
+        forever with no way to tell the caller why (bugs.md, Bug 2).
+
+        :param id: the object's id, as returned by the preceding "shape"
+            message
+        :type id: int
+        :param count: number of parts the object has, for the browser-side
+            log/protocol payload only -- the mounted check itself compares
+            against the part list ``id`` was created with
+        :type count: int
+        """
+        while True:
+            status = int(self._send_socket("shape_mounted", [id, count]))
+            if status == 1:
+                return
+            if status == -1:
+                raise RuntimeError(
+                    f"Swift failed to load one or more assets for object "
+                    f"{id} -- check the browser's JavaScript console for "
+                    "details (common causes: a bad mesh file path, or an "
+                    "unsupported file format)"
+                )
+            time.sleep(0.1)
 
     def _pause_control(self, _):
         # Button's cb() contract is "argument can be disregarded" -- the
