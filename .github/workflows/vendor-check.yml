@@ -1,6 +1,6 @@
-# Confirms the vendored browser assets in swift/public/js/vendor/ still
+# Confirms the vendored browser assets in src/swift/public/js/vendor/ still
 # match what `npm run build:vendor` produces from the pinned dependencies
-# in swift/public/package.json -- catches accidental edits/deletions of
+# in src/swift/public/package.json -- catches accidental edits/deletions of
 # the vendored copies, and (via Dependabot bumping package.json) surfaces
 # version drift before it goes unnoticed for years the way it did before.
 
@@ -9,17 +9,17 @@ name: Vendor assets check
 on:
   push:
     branches: [main, future]
-    paths: ["swift/public/**"]
+    paths: ["src/swift/public/**"]
   pull_request:
     branches: [main, future]
-    paths: ["swift/public/**"]
+    paths: ["src/swift/public/**"]
 
 jobs:
   check:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: swift/public
+        working-directory: src/swift/public
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +34,6 @@ jobs:
       - name: Fail if the build produced a different vendored tree
         run: |
           git diff --exit-code -- js/vendor/ || {
-            echo "::error::js/vendor/ doesn't match what package.json's pinned versions produce. Run 'npm run build:vendor' in swift/public/ and commit the result.";
+            echo "::error::js/vendor/ doesn't match what package.json's pinned versions produce. Run 'npm run build:vendor' in src/swift/public/ and commit the result.";
             exit 1;
           }
