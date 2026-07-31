@@ -10,6 +10,10 @@ import numpy
 PACKAGE_DATA_EXCLUDE_DIRS = {"node_modules"}
 PACKAGE_DATA_EXCLUDE_FILES = {"package.json", "package-lock.json"}
 
+# package_data entries must be relative to the package's own source dir
+# (src/swift/), not the repo root.
+PACKAGE_SRC_DIR = os.path.join("src", "swift")
+
 
 def package_files(directory):
     paths = []
@@ -18,13 +22,15 @@ def package_files(directory):
         for filename in filenames:
             if filename in PACKAGE_DATA_EXCLUDE_FILES:
                 continue
-            paths.append(os.path.join("..", pathhere, filename))
+            paths.append(
+                os.path.relpath(os.path.join(pathhere, filename), PACKAGE_SRC_DIR)
+            )
     return paths
 
 
 extra_folders = [
-    "swift/public",
-    "swift/core",
+    "src/swift/public",
+    "src/swift/cpp-extensions",
 ]
 
 extra_files = []
@@ -33,8 +39,8 @@ for extra_folder in extra_folders:
 
 phys = Extension(
     "swift.phys",
-    sources=["./swift/core/phys.cpp"],
-    include_dirs=["./swift/core/", numpy.get_include()],
+    sources=["./src/swift/cpp-extensions/phys.cpp"],
+    include_dirs=["./src/swift/cpp-extensions/", numpy.get_include()],
     define_macros=[("NPY_TARGET_VERSION", "NPY_2_0_API_VERSION")],
 )
 
