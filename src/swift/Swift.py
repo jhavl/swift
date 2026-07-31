@@ -574,6 +574,7 @@ class Swift:
 
         if self.recording:
             self._send_socket("stop_recording")
+            self.recording = False
         else:
             raise ValueError(
                 "You must call swift.start_recording(file_name) before trying"

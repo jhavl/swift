@@ -91,6 +91,15 @@ copyFile(
   `${NODE_MODULES}/ccapture.js/build/CCapture.all.min.js`,
   `${VENDOR}/build/CCapture.all.min.js`
 );
+// gif.worker.js is only shipped under src/, not build/, but
+// CCapture.all.min.js's webm/gif encoders load it at runtime as a Worker
+// script (workersPath option in recording.js) -- without it, recording
+// starts and produces a valid-looking but empty (frameless) output file,
+// silently: the Worker fails to load and nothing else surfaces the error.
+copyFile(
+  `${NODE_MODULES}/ccapture.js/src/gif.worker.js`,
+  `${VENDOR}/build/gif.worker.js`
+);
 
 const jsmFiles = resolveTransitiveImports(ENTRY_POINTS);
 console.log(`examples/jsm (${ENTRY_POINTS.length} entry points, ${jsmFiles.length} files including transitive imports):`);

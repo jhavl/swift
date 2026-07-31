@@ -9,7 +9,7 @@ const { scene, camera, renderer, controls, axesHelper } = createScene();
 
 const fps = new FPS(document.getElementById("fps"));
 const simTime = new SimTime(document.getElementById("sim-time"));
-const recorder = new Recorder();
+const recorder = new Recorder(renderer.domElement);
 
 /**
  * Swift.py's `swift_objects` list, mirrored index-for-index -- both robots
