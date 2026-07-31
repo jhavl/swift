@@ -5,7 +5,7 @@ import { WebSocketTransport, portFromLocation } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
 
-const { scene, camera, renderer, controls, axesHelper } = createScene();
+const { scene, camera, renderer, controls, axesHelper, groundMaterial } = createScene();
 
 const fps = new FPS(document.getElementById("fps"));
 const simTime = new SimTime(document.getElementById("sim-time"));
@@ -145,6 +145,10 @@ transport.onMessage((func, data) => {
     }
     case "browser_timeout": {
       autoCloseDelay = data;
+      break;
+    }
+    case "ground_opacity": {
+      groundMaterial.opacity = data;
       break;
     }
     case "camera_pose": {

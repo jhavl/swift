@@ -348,3 +348,42 @@ def test_hold_keeps_waiting_while_still_connected(monkeypatch):
 
     env.hold()
     assert call_count[0] > 3
+
+
+def test_ground_opacity_only_sent_when_non_default():
+    # ground_opacity=1.0 matches the frontend's own default (an opaque
+    # material), so skipping the message when it's unchanged is safe --
+    # mirrors the axes= pattern. A non-default value must go out though.
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", "0"])
+    env.ground_opacity = 1.0
+
+    if env.ground_opacity != 1.0:
+        env._send_socket("ground_opacity", env.ground_opacity, expected=False)
+    env._add_controls()
+
+    codes = [c for c, _ in browser.received]
+    assert "ground_opacity" not in codes
+    browser.stop()
+
+
+def test_ground_opacity_sent_when_set():
+    import time
+
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", "0"])
+    env.ground_opacity = 0.3
+
+    env._add_controls()
+    if env.ground_opacity != 1.0:
+        env._send_socket("ground_opacity", env.ground_opacity, expected=False)
+
+    for _ in range(50):
+        if len(browser.received) >= 3:
+            break
+        time.sleep(0.01)
+
+    codes = [c for c, _ in browser.received]
+    assert codes == ["element", "element", "ground_opacity"]
+    assert browser.received[-1][1] == 0.3
+    browser.stop()

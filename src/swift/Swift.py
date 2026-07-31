@@ -169,6 +169,7 @@ class Swift:
         # matches real time, 0.5 is half speed (slow motion), etc.
         self.realtime_speed = None
         self.axes = True
+        self.ground_opacity = 1.0
         # How long hold() keeps waiting after the browser disconnects
         # before giving up -- see launch()'s timeout= and hold(). None
         # means wait forever (the old behaviour).
@@ -231,6 +232,7 @@ class Swift:
         rate: int = 60,
         browser: str | None = None,
         axes: bool = True,
+        ground_opacity: float = 1.0,
         timeout: float | None = 5,
         browser_timeout: float | None = 5,
         **kwargs,
@@ -269,6 +271,9 @@ class Swift:
         :param axes: Show the world-frame axes helper at the origin,
             defaults to True
         :type axes: bool
+        :param ground_opacity: Opacity of the ground plane, from 0
+            (invisible) to 1 (opaque), defaults to 1
+        :type ground_opacity: float
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
@@ -298,6 +303,7 @@ class Swift:
             self.realtime_speed = float(realtime)
         self.headless = headless
         self.axes = axes
+        self.ground_opacity = ground_opacity
         # Anchors realtime_speed's pacing clock (see step()) -- needed in
         # headless mode too, not just for rendering.
         self.last_time = time.time()
@@ -319,6 +325,9 @@ class Swift:
 
             if not self.axes:
                 self._send_socket("axes", False, expected=False)
+
+            if self.ground_opacity != 1.0:
+                self._send_socket("ground_opacity", self.ground_opacity, expected=False)
 
             self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
