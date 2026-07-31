@@ -145,6 +145,7 @@ class Swift:
         # multiplier on wall-clock time per unit of simulated time -- 1.0
         # matches real time, 0.5 is half speed (slow motion), etc.
         self.realtime_speed = None
+        self.axes = True
 
     @property
     def rate(self):
@@ -172,6 +173,7 @@ class Swift:
         headless: bool = False,
         rate: int = 60,
         browser: str | None = None,
+        axes: bool = True,
         **kwargs,
     ):
         """
@@ -197,6 +199,9 @@ class Swift:
             'firefox', 'safari', 'opera' or see for full list
             https://docs.python.org/3/library/webbrowser.html#webbrowser.open_new
         :type browser: str | None
+        :param axes: Show the world-frame axes helper at the origin,
+            defaults to True
+        :type axes: bool
 
         """
 
@@ -207,6 +212,7 @@ class Swift:
         else:
             self.realtime_speed = float(realtime)
         self.headless = headless
+        self.axes = axes
 
         if not self.headless:
             # A flag for our threads to monitor for when to quit
@@ -223,6 +229,9 @@ class Swift:
             # browser has connected, since sending them any earlier would
             # block waiting for a reply from a client that isn't there yet.
             self._add_controls()
+
+            if not self.axes:
+                self._send_socket("axes", False, expected=False)
 
     def _servers_running(self):
         return self._run_thread
@@ -345,6 +354,7 @@ class Swift:
         """
 
         prior_speed = self.realtime_speed
+        prior_axes = self.axes
 
         self._send_socket("close", "0", False)
         self._stop_threads()
@@ -353,6 +363,7 @@ class Swift:
             headless=self.headless,
             rate=self.rate,
             browser=self.browser,
+            axes=prior_axes,
         )
         self.realtime_speed = prior_speed
 
