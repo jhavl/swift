@@ -259,6 +259,9 @@ class Swift:
             self.realtime_speed = float(realtime)
         self.headless = headless
         self.axes = axes
+        # Anchors realtime_speed's pacing clock (see step()) -- needed in
+        # headless mode too, not just for rendering.
+        self.last_time = time.time()
 
         if not self.headless:
             # A flag for our threads to monitor for when to quit
@@ -269,7 +272,6 @@ class Swift:
                 self._servers_running,
                 browser=browser,
             )
-            self.last_time = time.time()
 
             # The realtime, render and pause buttons -- added after the
             # browser has connected, since sending them any earlier would
@@ -345,24 +347,27 @@ class Swift:
             if isinstance(obj, Shape):
                 obj._propogate_scene_tree()
 
+        if self.realtime_speed:
+            # Delay progress if we're running too quickly for the target
+            # speed -- 0.5x should take twice as long (wall clock) per dt
+            # of simulated time as 1x, 0.25x four times as long, etc.
+            # Applies in headless mode too -- realtime pacing and
+            # rendering are independent concerns; only the rendering
+            # itself needs a live browser tab to skip.
+            time_taken = time.time() - self.last_time
+            diff = (dt * self._skipped) / self.realtime_speed - time_taken
+            self._skipped = 1
+
+            if diff > 0:
+                time.sleep(diff)
+
+            self.last_time = time.time()
+
         if not self.headless:
 
             if render and self.rendering:
 
-                if self.realtime_speed:
-                    # Delay progress if we're running too quickly for the
-                    # target speed -- 0.5x should take twice as long (wall
-                    # clock) per dt of simulated time as 1x, 0.25x four
-                    # times as long, etc.
-                    time_taken = time.time() - self.last_time
-                    diff = (dt * self._skipped) / self.realtime_speed - time_taken
-                    self._skipped = 1
-
-                    if diff > 0:
-                        time.sleep(diff)
-
-                    self.last_time = time.time()
-                elif (time.time() - self._laststep) < self._period:
+                if not self.realtime_speed and (time.time() - self._laststep) < self._period:
                     # Only render at 60 FPS
                     self._skipped += 1
                     return

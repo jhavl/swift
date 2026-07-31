@@ -253,3 +253,22 @@ def test_speed_control_maps_select_index_to_speed_multiplier():
     env._time_control(0)
     assert env.realtime_speed is None
     browser.stop()
+
+
+def test_headless_realtime_still_paces_steps():
+    # Regression test for jhavl/swift#60: realtime_speed's pacing sleep
+    # used to sit entirely inside `if not self.headless`, so headless
+    # runs ignored it and ran flat-out regardless of realtime=True.
+    import time
+
+    env = make_env()
+    env.headless = True
+    env.realtime_speed = 1.0
+    env.last_time = time.time()
+
+    t0 = time.time()
+    for _ in range(3):
+        env.step(0.05)
+    elapsed = time.time() - t0
+
+    assert elapsed >= 0.1, "headless step() did not pace to realtime_speed"
