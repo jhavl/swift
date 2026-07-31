@@ -272,3 +272,79 @@ def test_headless_realtime_still_paces_steps():
     elapsed = time.time() - t0
 
     assert elapsed >= 0.1, "headless step() did not pace to realtime_speed"
+
+
+def test_launch_sends_browser_timeout_after_connecting():
+    # Mirrors the tail of launch()'s connected-browser sequence: controls,
+    # then browser_timeout -- a value the frontend needs to know before a
+    # disconnect can happen, so it must go out at connect time, not lazily.
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", "0"])
+    env._browser_timeout = 5
+
+    import time
+
+    env._add_controls()
+    env._send_socket("browser_timeout", env._browser_timeout, expected=False)
+
+    # expected=False doesn't block for a reply, so give the FakeBrowser
+    # thread a moment to drain the queue before asserting on it.
+    for _ in range(50):
+        if len(browser.received) >= 3:
+            break
+        time.sleep(0.01)
+
+    codes = [c for c, _ in browser.received]
+    assert codes == ["element", "element", "browser_timeout"]
+    assert browser.received[-1][1] == 5
+    browser.stop()
+
+
+def test_hold_returns_once_disconnected_past_timeout(monkeypatch):
+    # Regression test: hold() used to loop forever regardless of whether
+    # the browser was still there, requiring a manual ^C even after the
+    # tab was long gone -- see Swift.py's hold()/launch()'s timeout=.
+    from types import SimpleNamespace
+
+    env = make_env()
+    env.headless = False
+    env.socket = SimpleNamespace(USERS=set())  # already disconnected
+    env._hold_timeout = 2
+
+    fake_now = [0.0]
+    monkeypatch.setattr(swift_module.time, "time", lambda: fake_now[0])
+    monkeypatch.setattr(swift_module.time, "sleep", lambda s: fake_now.__setitem__(0, fake_now[0] + 1.0))
+
+    env.hold()  # returns once disconnected for > 2s -- would hang otherwise
+    assert fake_now[0] > 2
+
+
+def test_hold_keeps_waiting_while_still_connected(monkeypatch):
+    from types import SimpleNamespace
+
+    env = make_env()
+    env.headless = False
+    env.socket = SimpleNamespace(USERS={"a-connected-browser"})
+    env._hold_timeout = 1
+
+    call_count = [0]
+
+    def fake_sleep(s):
+        call_count[0] += 1
+        if call_count[0] > 3:
+            # Still "connected" the whole time -- prove hold() really
+            # would have kept going by disconnecting only now, then let
+            # it return so the test itself terminates.
+            env.socket.USERS.clear()
+
+    fake_now = [0.0]
+    monkeypatch.setattr(swift_module.time, "time", lambda: fake_now[0])
+
+    def sleep_and_advance(s):
+        fake_sleep(s)
+        fake_now[0] += 1.0
+
+    monkeypatch.setattr(swift_module.time, "sleep", sleep_and_advance)
+
+    env.hold()
+    assert call_count[0] > 3
