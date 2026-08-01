@@ -80,10 +80,19 @@ class Slider(SwiftElement):
     :type desc: str
     :param unit: add a unit to the slider value, optional
     :type unit: str
+    :param precision: number of *decimal places* shown for the current
+        value and the min/max range labels next to the slider -- e.g.
+        ``precision=3`` shows ``2.478``, not ``2.48`` (that would be 3
+        *significant figures* instead, a different, narrower value this
+        parameter does not control). Optional, defaults to 3. Purely a
+        display rounding -- the underlying value (what a callback or
+        ``env.values`` actually receives) always keeps full float
+        precision, e.g. whatever a step()-side computation produced.
+    :type precision: int
 
     """
 
-    def __init__(self, cb, min=0, max=100, step=1, value=0, desc='', unit=''):
+    def __init__(self, cb, min=0, max=100, step=1, value=0, desc='', unit='', precision=3):
         super(Slider, self).__init__()
 
         self._element = 'slider'
@@ -94,6 +103,7 @@ class Slider(SwiftElement):
         self.value = value
         self.desc = desc
         self.unit = unit
+        self.precision = precision
 
     @property
     def cb(self):
@@ -159,6 +169,15 @@ class Slider(SwiftElement):
     def unit(self, value):
         self._unit = value
 
+    @property
+    def precision(self):
+        return self._precision
+
+    @precision.setter
+    @SwiftElement._update
+    def precision(self, value):
+        self._precision = int(value)
+
     def to_dict(self):
         return {
             'element': self._element,
@@ -169,7 +188,8 @@ class Slider(SwiftElement):
             'step': self.step,
             'value': self.value,
             'desc': self.desc,
-            'unit': self.unit
+            'unit': self.unit,
+            'precision': self.precision,
         }
 
     def update(self, e):
