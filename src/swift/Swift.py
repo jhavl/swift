@@ -214,10 +214,14 @@ class Swift:
 
         ``env.show()`` prints every object currently added to the scene
         (shapes, assemblies/robots, and UI elements) with its id, type,
-        and name if one was given via ``name=`` at add time.
+        and name if one was given via ``name=`` at add time. The
+        pause/realtime-speed controls _add_controls() adds to every
+        launch() aren't user-added UI, so they're excluded here too.
         """
         print(repr(self))
         for eid, el in self.elements.items():
+            if el.builtin:
+                continue
             name = getattr(el, "name", None)
             print(f"  UI[{eid}] {type(el).__name__}" + (f' "{name}"' if name else ""))
 
