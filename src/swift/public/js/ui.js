@@ -42,7 +42,14 @@ export class Slider {
     this.desc = document.getElementById(`desc${data.id}`);
 
     this.onInput = () => {
-      this.value.innerHTML = this.slider.value + this.unit;
+      // toFixed(), not toPrecision() -- this.precision is decimal places
+      // (2.478 at precision=3), not significant figures (2.48 at 3 sig
+      // figs -- a different, narrower value this does not implement).
+      // Rounds for display only -- the slider's own value (used for
+      // this.data/the actual reported value) keeps its raw float
+      // precision, e.g. any float step()-side arithmetic that produced
+      // it (0.30000000000000004 and the like).
+      this.value.innerHTML = Number(this.slider.value).toFixed(this.precision) + this.unit;
       this.changed = true;
       this.data = this.slider.value;
     };
@@ -54,12 +61,17 @@ export class Slider {
 
   update(data) {
     this.unit = data.unit;
+    this.precision = data.precision;
     this.slider.value = data.value;
     this.slider.step = data.step;
     this.slider.min = data.min;
     this.slider.max = data.max;
-    this.min.innerHTML = data.min;
-    this.max.innerHTML = data.max;
+    // The slider's own min/max (above) keep full precision -- only the
+    // text labels are rounded, same as the live value. Otherwise a range
+    // like min=-np.pi/max=np.pi shows -3.141592653589793 regardless of
+    // precision=, since these were never touched by that fix at all.
+    this.min.innerHTML = Number(data.min).toFixed(data.precision);
+    this.max.innerHTML = Number(data.max).toFixed(data.precision);
     this.desc.innerHTML = data.desc;
     this.onInput();
   }

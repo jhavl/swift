@@ -21,6 +21,7 @@ def test_slider_to_dict():
         "value": 2.5,
         "desc": "d",
         "unit": "u",
+        "precision": 3,
     }
 
 
@@ -28,6 +29,15 @@ def test_slider_update_from_browser():
     s = Slider(lambda v: None, value=0)
     s.update(7.5)
     assert s.value == 7.5
+
+
+def test_slider_precision_defaults_to_3_and_is_settable():
+    s = Slider(lambda v: None)
+    assert s.precision == 3
+
+    s2 = Slider(lambda v: None, precision=1)
+    assert s2.precision == 1
+    assert s2.to_dict()["precision"] == 1
 
 
 def test_button_to_dict():
