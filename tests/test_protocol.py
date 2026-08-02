@@ -13,6 +13,7 @@ frontend has no way to detect on its own.
 import importlib
 import json
 import threading
+from queue import Queue
 
 import pytest
 import roboticstoolbox as rtb
@@ -387,3 +388,137 @@ def test_ground_opacity_sent_when_set():
     assert codes == ["element", "element", "ground_opacity"]
     assert browser.received[-1][1] == 0.3
     browser.stop()
+
+
+def test_start_servers_socket_thread_actually_stops_on_close():
+    # Regression test for a real bug FakeBrowser-based tests structurally
+    # can't catch: everything above drains Swift's outq/inq directly, never
+    # touching start_servers()/SwiftSocket at all. That let two real bugs
+    # ship together -- self.socket used to be the wrapping Thread (no
+    # .USERS, breaking hold()'s disconnect polling), and _stop_threads()
+    # set a flag SwiftSocket.loop.run_forever() never checked, so close()
+    # never actually stopped the background thread or freed the port. This
+    # exercises the real SwiftSocket over a real socket instead.
+    from swift.SwiftRoute import SwiftSocket
+
+    outq, inq = Queue(), Queue()
+    run_flag = [True]
+    t = threading.Thread(
+        target=SwiftSocket, args=(outq, inq, lambda: run_flag[0]), daemon=True
+    )
+    t.start()
+    port, instance = inq.get(timeout=5)
+
+    assert isinstance(instance.USERS, set)  # what hold() polls
+
+    # Mirrors what Swift.close() -> _stop_threads() actually does: queue a
+    # message (unblocks producer()'s blocking outq.get()), then stop().
+    run_flag[0] = False
+    outq.put([False, ["close", "0"]])
+    instance.stop()
+
+    t.join(timeout=3)
+    assert not t.is_alive(), "SwiftSocket's thread did not actually stop"
+
+
+def test_hold_duration_returns_even_while_still_connected(monkeypatch):
+    # Regression test: hold(5) used to map its positional arg to timeout=
+    # (a grace period that only starts counting AFTER a disconnect), so a
+    # still-connected browser meant it never returned -- not what hold(5)
+    # reads as. duration= is an unconditional cap, connected or not.
+    from types import SimpleNamespace
+
+    env = make_env()
+    env.headless = False
+    env.socket = SimpleNamespace(USERS={"still-connected"})
+
+    fake_now = [0.0]
+    monkeypatch.setattr(swift_module.time, "time", lambda: fake_now[0])
+    monkeypatch.setattr(swift_module.time, "sleep", lambda s: fake_now.__setitem__(0, fake_now[0] + 1.0))
+
+    env.hold(duration=5)  # must return on its own -- would hang otherwise
+    assert fake_now[0] >= 5
+
+
+def test_run_calls_step_and_stops_at_duration():
+    env = make_env()
+    env.headless = True
+
+    steps = []
+    orig_step = env.step
+
+    def counting_step(dt=0.05, render=True):
+        steps.append(dt)
+        orig_step(dt, render=False)
+
+    env.step = counting_step
+    env.run(duration=0.2, dt=0.05)
+
+    assert len(steps) >= 4  # 0.2 / 0.05, allowing for real-time slop
+    assert env.sim_time >= 0.2
+
+
+def test_run_exits_quietly_on_keyboard_interrupt(monkeypatch):
+    # ^C is the normal way to end an interactive session here, not an
+    # error -- run()/hold()/step() must not let it propagate as a
+    # traceback. They raise SystemExit instead of returning normally, so
+    # any code after the call doesn't keep running either -- pytest.raises
+    # confirms that without actually killing the test process (SystemExit
+    # uncaught at the real top level is what exits quietly, not something
+    # visible inside a caught exception).
+    env = make_env()
+    env.headless = True
+
+    def sleep_raises(s):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(swift_module.time, "sleep", sleep_raises)
+    closed = []
+    env.close = lambda *a, **kw: closed.append(True)
+
+    with pytest.raises(SystemExit):
+        env.run()
+
+    assert closed == [True]
+
+
+def test_hold_exits_quietly_on_keyboard_interrupt(monkeypatch):
+    env = make_env()
+    env.headless = True
+
+    def sleep_raises(s):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(swift_module.time, "sleep", sleep_raises)
+    closed = []
+    env.close = lambda *a, **kw: closed.append(True)
+
+    with pytest.raises(SystemExit):
+        env.hold()
+
+    assert closed == [True]
+
+
+def test_step_exits_quietly_on_keyboard_interrupt(monkeypatch):
+    # step() itself catches ^C too, not just hold()/run() -- most of a
+    # realtime-paced script's wall-clock wait happens inside step()'s own
+    # pacing sleep, so ^C is overwhelmingly likely to land there even for
+    # a bare `while True: env.step(dt)` loop with no handling of its own.
+    import time as time_module
+
+    env = make_env()
+    env.headless = True
+    env.realtime_speed = 1.0
+    env.last_time = time_module.time()  # small/near-zero time_taken -> diff > 0 -> sleeps
+
+    def sleep_raises(s):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(swift_module.time, "sleep", sleep_raises)
+    closed = []
+    env.close = lambda *a, **kw: closed.append(True)
+
+    with pytest.raises(SystemExit):
+        env.step(0.05)
+
+    assert closed == [True]

@@ -9,7 +9,6 @@ Named sliders (name=...) push their value into env.values -- a
 per-step callback reads them from there, so there's no need to write a
 setter function per slider.
 """
-import time
 import spatialgeometry as sg
 from spatialmath import SE3
 from swift import Swift, Slider
@@ -34,4 +33,3 @@ env.add_ui(Slider(lambda v: None, min=0.0, max=0.6, step=0.01, value=0.0, desc="
 
 while True:
     env.step(0.05)
-    time.sleep(0.05)

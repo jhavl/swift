@@ -181,6 +181,8 @@ class Swift:
         # applies even if this process was killed outright rather than
         # exiting through hold().
         self._browser_timeout = 5
+        # Set by launch(browser="notebook") -- see close()'s clear_cell=.
+        self._notebook_display_handle = None
 
     @property
     def rate(self):
@@ -315,7 +317,7 @@ class Swift:
         if not self.headless:
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
-            self.socket, self.server = start_servers(
+            self.socket_thread, self.socket, self.server, self._notebook_display_handle = start_servers(
                 self.outq,
                 self.inq,
                 self._servers_running,
@@ -341,7 +343,13 @@ class Swift:
     def _stop_threads(self):
         self._run_thread = False
         if not self.headless:
-            self.socket.join(1)
+            # Setting _run_thread above only ends serve()'s per-connection
+            # message loop -- SwiftSocket.loop.run_forever() itself never
+            # checks it and would otherwise keep the thread (and the bound
+            # port) alive forever, regardless. stop() actually tells that
+            # event loop to return.
+            self.socket.stop()
+            self.socket_thread.join(1)
         if not self._dev:
             self.server.join(1)
 
@@ -370,85 +378,102 @@ class Swift:
 
         """
 
-        # Sim time is incremented first -- callbacks registered via
-        # add_shape()/add_assembly()/add_robot()'s callback= see the *new*
-        # t for this step, not the one before it.
-        self.sim_time += dt
-        t = self.sim_time
-        values = self.values
+        try:
+            # Sim time is incremented first -- callbacks registered via
+            # add_shape()/add_assembly()/add_robot()'s callback= see the
+            # *new* t for this step, not the one before it.
+            self.sim_time += dt
+            t = self.sim_time
+            values = self.values
 
-        # Update local pose of objects. A registered callback(t, values)
-        # -- returning an SE3 for a shape, or a q vector for an assembly/
-        # robot -- takes over entirely for that object; otherwise fall
-        # back to the existing velocity-integration/shape.v path.
-        for i, obj in enumerate(self.swift_objects):
-            if isinstance(obj, Shape):
-                cb = self.shape_callbacks.get(i)
-                if cb is not None:
-                    obj.T = cb(t, values)
-                else:
-                    self._step_shape(obj, dt)
-            elif isinstance(obj, AssemblyHandle):
-                if obj.callback is not None:
-                    obj.q = np.asarray(obj.callback(t, values), dtype=float)
-                else:
-                    self._step_assembly(obj, dt)
+            # Update local pose of objects. A registered callback(t, values)
+            # -- returning an SE3 for a shape, or a q vector for an
+            # assembly/robot -- takes over entirely for that object;
+            # otherwise fall back to the existing velocity-integration/
+            # shape.v path.
+            for i, obj in enumerate(self.swift_objects):
+                if isinstance(obj, Shape):
+                    cb = self.shape_callbacks.get(i)
+                    if cb is not None:
+                        obj.T = cb(t, values)
+                    else:
+                        self._step_shape(obj, dt)
+                elif isinstance(obj, AssemblyHandle):
+                    if obj.callback is not None:
+                        obj.q = np.asarray(obj.callback(t, values), dtype=float)
+                    else:
+                        self._step_assembly(obj, dt)
 
-        # Update world transform of shapes (assemblies/robots render via
-        # AssemblyHandle.part_poses(), a pure function of handle.q -- no
-        # scene-graph propagation needed, see tech-debt.md)
-        for obj in self.swift_objects:
-            if isinstance(obj, Shape):
-                obj._propogate_scene_tree()
+            # Update world transform of shapes (assemblies/robots render via
+            # AssemblyHandle.part_poses(), a pure function of handle.q --
+            # no scene-graph propagation needed, see tech-debt.md)
+            for obj in self.swift_objects:
+                if isinstance(obj, Shape):
+                    obj._propogate_scene_tree()
 
-        if self.realtime_speed:
-            # Delay progress if we're running too quickly for the target
-            # speed -- 0.5x should take twice as long (wall clock) per dt
-            # of simulated time as 1x, 0.25x four times as long, etc.
-            # Applies in headless mode too -- realtime pacing and
-            # rendering are independent concerns; only the rendering
-            # itself needs a live browser tab to skip.
-            time_taken = time.time() - self.last_time
-            diff = (dt * self._skipped) / self.realtime_speed - time_taken
-            self._skipped = 1
+            if self.realtime_speed:
+                # Delay progress if we're running too quickly for the
+                # target speed -- 0.5x should take twice as long (wall
+                # clock) per dt of simulated time as 1x, 0.25x four times
+                # as long, etc. Applies in headless mode too -- realtime
+                # pacing and rendering are independent concerns; only the
+                # rendering itself needs a live browser tab to skip. This
+                # sleep is also where most of a realtime-paced script's
+                # wall-clock time between step() calls actually goes --
+                # which is why ^C is caught around this whole method, not
+                # just here: it's overwhelmingly likely to land inside
+                # this call, not a caller's own sleep (if it even has one).
+                time_taken = time.time() - self.last_time
+                diff = (dt * self._skipped) / self.realtime_speed - time_taken
+                self._skipped = 1
 
-            if diff > 0:
-                time.sleep(diff)
+                if diff > 0:
+                    time.sleep(diff)
 
-            self.last_time = time.time()
+                self.last_time = time.time()
 
-        if not self.headless:
+            if not self.headless:
 
-            if render and self.rendering:
+                if render and self.rendering:
 
-                if not self.realtime_speed and (time.time() - self._laststep) < self._period:
-                    # Only render at 60 FPS
-                    self._skipped += 1
-                    return
+                    if not self.realtime_speed and (time.time() - self._laststep) < self._period:
+                        # Only render at 60 FPS
+                        self._skipped += 1
+                        return
 
-                self._laststep = time.time()
+                    self._laststep = time.time()
 
-                self._step_elements()
+                    self._step_elements()
 
-                events = self._draw_all()
+                    events = self._draw_all()
+                    # print(events)
+
+                    # Process GUI events
+                    self.process_events(events)
+
+                elif not self.rendering:
+                    if (time.time() - self._laststep) < self._notrenderperiod:
+                        return
+                    self._laststep = time.time()
+                    events = json.loads(self._send_socket("shape_poses", [], True))
+                    self.process_events(events)
+
                 # print(events)
+                # else:
+                #     for i in range(len(self.robots)):
+                #         self.robots[i]['ob'].fkine_all(self.robots[i]['ob'].q)
 
-                # Process GUI events
-                self.process_events(events)
-
-            elif not self.rendering:
-                if (time.time() - self._laststep) < self._notrenderperiod:
-                    return
-                self._laststep = time.time()
-                events = json.loads(self._send_socket("shape_poses", [], True))
-                self.process_events(events)
-
-            # print(events)
-            # else:
-            #     for i in range(len(self.robots)):
-            #         self.robots[i]['ob'].fkine_all(self.robots[i]['ob'].q)
-
-            self._send_socket("sim_time", self.sim_time, expected=False)
+                self._send_socket("sim_time", self.sim_time, expected=False)
+        except KeyboardInterrupt:
+            # ^C is the normal, expected way to end an interactive session
+            # here, not an error -- exit quietly rather than a traceback,
+            # regardless of what loop construct the caller wrote (a bare
+            # `while True: env.step(dt)` gets this for free, not just
+            # hold()/run(), which also catch it independently for the
+            # part of their own loops spent outside step()).
+            print("\nInterrupted, closing.")
+            self.close()
+            raise SystemExit
 
     def reset(self):
         """
@@ -490,16 +515,31 @@ class Swift:
         )
         self.realtime_speed = prior_speed
 
-    def close(self):
+    def close(self, clear_cell: bool = False):
         """
         Close the graphics display
 
         ``env.close()`` gracefully disconnectes from the Swift visualizer
         referenced by ``env``.
+
+        :param clear_cell: if launched with ``browser="notebook"``, blank
+            out the cell that rendered the iframe instead of leaving its
+            last frame visible (the default -- matches prior behaviour).
+            No effect for any other ``browser=`` mode, or if the iframe's
+            cell was never displayed (e.g. still headless).
+        :type clear_cell: bool
         """
 
         self._send_socket("close", "0", False)
         self._stop_threads()
+
+        if clear_cell and self._notebook_display_handle is not None:
+            # Lazy import -- IPython is optional, only actually needed if
+            # a notebook display handle was ever created in the first
+            # place (browser="notebook" already requires it be installed).
+            from IPython.display import HTML
+
+            self._notebook_display_handle.update(HTML(""))
 
     #
     #  Methods to interface with the robots created in other environemnts
@@ -773,51 +813,134 @@ class Swift:
         if not self.headless:
             self._send_socket(code, idd)
 
-    def hold(self, timeout: float | None = None):
+    def hold(self, duration: float | None = None, timeout: float | None = None):
         """
-        Block until the browser disconnects (or forever)
+        Block for up to ``duration`` seconds (or indefinitely)
 
         Meant to sit at the end of a script: once your simulation loop
         finishes, the script would otherwise exit immediately, killing
         this process and disconnecting the browser tab mid-view. ``hold()``
         keeps this process (and so the tab) alive so you can keep looking
-        at the final scene.
+        at the final scene -- for a fixed amount of time if ``duration``
+        is given, or until interrupted (^C) or the browser disconnects
+        for longer than ``timeout`` otherwise.
 
-        Returns once the browser has been disconnected (tab closed,
-        crashed, ...) for longer than ``timeout``, rather than holding
-        forever regardless of whether there's still a tab to hold open for
-        -- see :meth:`launch`'s ``timeout=``, which sets the default this
-        method uses when called with no argument.
+        ``duration`` is an unconditional cap -- it elapses regardless of
+        whether the browser is still connected, unlike ``timeout``, which
+        only ever starts counting *after* a disconnect. ``hold(5)`` reads
+        as "hold for 5 seconds" and does exactly that; it will still
+        return early if the browser goes away first.
 
+        :param duration: seconds to hold for, regardless of connection
+            state; ``None`` (default) holds indefinitely, bounded only
+            by ``timeout``/^C
+        :type duration: float | None
         :param timeout: seconds to keep waiting after the browser
-            disconnects before giving up and returning; defaults to
-            whatever :meth:`launch` was given (itself 5 by default).
-            ``None`` waits forever, matching the pre-2.1 behaviour.
+            disconnects before giving up and returning early; defaults
+            to whatever :meth:`launch` was given (itself 5 by default).
+            ``None`` never gives up on a disconnect (still stops at
+            ``duration``, if given).
         :type timeout: float | None
         """
 
         if timeout is None:
             timeout = self._hold_timeout
 
+        start_time = time.time()
         disconnected_since = None
 
         try:
-            while True:
+            while duration is None or (time.time() - start_time) < duration:
                 time.sleep(1)
-
-                if self.headless:
-                    continue
-
-                if len(self.socket.USERS) == 0:
-                    if disconnected_since is None:
-                        disconnected_since = time.time()
-                    elif timeout is not None and time.time() - disconnected_since > timeout:
-                        return
-                else:
-                    disconnected_since = None
+                disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
+                if expired:
+                    return
         except KeyboardInterrupt:
+            # ^C is the normal, expected way to end an interactive session
+            # here, not an error -- exit quietly rather than a traceback.
+            # SystemExit (not a plain return) so any code after this call
+            # doesn't keep running -- matches step()'s own handling of
+            # the same interrupt, since ^C landing inside a step() call
+            # this method makes (run()) is otherwise handled differently
+            # depending on exactly where it lands, which would be a
+            # confusing inconsistency.
+            print("\nInterrupted, closing.")
             self.close()
-            raise
+            raise SystemExit
+
+    def _check_disconnected(self, disconnected_since, timeout):
+        """
+        Shared disconnect-timeout bookkeeping for hold() and run().
+
+        :param disconnected_since: ``time.time()`` the browser was first
+            seen disconnected, or ``None`` if it wasn't (yet)
+        :type disconnected_since: float | None
+        :param timeout: seconds of continuous disconnection before
+            ``expired`` becomes True; ``None`` never expires
+        :type timeout: float | None
+        :return: updated ``disconnected_since``, and whether ``timeout``
+            has now been exceeded (headless never expires -- there's no
+            browser to disconnect from)
+        :rtype: tuple[float | None, bool]
+        """
+        if self.headless or len(self.socket.USERS) > 0:
+            return None, False
+        if disconnected_since is None:
+            return time.time(), False
+        expired = timeout is not None and time.time() - disconnected_since > timeout
+        return disconnected_since, expired
+
+    def run(self, duration: float | None = None, dt: float = 0.05, timeout: float | None = None):
+        """
+        Repeatedly call :meth:`step` until ``duration`` (sim-time seconds)
+        has elapsed, stopping early if the browser disconnects for longer
+        than ``timeout`` -- the same disconnect-timeout ``hold()`` uses,
+        and defaulting to the same :meth:`launch`'s ``timeout=`` value.
+
+        ``env.run()`` is the loop most scripts would otherwise hand-write
+        as ``while True: env.step(dt); time.sleep(dt)`` at the end of a
+        script, with hold()'s disconnect-awareness built in instead of
+        looping forever after the browser is long gone.
+
+        :param duration: sim-time seconds to run for; ``None`` runs until
+            disconnected (or forever, if ``timeout`` is also ``None``)
+        :type duration: float | None
+        :param dt: time step passed to each :meth:`step` call, defaults
+            to 0.05
+        :type dt: float
+        :param timeout: seconds to keep running after the browser
+            disconnects before giving up and returning; defaults to
+            whatever :meth:`launch` was given (itself 5 by default).
+            ``None`` never gives up on a disconnect (still stops at
+            ``duration``, if given).
+        :type timeout: float | None
+        """
+
+        if timeout is None:
+            timeout = self._hold_timeout
+
+        start_time = self.sim_time
+        disconnected_since = None
+
+        try:
+            while duration is None or (self.sim_time - start_time) < duration:
+                self.step(dt)
+                time.sleep(dt)
+                disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
+                if expired:
+                    return
+        except KeyboardInterrupt:
+            # ^C is the normal, expected way to end an interactive session
+            # here, not an error -- exit quietly rather than a traceback.
+            # SystemExit (not a plain return) so any code after this call
+            # doesn't keep running -- matches step()'s own handling of
+            # the same interrupt, since ^C landing inside a step() call
+            # this method makes (run()) is otherwise handled differently
+            # depending on exactly where it lands, which would be a
+            # confusing inconsistency.
+            print("\nInterrupted, closing.")
+            self.close()
+            raise SystemExit
 
     def start_recording(self, file_name, framerate, format="webm"):
         """

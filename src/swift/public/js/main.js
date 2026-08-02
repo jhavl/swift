@@ -50,12 +50,21 @@ window.addEventListener("keydown", (e) => {
 
 const transport = new WebSocketTransport(`ws://localhost:${portFromLocation()}/`);
 
+// Guards animate()'s requestAnimationFrame chain -- otherwise it reschedules
+// itself forever regardless of connection state, rendering a static scene
+// and updating the FPS counter at full framerate indefinitely after
+// disconnect for no reason (found testing the notebook embedding path,
+// where the tab commonly can't self-close -- see browser_timeout's docs).
+let connected = false;
+
 transport.onOpen(() => {
   transport.send("Connected");
+  connected = true;
   requestAnimationFrame(animate);
 });
 
 transport.onClose(() => {
+  connected = false;
   if (recorder.active) recorder.stop();
   // window.close() silently no-ops on a tab the browser didn't consider
   // script-opened, which is the common case here -- so don't rely on it
@@ -185,6 +194,7 @@ transport.onMessage((func, data) => {
 });
 
 function animate() {
+  if (!connected) return; // freeze on the last frame instead of looping forever
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
   recorder.captureFrame(renderer.domElement);
