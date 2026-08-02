@@ -169,6 +169,17 @@ class Swift:
         # matches real time, 0.5 is half speed (slow motion), etc.
         self.realtime_speed = None
         self.axes = True
+        # How long hold() keeps waiting after the browser disconnects
+        # before giving up -- see launch()'s timeout= and hold(). None
+        # means wait forever (the old behaviour).
+        self._hold_timeout = 5
+        # How long the *browser tab* waits after losing its connection to
+        # this Python process before closing itself -- see launch()'s
+        # browser_timeout=. None means never auto-close. Independent of
+        # _hold_timeout: this fires from the browser side, so it still
+        # applies even if this process was killed outright rather than
+        # exiting through hold().
+        self._browser_timeout = 5
 
     @property
     def rate(self):
@@ -220,6 +231,8 @@ class Swift:
         rate: int = 60,
         browser: str | None = None,
         axes: bool = True,
+        timeout: float | None = 5,
+        browser_timeout: float | None = 5,
         **kwargs,
     ):
         """
@@ -227,6 +240,14 @@ class Swift:
 
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
+
+        ``timeout`` and ``browser_timeout`` cover two different halves of
+        the same disconnect: ``timeout`` is how long this Python process
+        (specifically :meth:`hold`) keeps waiting once it notices the
+        browser is gone; ``browser_timeout`` is how long the browser tab
+        itself waits once it notices *this process* is gone before
+        closing itself. Neither one can observe the other's side of a
+        disconnect directly, so both exist and are set independently.
 
         :param realtime: Force the simulator to display no faster than real
             time, note that it may still run slower due to complexity.
@@ -248,11 +269,29 @@ class Swift:
         :param axes: Show the world-frame axes helper at the origin,
             defaults to True
         :type axes: bool
+        :param timeout: how long :meth:`hold` keeps waiting, in seconds,
+            after the browser tab disconnects before giving up and
+            returning. ``None`` means wait indefinitely (the pre-2.1
+            behaviour), defaults to 5
+        :type timeout: float | None
+        :param browser_timeout: how long the *browser tab* waits, in
+            seconds, after losing its connection to this process before
+            closing itself. ``None`` means never auto-close, defaults to
+            5. Independent of ``timeout`` -- this fires browser-side, so
+            it still applies if this process is killed outright rather
+            than exiting through :meth:`hold`. Only takes effect on a
+            tab the browser considers script-opened; on a normally
+            user-opened tab (the common case) ``window.close()`` is a
+            silent no-op and the tab is left showing a "Disconnected"
+            banner instead.
+        :type browser_timeout: float | None
 
         """
 
         self.browser = browser
         self.rate = rate
+        self._hold_timeout = timeout
+        self._browser_timeout = browser_timeout
         if isinstance(realtime, bool):
             self.realtime_speed = 1.0 if realtime else None
         else:
@@ -280,6 +319,8 @@ class Swift:
 
             if not self.axes:
                 self._send_socket("axes", False, expected=False)
+
+            self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
     def _servers_running(self):
         return self._run_thread
@@ -420,6 +461,8 @@ class Swift:
 
         prior_speed = self.realtime_speed
         prior_axes = self.axes
+        prior_timeout = self._hold_timeout
+        prior_browser_timeout = self._browser_timeout
 
         self._send_socket("close", "0", False)
         self._stop_threads()
@@ -429,6 +472,8 @@ class Swift:
             rate=self.rate,
             browser=self.browser,
             axes=prior_axes,
+            timeout=prior_timeout,
+            browser_timeout=prior_browser_timeout,
         )
         self.realtime_speed = prior_speed
 
@@ -715,16 +760,48 @@ class Swift:
         if not self.headless:
             self._send_socket(code, idd)
 
-    def hold(self):  # pragma: no cover
+    def hold(self, timeout: float | None = None):
         """
-        hold() keeps the browser tab open i.e. stops the browser tab from
-        closing once the main script has finished.
+        Block until the browser disconnects (or forever)
 
+        Meant to sit at the end of a script: once your simulation loop
+        finishes, the script would otherwise exit immediately, killing
+        this process and disconnecting the browser tab mid-view. ``hold()``
+        keeps this process (and so the tab) alive so you can keep looking
+        at the final scene.
+
+        Returns once the browser has been disconnected (tab closed,
+        crashed, ...) for longer than ``timeout``, rather than holding
+        forever regardless of whether there's still a tab to hold open for
+        -- see :meth:`launch`'s ``timeout=``, which sets the default this
+        method uses when called with no argument.
+
+        :param timeout: seconds to keep waiting after the browser
+            disconnects before giving up and returning; defaults to
+            whatever :meth:`launch` was given (itself 5 by default).
+            ``None`` waits forever, matching the pre-2.1 behaviour.
+        :type timeout: float | None
         """
+
+        if timeout is None:
+            timeout = self._hold_timeout
+
+        disconnected_since = None
 
         try:
             while True:
                 time.sleep(1)
+
+                if self.headless:
+                    continue
+
+                if len(self.socket.USERS) == 0:
+                    if disconnected_since is None:
+                        disconnected_since = time.time()
+                    elif timeout is not None and time.time() - disconnected_since > timeout:
+                        return
+                else:
+                    disconnected_since = None
         except KeyboardInterrupt:
             self.close()
             raise

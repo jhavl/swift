@@ -22,6 +22,11 @@ const uiElements = [];
 
 const UI_CLASSES = { slider: Slider, button: Button, label: Label, select: Select, checkbox: Checkbox, radio: Radio };
 
+// Seconds to wait after losing the connection before self-closing the tab
+// -- set by the "browser_timeout" message, sent right after launch()
+// connects (see Swift.py's launch(browser_timeout=)). null means never.
+let autoCloseDelay = null;
+
 function saveScreenshot(fileName) {
   const link = document.createElement("a");
   link.download = `${fileName}.png`;
@@ -55,7 +60,11 @@ transport.onClose(() => {
   // window.close() silently no-ops on a tab the browser didn't consider
   // script-opened, which is the common case here -- so don't rely on it
   // to clean up the now-stale sidenav controls, do that directly instead.
-  if (recorder.autoclose) setTimeout(() => window.close(), 5000);
+  // recorder.autoclose is only false mid-GIF-save (the user still needs
+  // the tab to trigger that download), independent of autoCloseDelay.
+  if (recorder.autoclose && autoCloseDelay !== null) {
+    setTimeout(() => window.close(), autoCloseDelay * 1000);
+  }
 
   const sidenav = document.getElementById("sidenav");
   sidenav.innerHTML = "";
@@ -132,6 +141,10 @@ transport.onMessage((func, data) => {
     }
     case "axes": {
       axesHelper.visible = data;
+      break;
+    }
+    case "browser_timeout": {
+      autoCloseDelay = data;
       break;
     }
     case "camera_pose": {
