@@ -61,12 +61,17 @@ export function createScene() {
   controls.target = new THREE.Vector3(0, 0, 0.2);
   controls.update();
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 40),
-    // DoubleSide -- materials are single-sided by default, which made
-    // the ground invisible when the camera orbited below it.
-    new THREE.MeshPhongMaterial({ color: 0x4b4b4b, specular: 0x101010, side: THREE.DoubleSide })
-  );
+  // DoubleSide -- materials are single-sided by default, which made the
+  // ground invisible when the camera orbited below it. transparent must
+  // be set for opacity (see the "ground_opacity" message) to have any
+  // effect at all -- three.js ignores opacity on an opaque material.
+  const groundMaterial = new THREE.MeshPhongMaterial({
+    color: 0x4b4b4b,
+    specular: 0x101010,
+    side: THREE.DoubleSide,
+    transparent: true,
+  });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), groundMaterial);
   ground.receiveShadow = true;
   scene.add(ground);
 
@@ -83,5 +88,5 @@ export function createScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, camera, renderer, controls, axesHelper };
+  return { scene, camera, renderer, controls, axesHelper, groundMaterial };
 }
