@@ -311,6 +311,8 @@ def test_hold_returns_once_disconnected_past_timeout(monkeypatch):
     env.headless = False
     env.socket = SimpleNamespace(USERS=set())  # already disconnected
     env._hold_timeout = 2
+    closed = []
+    env.close = lambda *a, **kw: closed.append(True)
 
     fake_now = [0.0]
     monkeypatch.setattr(swift_module.time, "time", lambda: fake_now[0])
@@ -318,6 +320,7 @@ def test_hold_returns_once_disconnected_past_timeout(monkeypatch):
 
     env.hold()  # returns once disconnected for > 2s -- would hang otherwise
     assert fake_now[0] > 2
+    assert closed == [True]  # hold() now closes on a disconnect-timeout, not just ^C
 
 
 def test_hold_keeps_waiting_while_still_connected(monkeypatch):
@@ -327,6 +330,7 @@ def test_hold_keeps_waiting_while_still_connected(monkeypatch):
     env.headless = False
     env.socket = SimpleNamespace(USERS={"a-connected-browser"})
     env._hold_timeout = 1
+    env.close = lambda *a, **kw: None  # disconnects near the end, hold() closes
 
     call_count = [0]
 
