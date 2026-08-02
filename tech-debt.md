@@ -1,5 +1,55 @@
 # Technical Debt
 
+## `hold()` never noticed a browser disconnect while idle -- fixed 2026-08-02
+
+Found live-testing the new `Axes`/`Arrow` rendering: kill the browser tab
+while sitting in a plain `env.hold()` (nothing actively `step()`-ing), and
+nothing happens -- no reaction even after 20+ seconds, requiring a manual
+^C. This despite `hold()`'s own disconnect-timeout mechanism (PR #71/#75,
+polling `SwiftSocket.USERS`) already existing and working correctly in
+principle.
+
+Root cause: `serve()`'s per-connection loop is `while self.run(): message
+= await self.producer()`, and `producer()` was a plain blocking
+`self.outq.get()` inside an `async def`. During an idle `hold()` nothing
+is ever queued, so `producer()` never returns -- meaning `serve()` never
+reaches its `except ConnectionClosed`/`finally: self.USERS.discard(...)`,
+so `USERS` never gets cleaned up, so `hold()`'s `len(self.socket.USERS) >
+0` check never sees it as empty. The disconnect-polling mechanism was
+correct; it just never got fed the information it needed, for the single
+most common usage pattern (add shapes, then just `hold()`).
+
+**Fixed in two steps, both needed:**
+1. `producer()` now does `await asyncio.to_thread(self.outq.get)` instead
+   of blocking directly -- keeps the event loop itself responsive. Alone,
+   this fixes nothing about *this* bug (nothing is watching the
+   connection for closure regardless of whether the loop is blocked or
+   not) -- confirmed by testing: still hung past 2 minutes with only this
+   change.
+2. `serve()`'s loop now races `producer()` against `websocket.
+   wait_closed()` (`asyncio.wait(..., return_when=FIRST_COMPLETED)`) --
+   whichever resolves first wins. A disconnect now gets noticed even
+   while producer() is idle, not just the next time `serve()` happens to
+   actively send/recv.
+
+**A third, subtler issue found verifying the fix**: cancelling
+`producer_task` when `wait_closed()` wins doesn't stop the underlying
+blocking `self.outq.get()` call already running on its own
+`asyncio.to_thread()` worker -- `queue.Queue` has no cancellation hook.
+Left alone, that thread sits blocked forever and, since `to_thread()`'s
+workers are deliberately non-daemon (stdlib default), keeps the whole
+Python process alive indefinitely even after the script has otherwise
+finished -- caught because the repro script never exited after `hold()`
+returned and printed its result. Fixed by pushing a throwaway sentinel
+into `outq` right before cancelling, unblocking the orphaned `.get()` the
+same way a real message would.
+
+Verified via a real (non-mocked) repro: a scripted client connects, waits
+past `add_shape()`, then disconnects with nothing ever queued -- `hold()`
+now returns in ~8s (vs. hanging past 2 minutes before either fix), and
+the process now exits cleanly afterward. New test:
+`test_swift_socket_notices_disconnect_even_while_idle`.
+
 ## `shapes.js` mesh loading: `.obj`/`.gltf`/`.glb`/`.ply` skip the local-file proxy `.dae`/`.stl` use
 
 Found 2026-07-31, as a byproduct of checking whether `sg.Mesh()` can load

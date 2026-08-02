@@ -446,6 +446,56 @@ def test_start_servers_http_thread_actually_stops_on_close():
     assert not t.is_alive(), "SwiftServer's thread did not actually stop"
 
 
+def test_swift_socket_notices_disconnect_even_while_idle():
+    # Regression test: serve()'s while-loop calls producer(), which used to
+    # be a plain blocking self.outq.get() inside an async def -- during a
+    # plain hold() with nothing actively step()-ing, nothing is ever queued,
+    # so producer() (and so serve()) never returned control, so a
+    # disconnect was never noticed and USERS never got cleaned up. This
+    # silently defeated hold()'s own disconnect-timeout polling (self.socket
+    # .USERS) for the single most common usage pattern -- add shapes, then
+    # just hold() with no active stepping. Exercises a real client
+    # connecting and disconnecting with nothing ever queued in outq at all,
+    # mirroring exactly that idle-hold() scenario.
+    import asyncio
+    import time
+
+    import websockets
+
+    from swift.SwiftRoute import SwiftSocket
+
+    outq, inq = Queue(), Queue()
+    t = threading.Thread(
+        target=SwiftSocket, args=(outq, inq, lambda: True), daemon=True
+    )
+    t.start()
+    port, instance = inq.get(timeout=5)
+
+    def client_thread():
+        async def client():
+            async with websockets.connect(f"ws://localhost:{port}/") as ws:
+                await ws.send("Connected")
+                await asyncio.sleep(0.3)
+                # Exiting this block closes the connection -- nothing was
+                # ever queued in outq, so this is the idle-hold() case.
+
+        asyncio.run(client())
+
+    ct = threading.Thread(target=client_thread, daemon=True)
+    ct.start()
+    ct.join(timeout=5)
+
+    for _ in range(50):
+        if len(instance.USERS) == 0:
+            break
+        time.sleep(0.1)
+
+    assert len(instance.USERS) == 0, (
+        "SwiftSocket.USERS was never cleaned up after an idle disconnect "
+        "-- hold()'s disconnect-timeout polling would never fire"
+    )
+
+
 def test_hold_duration_returns_even_while_still_connected(monkeypatch):
     # Regression test: hold(5) used to map its positional arg to timeout=
     # (a grace period that only starts counting AFTER a disconnect), so a
