@@ -129,7 +129,13 @@ function loadPrimitive(part, scene, cb) {
 function makeArrow(length, radius, linewidth, headLength, headRadius, color) {
   const group = new THREE.Group();
   const headLen = length * headLength;
-  const headWidth = headLen * headRadius;
+  // head_radius is a fraction of headLen and *is* the cone's base radius --
+  // not a diameter needing to be halved. Halving it here (an earlier bug)
+  // left the cone barely wider than the shaft for typical values, e.g.
+  // radius=0.01 with the 0.2/0.2 defaults produced a cone radius of only
+  // ~2x the shaft radius -- reads as "about the same width," not a
+  // recognisable arrowhead.
+  const headR = headLen * headRadius;
   const shaftLen = Math.max(0.0001, length - headLen);
 
   let shaft;
@@ -152,7 +158,7 @@ function makeArrow(length, radius, linewidth, headLength, headRadius, color) {
   }
   group.add(shaft);
 
-  const coneGeometry = new THREE.ConeGeometry(headWidth / 2, headLen, 16);
+  const coneGeometry = new THREE.ConeGeometry(headR, headLen, 16);
   coneGeometry.translate(0, headLen / 2, 0);
   coneGeometry.rotateX(Math.PI / 2);
   const cone = new THREE.Mesh(coneGeometry, new THREE.MeshPhongMaterial({ color, specular: 0x111111, shininess: 200 }));
