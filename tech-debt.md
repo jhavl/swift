@@ -50,6 +50,43 @@ now returns in ~8s (vs. hanging past 2 minutes before either fix), and
 the process now exits cleanly afterward. New test:
 `test_swift_socket_notices_disconnect_even_while_idle`.
 
+## `spatialgeometry.Axes`/`Arrow` weren't rendered at all, misleading error -- fixed 2026-08-02
+
+Found via `spatialgeometry/examples/displaying_axes.py`: `env.add(gm.Axes(...))`
+raised `RuntimeError: Swift failed to load one or more assets for object 0
+-- check the browser's JavaScript console for details (common causes: a
+bad mesh file path, or an unsupported file format)` -- actively misleading,
+since the real cause had nothing to do with a mesh at all.
+`shapes.js`'s `load()` only ever recognised `mesh`/`cuboid`/`box`/`sphere`/
+`cylinder` -- `Axes` and `Arrow` (both genuine, already-shipped
+spatialgeometry shape types, `stype="axes"`/`"arrow"`) fell straight into
+the "unsupported shape type" branch, indistinguishable on the Python side
+from a genuine mesh load failure since both just produced a bare `-1`
+status with the real reason only ever logged to the browser's own JS
+console, never sent back over the wire.
+
+**Fixed:**
+- Protocol: `shape_mounted` now replies `[code, detail]` instead of a bare
+  int -- `-1` unsupported shape type, `-2` asset/mesh load failed (was one
+  undifferentiated `-1` for both), `detail` being the browser's own reason
+  string. `Swift._wait_mounted()`'s exception now says exactly what went
+  wrong (e.g. `unsupported shape type 'axes'`) instead of guessing at
+  "common causes."
+- Rendering: `shapes.js` gained `loadAxes()`/`loadArrow()`/`makeArrow()`.
+  `Axes` renders as `THREE.AxesHelper` by default, or three colored
+  `Arrow`s (R/G/B) when `arrows=True`. `Arrow`'s shaft is a real
+  `CylinderGeometry` when `radius > 0`, otherwise a `Line2`/`LineMaterial`
+  line honoring `linewidth` (previously any line-shaped shaft had no width
+  control at all -- three.js's plain `THREE.Line`/`LineBasicMaterial` is
+  capped at ~1px on virtually all platforms, a long-standing WebGL/ANGLE
+  limitation, not something fixable by just setting a property).
+  `Line2`/`LineGeometry`/`LineMaterial` newly vendored (`build-vendor.cjs`).
+- `spatialgeometry.Axes` gained `arrows`/`radius`/`linewidth` params (the
+  latter two passed straight through to each constituent `Arrow` when
+  `arrows=True`); `Arrow` gained `linewidth` (only applies when
+  `radius == 0` -- the two are mutually exclusive, `radius > 0` always
+  wins, made explicit in both classes' docstrings).
+
 ## `shapes.js` mesh loading: `.obj`/`.gltf`/`.glb`/`.ply` skip the local-file proxy `.dae`/`.stl` use
 
 Found 2026-07-31, as a byproduct of checking whether `sg.Mesh()` can load

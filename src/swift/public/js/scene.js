@@ -4,6 +4,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { resizeLines } from "./shapes.js";
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -86,6 +87,7 @@ export function createScene() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    resizeLines(window.innerWidth, window.innerHeight);
   });
 
   return { scene, camera, renderer, controls, axesHelper, groundMaterial };
