@@ -320,7 +320,7 @@ in this environment or wired into `swift`'s test suite.
 
 ---
 
-## Google Colab support: real bugs fixed, but `proxyPort()` itself appears unreliable
+## Google Colab support: not currently working, no fix planned for now
 
 ### Background
 
@@ -360,36 +360,150 @@ all):
    server can't handle without stalling the real request.
 
 After all three fixes, the initial request through
-`google.colab.kernel.proxyPort()` still fails **intermittently** --
-same code, same steps, sometimes a 404 (on `favicon.ico`, harmless)
-with the actual page still blank, sometimes the request never
-completes at all (no status, no response headers, indistinguishable
-from a hang). Ruled out browser caching as the cause (tested in a
-private/incognito window, same intermittent failure). The
-inconsistency itself -- identical steps producing different outcomes
--- points at Colab's proxy infrastructure rather than a deterministic
-bug in this code, consistent with a documented history of `proxyPort`
-reliability issues (e.g. googlecolab/colabtools#4270, #3308, #4738 --
-the last of these was from 2024, already closed, not the current
-issue, but establishes the pattern).
+`google.colab.kernel.proxyPort()` still failed. Original
+back-and-forth testing showed two different failure *symptoms* across
+identical steps (sometimes a 404 on `favicon.ico` with the actual page
+still blank, sometimes the request never completing at all -- no
+status, no response headers, indistinguishable from a hang); ruled out
+browser caching as the cause (tested in a private/incognito window,
+same result either way).
 
-### Implication for the WebRTC decision
+**Update 2026-08-02 -- quantified, not just "sometimes fails."** Ran a
+minimal, Swift-independent isolation test (no roboticstoolbox, no
+websocket, just a bare `http.server` returning "OK" behind
+`proxyPort()`, hit with 500 consecutive requests, 3s timeout each,
+0.5s between attempts): **0 successes in 500 attempts** (mostly 404,
+a handful of read-timeouts). Do not have a single confirmed successful
+`proxyPort()` connection to point to, from any test run, on any
+`browser=` mode, ever. "Unreliable"/"intermittent" as used in the
+original write-up above overclaimed -- that implies occasional
+success, which we have no evidence for. What we actually have evidence
+for is: fails every time tried, with inconsistent failure symptoms
+(pointing at Colab's proxy infrastructure rather than a deterministic
+bug in this code -- see googlecolab/colabtools#4270, #3308, #4738 for
+the documented pattern, though none of those are the current issue).
 
-Confirmed this isn't a reason to reconsider dropping WebRTC: RTC would
-only have replaced the *data channel* after the page loads. The
-observed failure is in the *initial page load* through `proxyPort()`
-itself, before any comms-mode-specific code runs -- RTC wouldn't have
-helped with what's actually breaking.
+### A second, separate, structural bug found the same day -- NOT the root cause of the above, but real and worth fixing eventually
+
+`public/js/main.js` hardcodes the live data connection as
+`ws://localhost:${port}/` (see `comms.js`'s `WebSocketTransport`).
+Only the *initial HTML page load* gets routed through
+`google.colab.kernel.proxyPort()` (see `colab_url` above); the
+WebSocket URL never does -- it's passed through as a query-string
+port number and reconnected to literally as `localhost` on whatever
+machine is running the browser. On Colab that's the user's own local
+machine, not the remote VM Swift's process actually runs on, so even
+a *perfectly reliable* `proxyPort()` wouldn't be enough on its own --
+the initial page could load fine and the WebSocket would still try to
+reach a port with nothing listening on it.
+
+The likely fix, if this is ever revisited: also proxy the socket port
+(`eval_js(f"google.colab.kernel.proxyPort({socket_port})")`) and use
+the returned URL (rewritten `wss://`) instead of a hardcoded
+`ws://localhost`, the same way the HTTP server URL already works --
+*assuming* Colab's proxy supports the WebSocket upgrade handshake,
+which is untested. **Not implemented. No fix planned right now** (see
+Decision below) -- documented so a future attempt doesn't have to
+rediscover it, and so "found the bug" isn't mistaken for "fixed the
+bug."
+
+### Ruled out: reviving WebRTC
+
+An AI assistant (Gemini, consulted 2026-08-02) suggested this class of
+restriction is why WebRTC support originally existed in this codebase,
+and that reviving it might be worth prioritizing. Checked, not taken
+on faith: (a) its cited source is about `BroadcastChannel`, a
+same-page iframe-to-iframe messaging API -- unrelated to
+WebSocket-to-backend connectivity, doesn't actually support the claim;
+(b) per `0d122d1`'s own commit message (already on `future`, predates
+this investigation), the removed WebRTC code was "an unmodified copy
+of aiortc's own bundled example server (webcam capture +
+cartoon/edge/rotate video transform)... genuinely webcam/mic capture
+from the browser, not three.js scene streaming" -- dead demo
+boilerplate, never adapted for Swift's actual pose-streaming use case,
+no evidence it was ever meant to route around a Colab-specific
+restriction. Not reconsidering WebRTC on this basis.
+
+### A more promising direction, if Colab is ever revisited: `eval_js`/`register_callback` instead of a raw WebSocket
+
+Read the actual notebook behind the Gemini citation above directly
+(not just the text snippet Gemini quoted) to check what
+`google.colab.output` genuinely offers, since the specific claim
+didn't hold up but the general area seemed worth checking properly:
+
+- `google.colab.output.eval_js(js)` -- blocking call from Python,
+  evaluates JS "within the context of the outputframe of the current
+  cell" and returns the result (resolves Promises too). Already
+  proven partially reliable in this codebase's own existing Colab
+  path -- it's exactly what fetches `colab_url` via `proxyPort()`
+  today.
+- `google.colab.output.register_callback(name, fn)` /
+  `google.colab.kernel.invokeFunction()` (JS side) -- lets JS in a
+  cell's outputframe call back into Python, for "trusted" outputs
+  (executed within the current session).
+- Both are Colab's own first-class, documented bridge specifically
+  across the kernel <-> outputframe boundary -- confirmed sandboxed
+  ("the output of each cell is hosted in a separate iframe sandbox")
+  -- rather than a generic port-forwarding proxy never hardened for
+  this kind of interactive back-and-forth.
+
+This is architecturally more promising than trying to route the raw
+WebSocket through `proxyPort()` (the fix noted above): `eval_js`/
+`register_callback` are Colab's actual supported mechanism for this
+exact problem, not a workaround of a mechanism built for something
+else. It would mean a genuine third transport implementation --
+`comms.js`'s `WebSocketTransport` already has a docstring anticipating
+exactly this kind of second transport (originally imagined as
+postMessage/pyodide), so this wouldn't be fighting the existing
+architecture -- paired with a parallel Python-side route module using
+`eval_js`/`register_callback` instead of `websockets`/`http.server`.
+
+Open question before committing to this: `eval_js` is a blocking
+round-trip through the kernel comm channel, and Swift's `step()` loop
+wants up to 60Hz pose updates -- unknown whether that holds up at
+that frequency without prototyping it; Colab-specific throttling of
+the update rate might be necessary regardless of transport.
+
+**Not being pursued now** -- a genuine refactor, and Colab isn't a
+currently-supported target (see Decision below) -- but worth
+recording as the credible direction rather than starting from zero if
+this ever gets revisited.
+
+### Decision: no Colab support for now
+
+Not investing further here without new evidence. `launch()` now
+detects Colab at the start of `start_servers()` and prints a clear
+warning up front (before attempting anything, not just after a 60s
+timeout) rather than letting a user hit a cold "could not connect"
+after a long wait with no context. It still attempts the connection
+regardless -- not a hard block -- in case Colab's infrastructure
+changes, or a user wants to see the failure for themselves.
 
 ### Status
 
-Not resolved. The three fixes above are real, confirmed improvements
-worth keeping regardless (any Colab user gets further than before),
-but further progress needs either reproducing this outside of live
-back-and-forth debugging (a throwaway minimal `proxyPort()` Colab
-notebook with no Swift involved, to isolate whether *any* custom local
-server behaves reliably through it) or accepting Colab support as
-presently unreliable for reasons outside this repo's control.
+Not resolved, not currently being worked on. The three original fixes
+are real, confirmed improvements worth keeping regardless (any Colab
+user who does get through gets further than before), but Colab is not
+a supported environment right now -- both known issues (`proxyPort()`
+reliability, outside this repo's control; the un-proxied WebSocket,
+inside this repo's control but unfixed) would need addressing, and
+neither is planned.
+
+### `browser="notebook"` (inline iframe) tested on Colab too -- same failure
+
+Tested 2026-08-02 via `docs/notebooks/swift.ipynb`, using
+`launch(browser="notebook")` (renders inline via `IPython.display.IFrame`)
+instead of the tab-opening path. Structurally this sidesteps one whole
+class of problem the tab path has to work around -- an `<iframe>` is a
+normal DOM element, not a `window.open()` call, so it was never at risk
+of Colab's popup blocking. Didn't help: same "Could not connect to the
+Swift simulator" handshake timeout as the tab path, i.e. the initial
+page load through `proxyPort()` itself didn't complete. Consistent
+with the conclusion above -- the failure is in `proxyPort()` (and
+separately, the un-proxied WebSocket), not in anything about *how* the
+resulting URL gets opened, so tab vs iframe doesn't change the
+outcome. Confirmed locally (both plain browser tab and the notebook
+iframe) that the underlying code is otherwise correct.
 
 ---
 

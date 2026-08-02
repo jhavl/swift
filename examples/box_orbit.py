@@ -14,7 +14,6 @@ A per-step callback computes and returns the pose directly -- swift
 owns t and calls it each env.step(), so there's no manual box.T
 assignment in the loop.
 """
-import time
 import spatialgeometry as sg
 import spatialmath as sm
 from swift import Swift
@@ -35,4 +34,3 @@ env.add_shape(box, callback=orbit)
 dt = 0.02
 while True:
     env.step(dt)
-    time.sleep(dt)

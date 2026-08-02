@@ -46,6 +46,21 @@ def start_servers(
     open_tab: bool = True,
     browser: str | None = None,
 ):
+    # Warn up front, not just after a cold ~60s timeout with no context --
+    # see tech-debt.md's "Google Colab support" section. Not a hard block:
+    # still attempts the connection regardless, in case Colab's
+    # infrastructure has changed, or the user wants to see it fail
+    # themselves.
+    if COLAB:
+        print(
+            "\nHeads up: Colab is not currently a supported environment "
+            "for Swift. Every connection attempt made during testing has "
+            "failed (0/500 in isolated testing of Colab's own "
+            "proxyPort() proxy alone, with no Swift code involved at "
+            "all) -- see tech-debt.md's 'Google Colab support' section "
+            "for the full write-up. Attempting to connect anyway.\n"
+        )
+
     # Start our websocket server with a new port
     socket = Thread(
         target=SwiftSocket,
@@ -57,7 +72,7 @@ def start_servers(
         daemon=True,
     )
     socket.start()
-    socket_port = inq.get()
+    socket_port, socket_instance = inq.get()
 
     # Start a http server
     server = Thread(
@@ -74,6 +89,14 @@ def start_servers(
     server.start()
     server_port = inq.get()
 
+    # Only set for browser="notebook" -- a DisplayHandle (from
+    # display(..., display_id=True)) letting close() later blank out
+    # specifically the cell that rendered the iframe, regardless of
+    # which cell is executing when close() actually runs. A plain
+    # IPython.display.clear_output() only affects whatever cell is
+    # *currently* executing, which is normally a different, later one.
+    notebook_handle = None
+
     if open_tab:
         if COLAB:
             colab_url = eval_js(f"google.colab.kernel.proxyPort({server_port})")
@@ -89,12 +112,13 @@ def start_servers(
                         " install ipython'\n"
                     )
 
-                display(
+                notebook_handle = display(
                     IFrame(
                         src=url,
                         width="600",
                         height="400",
-                    )
+                    ),
+                    display_id=True,
                 )
             else:
                 try:
@@ -122,10 +146,20 @@ def start_servers(
     try:
         inq.get(timeout=handshake_timeout)
     except Empty:
-        print("\nCould not connect to the Swift simulator \n")
+        if COLAB:
+            print(
+                "\nCould not connect to the Swift simulator. As warned "
+                "above, Colab is not currently a supported environment "
+                "for Swift -- see tech-debt.md's 'Google Colab support' "
+                "section for the full evidence. We do not have a single "
+                "confirmed successful connection to point to (0/500 in "
+                "isolated testing), so retrying is unlikely to help.\n"
+            )
+        else:
+            print("\nCould not connect to the Swift simulator \n")
         raise
 
-    return socket, server
+    return socket, socket_instance, server, notebook_handle
 
 
 class SwiftSocket:
@@ -147,12 +181,21 @@ class SwiftSocket:
             except OSError:
                 port += 1
 
-        self.inq.put(port)
+        # self, not just the port, so the calling thread can actually stop
+        # this event loop later (see stop()) -- start_servers() previously
+        # only ever handed the caller the wrapping Thread, which has no
+        # way to reach into a *different* thread's running event loop.
+        self.inq.put((port, self))
         self.loop.run_forever()
 
     async def _start_server(self, port: int):
         # websockets>=11 requires serve() to be created from a running loop.
         self._server = await websockets.serve(self.serve, "localhost", port)
+
+    def stop(self):
+        # call_soon_threadsafe -- run_forever() is executing on a
+        # different thread than whichever one calls stop().
+        self.loop.call_soon_threadsafe(self.loop.stop)
 
     async def register(self, websocket):
         self.USERS.add(websocket)

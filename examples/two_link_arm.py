@@ -12,7 +12,6 @@ model. That's the whole leap from this to a real robot: a kinematic
 model with more than two links, and swift building the handle instead
 of you calling add_assembly() by hand.
 """
-import time
 import numpy as np
 import spatialgeometry as sg
 from spatialmath import SE3
@@ -53,4 +52,3 @@ env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, d
 
 while True:
     env.step(0.05)
-    time.sleep(0.05)

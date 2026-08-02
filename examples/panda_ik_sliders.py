@@ -11,7 +11,6 @@ read from there and return the new pose/q -- there's no explicit
 per-slider setter function, and no manual pose/q assignment in the
 loop, env.step() drives everything.
 """
-import time
 import numpy as np
 import roboticstoolbox as rtb
 import spatialgeometry as sg
@@ -60,4 +59,3 @@ env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, desc="
 
 while True:
     env.step(dt)
-    time.sleep(dt)
