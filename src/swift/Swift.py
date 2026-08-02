@@ -317,7 +317,7 @@ class Swift:
         if not self.headless:
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
-            self.socket_thread, self.socket, self.server, self._notebook_display_handle = start_servers(
+            self.socket_thread, self.socket, self.server_thread, self.server, self._notebook_display_handle = start_servers(
                 self.outq,
                 self.inq,
                 self._servers_running,
@@ -351,7 +351,16 @@ class Swift:
             self.socket.stop()
             self.socket_thread.join(1)
         if not self._dev:
-            self.server.join(1)
+            # server.stop() (httpd.shutdown()) is what actually lets
+            # serve_forever() return -- without it, Thread.run() never
+            # reaches its own cleanup of the arguments it was started
+            # with, one of which is a bound method of this Swift
+            # instance. That single un-cleared reference, from a thread
+            # that runs for the rest of the process's life, is what was
+            # keeping every shape ever added (and this env itself) alive
+            # long after close() returned -- see tech-debt.md.
+            self.server.stop()
+            self.server_thread.join(1)
 
     def step(self, dt=0.05, render=True):
         """

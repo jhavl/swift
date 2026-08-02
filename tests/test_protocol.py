@@ -421,6 +421,31 @@ def test_start_servers_socket_thread_actually_stops_on_close():
     assert not t.is_alive(), "SwiftSocket's thread did not actually stop"
 
 
+def test_start_servers_http_thread_actually_stops_on_close():
+    # Regression test for the nanobind _Node leak (tech-debt.md,
+    # 2026-08-02): SwiftServer's httpd.serve_forever() never returned
+    # (nothing ever called httpd.shutdown()), so Thread.run() never
+    # reached its own cleanup of the arguments it was started with --
+    # one of which is a bound method of the Swift instance, keeping
+    # every shape ever added alive for the process's whole life,
+    # regardless of close(). Exercises the real SwiftServer/httpd, not a
+    # mock -- a FakeBrowser-based test can't see a thread that's still
+    # running after the test function returns.
+    from swift.SwiftRoute import SwiftServer
+
+    outq, inq = Queue(), Queue()
+    t = threading.Thread(
+        target=SwiftServer, args=(outq, inq, 0, lambda: True), daemon=True
+    )
+    t.start()
+    port, instance = inq.get(timeout=5)
+
+    instance.stop()
+
+    t.join(timeout=3)
+    assert not t.is_alive(), "SwiftServer's thread did not actually stop"
+
+
 def test_hold_duration_returns_even_while_still_connected(monkeypatch):
     # Regression test: hold(5) used to map its positional arg to timeout=
     # (a grace period that only starts counting AFTER a disconnect), so a

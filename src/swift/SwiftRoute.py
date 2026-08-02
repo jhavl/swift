@@ -87,7 +87,7 @@ def start_servers(
     )
 
     server.start()
-    server_port = inq.get()
+    server_port, server_instance = inq.get()
 
     # Only set for browser="notebook" -- a DisplayHandle (from
     # display(..., display_id=True)) letting close() later blank out
@@ -159,7 +159,7 @@ def start_servers(
             print("\nCould not connect to the Swift simulator \n")
         raise
 
-    return socket, socket_instance, server, notebook_handle
+    return socket, socket_instance, server, server_instance, notebook_handle
 
 
 class SwiftSocket:
@@ -323,9 +323,25 @@ class SwiftServer:
                 # visible error on either side.
                 with socketserver.ThreadingTCPServer(("", server_port), Handler) as httpd:
                     httpd.daemon_threads = True
-                    self.inq.put(server_port)
+                    self.httpd = httpd
+                    self.inq.put((server_port, self))
                     connected = True
 
                     httpd.serve_forever()
             except OSError:
                 server_port += 1
+
+    def stop(self):
+        # serve_forever() never returns on its own (nothing ever called
+        # shutdown() before this) -- Thread.run() (which called
+        # SwiftServer(...), which is blocked inside serve_forever()) never
+        # reaches its own internal cleanup of self._target/_args/_kwargs
+        # as a result, so the wrapping Thread object keeps alive whatever
+        # was passed as this class's `run` callback for the whole process
+        # lifetime -- in practice, a bound method of the Swift instance
+        # itself, keeping the entire env (and every shape ever added)
+        # alive long after close() returns. shutdown() must be called
+        # from a different thread than the one running serve_forever()
+        # (Python's own requirement), which is always true here -- this
+        # is called from the thread that called close().
+        self.httpd.shutdown()

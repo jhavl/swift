@@ -572,20 +572,62 @@ version pin instead of the git branch reference.
 
 ---
 
-## `_fknm_c` background-thread nanobind leak affects every Swift session
+## `spatialgeometry.scene._Node` nanobind leak on every Swift session -- fixed 2026-08-02
 
-Fully written up in `roboticstoolbox-python/tech-debt.md` under
-"`_fknm_c` (nanobind) leaks `_ETObj`/`_ETSObj` when created from a
-background thread" — root-caused there to fknm object creation
-specifically from a non-main thread, not call volume. Directly
-relevant here since Swift's stepping/rendering machinery always runs
-on a background thread, so any script using the Swift backend is a
-candidate to print the `nanobind: leaked N instances!` messages at
-interpreter shutdown (seen throughout this session's E2E test output).
-Confirmed cosmetic (a shutdown-time diagnostic) in every session this
-work generated, but not confirmed to rule out real memory growth in a
-long-running process — see the RTB entry for the open question and
-repro.
+Superseded two earlier, incorrect hypotheses (both investigated and ruled
+out this session): "`_fknm_c` object creation from a background thread"
+(an RTB-side mechanism that doesn't actually apply here -- this repo has
+no `_fknm_c` involvement at all) and "daemon thread abandoned mid-frame
+at interpreter shutdown" (disproven directly: headless -- zero threads --
+never leaked; a fully graceful `close()` with no interruption still
+leaked; `gc.collect()` couldn't reclaim it even with `env`/`box` explicitly
+deleted, ruling out a plain abandoned-thread or reference-cycle
+explanation).
+
+### Actual root cause
+
+`SwiftServer`'s HTTP thread (`SwiftRoute.py`) called `httpd.serve_forever()`
+but nothing ever called `httpd.shutdown()` -- so that thread ran for the
+rest of the process's life, regardless of `close()`. `threading.Thread.run()`
+only clears the arguments it was started with (`self._target`/`_args`/
+`_kwargs`) *after* the target function returns -- since `serve_forever()`
+never returned, the wrapping `Thread` object kept those arguments alive
+forever, one of which is a bound method of the `Swift` instance itself
+(`self._servers_running`, passed as `run` to both `SwiftSocket` *and*
+`SwiftServer`). That single un-cleared reference kept the entire `env`
+alive -- `swift_objects` (every shape ever added), and so every shape's
+`_Node`, for the process's whole lifetime, regardless of whether `close()`
+had been called or how gracefully.
+
+This is not a `nanobind`/`spatialgeometry` bug -- nanobind's leak report
+was accurate the whole time; the object genuinely was still alive and
+reachable from a live thread's own retained call arguments, which is
+exactly the case `gc` correctly refuses to collect (it isn't garbage).
+
+Confirmed via a real (non-mocked) repro: `env.server_thread.is_alive()`
+stayed `True` indefinitely after `close()` returned; `gc.get_referrers()`
+on the leaked object traced straight back through `env.__dict__` to the
+bound-method arguments retained by the never-finished `Thread.run()` call.
+
+Separately, `SwiftSocket`'s own thread (the websocket side) does
+terminate correctly -- `producer()`'s `self.outq.get()` is a genuine
+blocking (non-`await`ed) `queue.Queue.get()` inside an `async def`, which
+blocks the whole event-loop thread for however long it takes the next
+`outq` item to arrive (up to the full `join(1)` timeout in the worst
+case) -- a real, separate inefficiency worth fixing (e.g. a sentinel
+value or switching to `asyncio.Queue`), but not the leak's cause.
+
+### Fix
+
+`SwiftServer` now stores `self.httpd` and exposes a `stop()` method
+(`self.httpd.shutdown()`), mirroring `SwiftSocket.stop()`. `start_servers()`
+now returns the actual `SwiftServer` instance (not just the wrapping
+`Thread`), the same pattern already used for `SwiftSocket`. `Swift.
+_stop_threads()` calls `self.server.stop()` before joining
+`self.server_thread`. Verified fixed via the same repro: `_Node` no
+longer appears in nanobind's leak report, `env` is reclaimed by a single
+`gc.collect()` pass after `del env, box`, and both threads report
+`is_alive() == False` after `close()` returns.
 
 ---
 
