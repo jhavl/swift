@@ -543,6 +543,35 @@ isn't forgotten once the current frontend-rebuild work is committed.
 
 ---
 
+## `ci/python-tests` depends on an unreleased `roboticstoolbox-python` branch
+
+`.github/workflows/python-tests.yml` originally pinned
+`roboticstoolbox-python~=1.0.0` (a leftover from before swift-sim's 2.0
+rewrite). That pin restricts pip to RTB 1.0.x, which in turn pins
+`spatialgeometry~=1.0.0` -- an old, pre-nanobind-migration release that
+*is* genuinely compiled against the legacy NumPy 1.x C-API and hard-crashes
+under NumPy 2.x at import time. This looked, initially, like a NumPy-2
+compatibility bug in spatialgeometry's *current* published wheel -- it
+isn't; spatialgeometry 1.2.0 (current latest) is nanobind-based
+(`nb::ndarray<>`) and has no NumPy ABI dependency at all (confirmed via
+`otool -L` against the actual wheel: no NumPy symbols). The old pin was
+just quietly forcing an old, unrelated spatialgeometry version to be
+installed alongside it.
+
+Fixing the stale pin surfaced a second, real issue: `tests/` exercises
+`Robot.fkine_geometry(q)`, which doesn't exist on *any* released RTB --
+it only exists on `feat/fkine-geometry`
+(`petercorke/robotics-toolbox-python`, commit `8dbb44e2`, pushed
+2026-08-02). `ci/python-tests` now installs RTB directly from that branch
+via `pip install git+https://...@feat/fkine-geometry`, the same idea as
+installing swift-sim itself from source (see the next workflow step).
+
+**Follow-up**: once `feat/fkine-geometry` merges to RTB's `main` and a new
+RTB version is released to PyPI, switch `python-tests.yml` back to a normal
+version pin instead of the git branch reference.
+
+---
+
 ## `_fknm_c` background-thread nanobind leak affects every Swift session
 
 Fully written up in `roboticstoolbox-python/tech-debt.md` under

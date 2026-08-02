@@ -35,17 +35,15 @@ jobs:
         run: pip install numpy setuptools wheel
 
       - name: Install roboticstoolbox-python and dev/test tools
-        # roboticstoolbox-python's published versions pin swift-sim~=1.0.0
-        # -- directly incompatible with editable-installing *this* repo's
-        # swift-sim==2.0.0 (unreleased) in the same resolution pass. This
-        # installs it (and its own deps -- spatialgeometry, numpy, scipy,
-        # etc.) first, satisfying that pin normally with a real PyPI
-        # swift-sim 1.x; the next step then replaces it with this repo's
-        # editable version via --no-deps, without pip re-litigating the
-        # now-"broken" pin (see tech-debt.md: swift/roboticstoolbox/
-        # spatialgeometry are developed together across git branches,
-        # ahead of what's actually released).
-        run: pip install roboticstoolbox-python~=1.0.0 websockets pytest pytest-cov black flake8 pyyaml
+        # tests/ exercises Robot.fkine_geometry(q), added to
+        # roboticstoolbox-python on the feat/fkine-geometry branch but not
+        # yet released to PyPI (swift/roboticstoolbox/spatialgeometry are
+        # developed together across git branches, ahead of what's actually
+        # released -- see tech-debt.md). Installing from that branch
+        # directly, same idea as installing swift-sim itself from source
+        # below. spatialgeometry is listed explicitly so it isn't left to
+        # whatever roboticstoolbox-python's own pin happens to resolve to.
+        run: pip install "git+https://github.com/petercorke/robotics-toolbox-python.git@feat/fkine-geometry" spatialgeometry websockets pytest pytest-cov black flake8 pyyaml
 
       - name: Install swift-sim itself (editable, no dependency re-resolution)
         run: pip install --no-build-isolation --no-deps -e .
