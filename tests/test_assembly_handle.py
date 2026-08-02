@@ -187,3 +187,29 @@ def test_show_does_not_raise(capsys):
     out = capsys.readouterr().out
     assert "my box" in out
     assert "panda" in out
+
+
+def test_show_excludes_builtin_controls(capsys):
+    # Regression test: show() used to list every element in self.elements
+    # unconditionally, so it always printed the pause/realtime-speed
+    # controls _add_controls() adds on every launch() -- even with zero
+    # user-added UI elements.
+    env = make_env()
+    env._add_controls()
+
+    env.show()
+    out = capsys.readouterr().out
+    assert "UI[" not in out
+
+
+def test_show_lists_user_elements_alongside_builtin_ones(capsys):
+    from swift import Slider
+
+    env = make_env()
+    env._add_controls()
+    env.add_ui(Slider(lambda v: None, desc="speed"), name="speed")
+
+    env.show()
+    out = capsys.readouterr().out
+    assert out.count("UI[") == 1
+    assert "speed" in out
