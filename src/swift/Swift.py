@@ -173,7 +173,7 @@ class Swift:
         # How long hold() keeps waiting after the browser disconnects
         # before giving up -- see launch()'s timeout= and hold(). None
         # means wait forever (the old behaviour).
-        self._hold_timeout = 5
+        self._hold_timeout = 1
         # How long the *browser tab* waits after losing its connection to
         # this Python process before closing itself -- see launch()'s
         # browser_timeout=. None means never auto-close. Independent of
@@ -239,7 +239,7 @@ class Swift:
         browser: str | None = None,
         axes: bool = True,
         ground_opacity: float = 1.0,
-        timeout: float | None = 5,
+        timeout: float | None = 1,
         browser_timeout: float | None = 5,
         **kwargs,
     ):
@@ -283,7 +283,7 @@ class Swift:
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
-            behaviour), defaults to 5
+            behaviour), defaults to 1
         :type timeout: float | None
         :param browser_timeout: how long the *browser tab* waits, in
             seconds, after losing its connection to this process before
@@ -846,7 +846,7 @@ class Swift:
         :type duration: float | None
         :param timeout: seconds to keep waiting after the browser
             disconnects before giving up and returning early; defaults
-            to whatever :meth:`launch` was given (itself 5 by default).
+            to whatever :meth:`launch` was given (itself 1 by default).
             ``None`` never gives up on a disconnect (still stops at
             ``duration``, if given).
         :type timeout: float | None
@@ -863,6 +863,8 @@ class Swift:
                 time.sleep(1)
                 disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
                 if expired:
+                    print("\nSwift browser tab closed.")
+                    self.close()
                     return
         except KeyboardInterrupt:
             # ^C is the normal, expected way to end an interactive session
@@ -919,7 +921,7 @@ class Swift:
         :type dt: float
         :param timeout: seconds to keep running after the browser
             disconnects before giving up and returning; defaults to
-            whatever :meth:`launch` was given (itself 5 by default).
+            whatever :meth:`launch` was given (itself 1 by default).
             ``None`` never gives up on a disconnect (still stops at
             ``duration``, if given).
         :type timeout: float | None
@@ -937,6 +939,8 @@ class Swift:
                 time.sleep(dt)
                 disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
                 if expired:
+                    print("\nSwift browser tab closed.")
+                    self.close()
                     return
         except KeyboardInterrupt:
             # ^C is the normal, expected way to end an interactive session
