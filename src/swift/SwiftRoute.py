@@ -230,8 +230,18 @@ class SwiftSocket:
             self.inq.put(recieved)
 
     async def producer(self):
-        data = self.outq.get()
-        return data
+        # self.outq.get() is a genuine blocking call (a plain thread-safe
+        # queue.Queue, shared with the synchronous Python-thread side --
+        # can't just swap in asyncio.Queue without breaking that side's
+        # ordinary .put()/.get()). Awaiting it directly here would block
+        # this whole event-loop thread for however long nothing's queued
+        # -- which is most of the time during a plain hold() with nothing
+        # actively step()-ing -- starving the loop of any chance to notice
+        # the underlying connection closed. asyncio.to_thread() runs the
+        # blocking .get() on a worker thread and genuinely suspends this
+        # coroutine while waiting, so the event loop stays free to detect
+        # a closed connection (and cancel this await) in the meantime.
+        return await asyncio.to_thread(self.outq.get)
 
 
 class SwiftServer:
