@@ -86,6 +86,90 @@ following an interactive target, programmatic pose trajectories, and
 video recording -- and the :doc:`api` page for the full class reference.
 
 
+Ending a session: :meth:`~swift.Swift.Swift.hold`, :meth:`~swift.Swift.Swift.run`, :meth:`~swift.Swift.Swift.close`
+=====================================================================================================================
+
+A script that just falls off the end after its simulation loop kills the
+process immediately, taking the browser tab down with it. Three methods
+manage that:
+
+* :meth:`~swift.Swift.Swift.hold` blocks -- for a fixed ``duration``, or
+  until interrupted -- so the final frame stays visible. It's disconnect-
+  aware: if the browser tab goes away, it gives up after ``timeout``
+  seconds rather than hanging forever.
+* :meth:`~swift.Swift.Swift.run` is :meth:`step` wrapped in the loop most
+  scripts would otherwise hand-write themselves (``while True:
+  env.step(dt)``), with the same disconnect-awareness as :meth:`hold`.
+* :meth:`~swift.Swift.Swift.close` gracefully disconnects and stops
+  Swift's background threads. Called automatically by :meth:`hold` and
+  :meth:`run` on ^C, so a script using either doesn't need its own
+  ``try``/``except KeyboardInterrupt`` to exit cleanly.
+
+All three are interrupt-safe: pressing ^C during :meth:`step`,
+:meth:`hold`, or :meth:`run` closes the connection and exits quietly
+(no traceback) rather than raising -- ^C is treated as the normal way
+to end an interactive session, not an error.
+
+
+Notebook operation
+===================
+
+``env.launch(browser="notebook")`` renders inline in the current cell's
+output via :class:`IPython.display.IFrame`, instead of opening a separate
+browser tab -- useful in Jupyter/JupyterLab. Combined with
+:meth:`~swift.Swift.Swift.hold` and
+:meth:`~swift.Swift.Swift.close`'s ``clear_cell`` option:
+
+.. code-block:: python
+
+    import roboticstoolbox as rtb
+    from swift import Swift
+
+    env = Swift()
+    env.launch(browser="notebook")
+
+    panda = rtb.models.Panda()
+    handle = env.add_robot(panda)
+    handle.q = panda.qr
+    env.step()
+
+    env.hold(5)               # show the result for 5 seconds
+    env.close(clear_cell=True)  # then blank this cell's output
+
+``close(clear_cell=True)`` blanks specifically the cell that rendered the
+iframe, regardless of which cell is executing when ``close()`` runs --
+plain ``clear_output()`` only ever affects the currently-executing cell,
+which isn't the same thing once execution has moved past the ``launch()``
+call. Leave ``clear_cell`` at its default (``False``) to keep the last
+frame visible instead.
+
+See ``docs/notebooks/swift.ipynb`` for a runnable version of this example.
+
+
+Google Colab
+============
+
+Swift does not currently work on Google Colab. ``launch()`` detects a
+Colab environment and prints a warning up front, before attempting to
+connect, but still tries anyway in case that changes.
+
+Two independent problems, neither fixed as of this writing:
+
+* Colab proxies a notebook's outputs through
+  ``google.colab.kernel.proxyPort()``, which was found to fail
+  consistently (0 successes across 500 isolated test attempts) --
+  unrelated to Swift, and outside this repo's control.
+* Separately, Swift's websocket connection is never routed through that
+  proxy at all (it's hardcoded to ``ws://localhost``), so even if
+  ``proxyPort()`` worked, the websocket handshake specifically would
+  still fail.
+
+See ``tech-debt.md``'s "Google Colab support" section for the full
+investigation, including what was ruled out (reviving WebRTC) and the
+more promising direction if this is ever revisited (``eval_js``/
+``register_callback`` instead of a raw websocket).
+
+
 Scene graph and data structures
 ================================
 
