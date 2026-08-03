@@ -100,9 +100,13 @@ transport.onMessage((func, data) => {
     case "shape_mounted": {
       const [id, _count] = data;
       const obj = objects[id];
-      // -1 tells Swift.py's poll loop to stop and raise, rather than retry
-      // forever -- see SwiftObject.hasError() and Swift._wait_mounted().
-      transport.send(obj.hasError() ? -1 : obj.isMounted() ? 1 : 0);
+      // A non-zero code (-1 unsupported shape type, -2 asset/mesh load
+      // failed -- see shapes.js's load()) tells Swift.py's poll loop to
+      // stop and raise with the specific reason, rather than retry
+      // forever -- see SwiftObject.hasError()/errorCode()/errorReason()
+      // and Swift._wait_mounted().
+      const reply = obj.hasError() ? [obj.errorCode, obj.errorReason] : [obj.isMounted() ? 1 : 0, null];
+      transport.send(reply);
       break;
     }
     case "remove": {

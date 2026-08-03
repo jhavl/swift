@@ -70,7 +70,7 @@ def make_env():
 
 def test_add_shape_sends_a_one_element_part_list():
     env = make_env()
-    browser = FakeBrowser(env, responses=["0", "1"])
+    browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
 
     box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3(), color=[1, 0, 0, 1])
     box_id = env.add(box)
@@ -95,13 +95,29 @@ def test_add_shape_raises_when_browser_reports_a_load_error():
     # Regression test for bugs.md Bug 2: adding a mesh whose file the
     # browser can't load used to poll "shape_mounted" forever since a
     # failed load never became mounted=1 -- see shapes.js's onError
-    # handlers, which now report failure as -1 instead of leaving the
-    # SwiftObject stuck at loaded < len(parts) forever.
+    # handlers, which now report failure as [-2, reason] instead of
+    # leaving the SwiftObject stuck at loaded < len(parts) forever.
     env = make_env()
-    browser = FakeBrowser(env, responses=["0", "-1"])
+    browser = FakeBrowser(env, responses=["0", json.dumps([-2, "failed to load STL file"])])
 
     box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3())
-    with pytest.raises(RuntimeError, match="failed to load"):
+    with pytest.raises(RuntimeError, match="failed to load STL file"):
+        env.add(box)
+    browser.stop()
+
+
+def test_add_shape_raises_with_the_specific_reason_for_an_unsupported_shape_type():
+    # Regression test: -1 (unsupported shape type, e.g. spatialgeometry.Axes/
+    # Arrow before shapes.js grew support for them) used to be
+    # indistinguishable from -2 (a genuine mesh/asset load failure) -- both
+    # just meant "check the browser console." Now the browser's own reason
+    # travels back over the wire, so the exception is specific without
+    # needing the console at all.
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", json.dumps([-1, "unsupported shape type 'made_up_type'"])])
+
+    box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3())
+    with pytest.raises(RuntimeError, match="unsupported shape type 'made_up_type'"):
         env.add(box)
     browser.stop()
 
@@ -125,7 +141,7 @@ def test_add_robot_sends_flat_list_of_all_link_parts():
     for gripper in panda.grippers:
         n_parts += sum(len(link.geometry) for link in gripper.links)
 
-    browser = FakeBrowser(env, responses=["0", "1"])
+    browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
     robot_id = env.add(panda)
 
     codes = [c for c, _ in browser.received]
@@ -143,7 +159,7 @@ def test_add_robot_sends_flat_list_of_all_link_parts():
 
 def test_draw_all_batches_poses_by_object_index_and_returns_element_events():
     env = make_env()
-    browser = FakeBrowser(env, responses=["0", "1"])
+    browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
 
     box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3())
     env.add(box)
@@ -160,7 +176,7 @@ def test_draw_all_batches_poses_by_object_index_and_returns_element_events():
 
 def test_remove_sends_the_raw_object_index():
     env = make_env()
-    browser = FakeBrowser(env, responses=["0", "1", "0"])
+    browser = FakeBrowser(env, responses=["0", json.dumps([1, None]), "0"])
 
     box = sg.Cuboid([0.1, 0.1, 0.1], pose=sm.SE3())
     box_id = env.add(box)

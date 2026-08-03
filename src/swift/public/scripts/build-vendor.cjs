@@ -37,6 +37,9 @@ const JSM_DEST = `${VENDOR}/examples/jsm`;
 
 const ENTRY_POINTS = [
   "controls/OrbitControls.js",
+  "lines/Line2.js",
+  "lines/LineGeometry.js",
+  "lines/LineMaterial.js",
   "loaders/ColladaLoader.js",
   "loaders/GLTFLoader.js",
   "loaders/MTLLoader.js",

@@ -1199,11 +1199,13 @@ class Swift:
         Block until the browser confirms every part of object ``id`` has
         finished loading (see shapes.js's ``SwiftObject``).
 
-        A "shape_mounted" reply of ``1`` means loaded, ``0`` means still
-        loading (poll again), and ``-1`` means at least one part's asset
-        failed to load in the browser (bad path, unsupported/corrupt mesh
-        format, ...) -- see ``shapes.js``'s ``onError`` handlers, which
-        report failure this way rather than leaving this loop to poll
+        A "shape_mounted" reply is ``[code, detail]`` (see shapes.js's
+        ``load()``/``SwiftObject``): ``[1, None]`` means loaded, ``[0,
+        None]`` means still loading (poll again), ``[-1, reason]`` means
+        the shape type itself isn't one ``load()`` recognises at all, and
+        ``[-2, reason]`` means a genuine asset load failure (bad path,
+        unsupported/corrupt mesh format). Either failure stops this loop
+        and raises with the browser's own reason instead of polling
         forever with no way to tell the caller why (bugs.md, Bug 2).
 
         :param id: the object's id, as returned by the preceding "shape"
@@ -1215,15 +1217,15 @@ class Swift:
         :type count: int
         """
         while True:
-            status = int(self._send_socket("shape_mounted", [id, count]))
+            status, detail = json.loads(self._send_socket("shape_mounted", [id, count]))
             if status == 1:
                 return
             if status == -1:
+                raise RuntimeError(f"Swift failed to load object {id}: {detail}")
+            if status == -2:
                 raise RuntimeError(
-                    f"Swift failed to load one or more assets for object "
-                    f"{id} -- check the browser's JavaScript console for "
-                    "details (common causes: a bad mesh file path, or an "
-                    "unsupported file format)"
+                    f"Swift failed to load object {id}: {detail} -- check "
+                    "the browser's JavaScript console for the full error"
                 )
             time.sleep(0.1)
 
