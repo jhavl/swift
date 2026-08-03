@@ -51,8 +51,9 @@ two unrelated concerns.
 
 Both background threads are daemon threads, but that alone does **not**
 mean they exit when your script does -- see `Shutdown`_ below. Getting
-this wrong (before it was fixed) is exactly what caused the
-``tech-debt.md``-documented nanobind leak: a thread that never
+this wrong (before it was fixed) is exactly what caused the nanobind
+leak documented in `jhavl/swift#92
+<https://github.com/jhavl/swift/issues/92>`_: a thread that never
 terminates keeps everything it can reach alive for the rest of the
 process's life, GC or no GC.
 
@@ -227,8 +228,9 @@ things:
    ``SwiftSocket`` and ``SwiftServer``) -- so that single, easy-to-miss
    reference kept the whole environment (every shape, every scene-graph
    node) alive indefinitely, regardless of how gracefully everything
-   else shut down. See ``tech-debt.md``'s "``spatialgeometry.scene._Node``
-   nanobind leak" entry for the full investigation.
+   else shut down. See `jhavl/swift#92
+   <https://github.com/jhavl/swift/issues/92>`_ for the full
+   investigation.
 
 Both ``.stop()`` calls are followed by a bounded ``.join(1)`` in
 ``_stop_threads()`` -- by design a best-effort wait, not a guarantee;
@@ -239,9 +241,12 @@ investigating rather than assuming is fine.
 Where to look next
 ====================
 
-- ``tech-debt.md`` (repo root) -- the incident log behind most of the
-  above: what broke, how it was found, exact fixes. This page is the
-  steady-state architecture; that file is the history of getting here.
+- `GitHub issues labeled tech-debt
+  <https://github.com/jhavl/swift/issues?q=label%3Atech-debt>`_ -- the
+  incident log behind most of the above: what broke, how it was found,
+  exact fixes (closed issues are the ones already fixed). This page is
+  the steady-state architecture; those issues are the history of
+  getting here.
 - ``src/swift/SwiftRoute.py`` -- ``SwiftSocket``/``SwiftServer``,
   ``start_servers()``.
 - ``src/swift/public/js/main.js`` -- the browser-side ``onMessage``

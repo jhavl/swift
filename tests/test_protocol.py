@@ -442,8 +442,8 @@ def test_start_servers_socket_thread_actually_stops_on_close():
 
 
 def test_start_servers_http_thread_actually_stops_on_close():
-    # Regression test for the nanobind _Node leak (tech-debt.md,
-    # 2026-08-02): SwiftServer's httpd.serve_forever() never returned
+    # Regression test for the nanobind _Node leak (jhavl/swift#92,
+    # fixed 2026-08-02): SwiftServer's httpd.serve_forever() never returned
     # (nothing ever called httpd.shutdown()), so Thread.run() never
     # reached its own cleanup of the arguments it was started with --
     # one of which is a bound method of the Swift instance, keeping

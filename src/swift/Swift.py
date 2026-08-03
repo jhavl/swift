@@ -385,7 +385,7 @@ class Swift:
             # instance. That single un-cleared reference, from a thread
             # that runs for the rest of the process's life, is what was
             # keeping every shape ever added (and this env itself) alive
-            # long after close() returned -- see tech-debt.md.
+            # long after close() returned -- see jhavl/swift#92.
             self.server.stop()
             self.server_thread.join(1)
 
@@ -442,7 +442,7 @@ class Swift:
 
             # Update world transform of shapes (assemblies/robots render via
             # AssemblyHandle.part_poses(), a pure function of handle.q --
-            # no scene-graph propagation needed, see tech-debt.md)
+            # no scene-graph propagation needed, see jhavl/swift#85)
             for obj in self.swift_objects:
                 if isinstance(obj, Shape):
                     obj._propogate_scene_tree()
@@ -1126,7 +1126,7 @@ class Swift:
         # No _update_link_tf()/_propogate_scene_tree() call here -- _draw_all()
         # computes geometry poses via AssemblyHandle.part_poses(), a pure
         # function of handle.q, rather than reading the scene-graph's
-        # mutated/cached world transform. See tech-debt.md.
+        # mutated/cached world transform. See jhavl/swift#85.
 
     def _step_shape(self, shape, dt):
 
