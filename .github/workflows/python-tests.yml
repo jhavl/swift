@@ -1,0 +1,59 @@
+# Runs Swift's Python test suite (tests/) and the JS unit tests
+# (src/swift/public/js/*.test.js) on every push/PR -- previously nothing
+# in CI ever ran either; only src/swift/public/**'s vendored-asset check
+# existed (see vendor-check.yml). See tech-debt.md for the mocked-vs-real
+# testing gap this is partly closing.
+
+name: Python tests
+
+on:
+  push:
+    branches: [main, future]
+  pull_request:
+    branches: [main, future]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build-time dependencies
+        # roboticstoolbox-python's own setup.py fails inside pip's default
+        # isolated build environment (ModuleNotFoundError: No module named
+        # 'pip' -- a known class of issue with legacy setup.py's that
+        # import pip internally, which an isolated build env doesn't
+        # guarantee). --no-build-isolation below runs builds against the
+        # ambient environment instead, which needs numpy (swift-sim's own
+        # C extension, phys.cpp, imports it at build time) and
+        # setuptools/wheel present upfront since nothing will install them
+        # into an isolated env for us anymore.
+        run: pip install numpy setuptools wheel
+
+      - name: Install roboticstoolbox-python and dev/test tools
+        # tests/ exercises Robot.fkine_geometry(q), added to
+        # roboticstoolbox-python on the feat/fkine-geometry branch but not
+        # yet released to PyPI (swift/roboticstoolbox/spatialgeometry are
+        # developed together across git branches, ahead of what's actually
+        # released -- see tech-debt.md). Installing from that branch
+        # directly, same idea as installing swift-sim itself from source
+        # below. spatialgeometry is listed explicitly so it isn't left to
+        # whatever roboticstoolbox-python's own pin happens to resolve to.
+        run: pip install "git+https://github.com/petercorke/robotics-toolbox-python.git@feat/fkine-geometry" spatialgeometry websockets pytest pytest-cov black flake8 pyyaml
+
+      - name: Install swift-sim itself (editable, no dependency re-resolution)
+        run: pip install --no-build-isolation --no-deps -e .
+
+      - name: Run Python tests
+        run: pytest tests/ -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run JS unit tests
+        run: node --test src/swift/public/js/*.test.js
