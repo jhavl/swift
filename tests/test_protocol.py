@@ -410,6 +410,56 @@ def test_ground_opacity_sent_when_set():
     browser.stop()
 
 
+def _wait_for_received(browser, count, timeout=1.0):
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if len(browser.received) >= count:
+            return
+        time.sleep(0.01)
+    raise AssertionError(f"browser only received {len(browser.received)}/{count} messages")
+
+
+def test_set_camera_pose_sends_position_and_look_at():
+    # Regression test: set_camera_pose() had no protocol coverage at all
+    # (confirmed via grep -- zero hits for "camera_pose" before this).
+    # Pins down the wire format main.js's camera_pose handler depends on:
+    # {"t": position, "look_at": look_at}, sent with expected=False (fire
+    # and forget, no reply awaited -- so this races FakeBrowser's own
+    # background thread, hence the wait below).
+    env = make_env()
+    browser = FakeBrowser(env)
+
+    env.set_camera_pose([1.0, 2.0, 3.0], [0.0, 0.0, 0.5])
+    _wait_for_received(browser, 1)
+
+    assert browser.received[-1][0] == "camera_pose"
+    assert browser.received[-1][1] == {
+        "t": [1.0, 2.0, 3.0],
+        "look_at": [0.0, 0.0, 0.5],
+    }
+    browser.stop()
+
+
+def test_set_camera_pose_accepts_numpy_arrays():
+    # position/look_at are documented as "3 vector (list or ndarray)" --
+    # the ndarray branch (np.ndarray -> .tolist()) had no coverage either.
+    import numpy as np
+
+    env = make_env()
+    browser = FakeBrowser(env)
+
+    env.set_camera_pose(np.array([1.0, 2.0, 3.0]), np.array([0.0, 0.0, 0.5]))
+    _wait_for_received(browser, 1)
+
+    assert browser.received[-1][1] == {
+        "t": [1.0, 2.0, 3.0],
+        "look_at": [0.0, 0.0, 0.5],
+    }
+    browser.stop()
+
+
 def test_start_servers_socket_thread_actually_stops_on_close():
     # Regression test for a real bug FakeBrowser-based tests structurally
     # can't catch: everything above drains Swift's outq/inq directly, never
