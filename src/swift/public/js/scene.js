@@ -38,7 +38,11 @@ export function createScene() {
     0.01,
     10
   );
-  camera.position.set(0.2, 1.2, 0.7);
+  // Negative y puts the camera on the side that makes the world +x axis
+  // (AxesHelper's red line) read as screen-right, matching the usual
+  // convention -- with DEFAULT_UP = +z, a camera at +y looking back
+  // toward the origin has its own right vector pointing -x.
+  camera.position.set(0.2, -1.2, 0.7);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x787878);
