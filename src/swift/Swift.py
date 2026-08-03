@@ -173,7 +173,7 @@ class Swift:
         # How long hold() keeps waiting after the browser disconnects
         # before giving up -- see launch()'s timeout= and hold(). None
         # means wait forever (the old behaviour).
-        self._hold_timeout = 5
+        self._hold_timeout = 1
         # How long the *browser tab* waits after losing its connection to
         # this Python process before closing itself -- see launch()'s
         # browser_timeout=. None means never auto-close. Independent of
@@ -239,7 +239,7 @@ class Swift:
         browser: str | None = None,
         axes: bool = True,
         ground_opacity: float = 1.0,
-        timeout: float | None = 5,
+        timeout: float | None = 1,
         browser_timeout: float | None = 5,
         **kwargs,
     ):
@@ -249,13 +249,40 @@ class Swift:
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
 
-        ``timeout`` and ``browser_timeout`` cover two different halves of
-        the same disconnect: ``timeout`` is how long this Python process
-        (specifically :meth:`hold`) keeps waiting once it notices the
-        browser is gone; ``browser_timeout`` is how long the browser tab
-        itself waits once it notices *this process* is gone before
-        closing itself. Neither one can observe the other's side of a
-        disconnect directly, so both exist and are set independently.
+        ``timeout`` and ``browser_timeout`` cover two independent,
+        opposite-direction halves of the same disconnect -- worth
+        spelling out in full, since the two are easy to mix up:
+
+        ========================  ================================  ================================
+        Parameter                 *Who* is waiting                   *For what*
+        ========================  ================================  ================================
+        ``timeout``                This Python process, inside        The browser tab to still be there
+                                    :meth:`hold`/:meth:`run`
+        ``browser_timeout``        The browser tab (JavaScript)       This Python process to still be
+                                                                       alive
+        ========================  ================================  ================================
+
+        Concretely:
+
+        * Close the **browser tab** -- ``timeout`` (default 1 second) is
+          how long :meth:`hold`/:meth:`run` keep polling before giving
+          up, printing ``"Swift browser tab closed."``, calling
+          :meth:`close`, and returning. Actual wall-clock latency is
+          ``timeout`` plus up to ~1 second of polling granularity --
+          about 2 seconds with the default.
+        * Kill **this Python process** (or it crashes) -- ``browser_timeout``
+          (default 5 seconds) is how long the browser tab waits before
+          closing itself. Python can't run any code to reconnect a dead
+          process, so this side needs its own, independently-configured
+          timer running entirely in the browser.
+
+        Neither side can observe the other's half of a disconnect
+        directly -- the browser can't poll a dead Python process, and a
+        killed Python process can't run any code at all -- which is why
+        two separate parameters exist rather than one. Either can be set
+        to ``None`` for "wait forever" on that side. See
+        :doc:`internals` for the full mechanism (threads, sockets,
+        exactly what "the browser is gone" means internally).
 
         :param realtime: Force the simulator to display no faster than real
             time, note that it may still run slower due to complexity.
@@ -283,7 +310,7 @@ class Swift:
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
-            behaviour), defaults to 5
+            behaviour), defaults to 1
         :type timeout: float | None
         :param browser_timeout: how long the *browser tab* waits, in
             seconds, after losing its connection to this process before
@@ -846,7 +873,7 @@ class Swift:
         :type duration: float | None
         :param timeout: seconds to keep waiting after the browser
             disconnects before giving up and returning early; defaults
-            to whatever :meth:`launch` was given (itself 5 by default).
+            to whatever :meth:`launch` was given (itself 1 by default).
             ``None`` never gives up on a disconnect (still stops at
             ``duration``, if given).
         :type timeout: float | None
@@ -863,6 +890,8 @@ class Swift:
                 time.sleep(1)
                 disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
                 if expired:
+                    print("\nSwift browser tab closed.")
+                    self.close()
                     return
         except KeyboardInterrupt:
             # ^C is the normal, expected way to end an interactive session
@@ -919,7 +948,7 @@ class Swift:
         :type dt: float
         :param timeout: seconds to keep running after the browser
             disconnects before giving up and returning; defaults to
-            whatever :meth:`launch` was given (itself 5 by default).
+            whatever :meth:`launch` was given (itself 1 by default).
             ``None`` never gives up on a disconnect (still stops at
             ``duration``, if given).
         :type timeout: float | None
@@ -937,6 +966,8 @@ class Swift:
                 time.sleep(dt)
                 disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
                 if expired:
+                    print("\nSwift browser tab closed.")
+                    self.close()
                     return
         except KeyboardInterrupt:
             # ^C is the normal, expected way to end an interactive session

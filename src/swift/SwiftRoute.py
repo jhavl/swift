@@ -209,7 +209,37 @@ class SwiftSocket:
 
             # Now onto send, recieve cycle
             while self.run():
-                message = await self.producer()
+                # producer() can wait a long time (nothing queued during a
+                # plain hold() with nothing actively step()-ing) -- racing
+                # it against wait_closed() means a disconnect gets noticed
+                # even while idle, instead of only the next time this code
+                # actively tries to send/recv (which, during an idle
+                # hold(), might be never). Without this, USERS never gets
+                # cleaned up for an idle connection, which silently
+                # defeats hold()'s own disconnect-timeout polling.
+                producer_task = asyncio.ensure_future(self.producer())
+                closed_task = asyncio.ensure_future(websocket.wait_closed())
+                done, _ = await asyncio.wait(
+                    [producer_task, closed_task], return_when=asyncio.FIRST_COMPLETED
+                )
+                if closed_task in done:
+                    producer_task.cancel()
+                    # Cancelling the *await* doesn't stop the underlying
+                    # blocking self.outq.get() call already running on its
+                    # own worker thread (queue.Queue has no cancellation
+                    # hook) -- left alone, that thread sits blocked
+                    # forever, and since asyncio.to_thread()'s workers are
+                    # deliberately non-daemon (stdlib default, to avoid
+                    # silently abandoning work), it would keep the whole
+                    # process alive indefinitely even after this script
+                    # has otherwise finished. A throwaway value unblocks
+                    # it the same way a real message would; nothing is
+                    # left to consume the result, so its value doesn't
+                    # matter.
+                    self.outq.put((False, ("__disconnect_sentinel__", None)))
+                    raise websockets.exceptions.ConnectionClosed(None, None)
+                closed_task.cancel()
+                message = producer_task.result()
                 expected = message[0]
                 msg = message[1]
                 await websocket.send(json.dumps(msg))
@@ -230,8 +260,18 @@ class SwiftSocket:
             self.inq.put(recieved)
 
     async def producer(self):
-        data = self.outq.get()
-        return data
+        # self.outq.get() is a genuine blocking call (a plain thread-safe
+        # queue.Queue, shared with the synchronous Python-thread side --
+        # can't just swap in asyncio.Queue without breaking that side's
+        # ordinary .put()/.get()). Awaiting it directly here would block
+        # this whole event-loop thread for however long nothing's queued
+        # -- which is most of the time during a plain hold() with nothing
+        # actively step()-ing -- starving the loop of any chance to notice
+        # the underlying connection closed. asyncio.to_thread() runs the
+        # blocking .get() on a worker thread and genuinely suspends this
+        # coroutine while waiting, so the event loop stays free to detect
+        # a closed connection (and cancel this await) in the meantime.
+        return await asyncio.to_thread(self.outq.get)
 
 
 class SwiftServer:

@@ -5,4 +5,5 @@ Swift
    :maxdepth: 2
 
    intro
+   internals
    api
