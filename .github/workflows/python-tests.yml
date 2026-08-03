@@ -1,8 +1,7 @@
 # Runs Swift's Python test suite (tests/) and the JS unit tests
 # (src/swift/public/js/*.test.js) on every push/PR -- previously nothing
 # in CI ever ran either; only src/swift/public/**'s vendored-asset check
-# existed (see vendor-check.yml). See tech-debt.md for the mocked-vs-real
-# testing gap this is partly closing.
+# existed (see vendor-check.yml).
 
 name: Python tests
 
@@ -39,7 +38,7 @@ jobs:
         # roboticstoolbox-python on the feat/fkine-geometry branch but not
         # yet released to PyPI (swift/roboticstoolbox/spatialgeometry are
         # developed together across git branches, ahead of what's actually
-        # released -- see tech-debt.md). Installing from that branch
+        # released -- see jhavl/swift#88). Installing from that branch
         # directly, same idea as installing swift-sim itself from source
         # below. spatialgeometry is listed explicitly so it isn't left to
         # whatever roboticstoolbox-python's own pin happens to resolve to.

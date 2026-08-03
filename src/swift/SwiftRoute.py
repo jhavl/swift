@@ -47,18 +47,17 @@ def start_servers(
     browser: str | None = None,
 ):
     # Warn up front, not just after a cold ~60s timeout with no context --
-    # see tech-debt.md's "Google Colab support" section. Not a hard block:
-    # still attempts the connection regardless, in case Colab's
-    # infrastructure has changed, or the user wants to see it fail
-    # themselves.
+    # see jhavl/swift#45. Not a hard block: still attempts the connection
+    # regardless, in case Colab's infrastructure has changed, or the user
+    # wants to see it fail themselves.
     if COLAB:
         print(
             "\nHeads up: Colab is not currently a supported environment "
             "for Swift. Every connection attempt made during testing has "
             "failed (0/500 in isolated testing of Colab's own "
             "proxyPort() proxy alone, with no Swift code involved at "
-            "all) -- see tech-debt.md's 'Google Colab support' section "
-            "for the full write-up. Attempting to connect anyway.\n"
+            "all) -- see https://github.com/jhavl/swift/issues/45 for the "
+            "full write-up. Attempting to connect anyway.\n"
         )
 
     # Start our websocket server with a new port
@@ -150,10 +149,10 @@ def start_servers(
             print(
                 "\nCould not connect to the Swift simulator. As warned "
                 "above, Colab is not currently a supported environment "
-                "for Swift -- see tech-debt.md's 'Google Colab support' "
-                "section for the full evidence. We do not have a single "
-                "confirmed successful connection to point to (0/500 in "
-                "isolated testing), so retrying is unlikely to help.\n"
+                "for Swift -- see https://github.com/jhavl/swift/issues/45 "
+                "for the full evidence. We do not have a single confirmed "
+                "successful connection to point to (0/500 in isolated "
+                "testing), so retrying is unlikely to help.\n"
             )
         else:
             print("\nCould not connect to the Swift simulator \n")

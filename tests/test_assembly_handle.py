@@ -2,7 +2,7 @@
 Tests for AssemblyHandle -- the per-instance joint state env.add_robot()/
 env.add_assembly() return, and (for a robot handle) its backward-compat
 bridge for the deprecated pattern of mutating robot.q/robot.qd directly.
-See tech-debt.md.
+See jhavl/swift#85.
 """
 
 import warnings
