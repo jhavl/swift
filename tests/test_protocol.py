@@ -15,6 +15,7 @@ import json
 import threading
 from queue import Queue
 
+import numpy as np
 import pytest
 import roboticstoolbox as rtb
 import spatialgeometry as sg
@@ -88,6 +89,22 @@ def test_add_shape_sends_a_one_element_part_list():
 
     _, mounted_data = browser.received[1]
     assert mounted_data == [box_id, 1]
+    browser.stop()
+
+
+def test_add_path_sends_points_radius_and_linewidth():
+    env = make_env()
+    browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
+
+    points = np.array([[0.0, 1.0, 2.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    path = sg.Path(points, radius=0.02, linewidth=2.0, color=[1.0, 0.0, 0.0, 1.0])
+    env.add(path)
+
+    _, shape_data = browser.received[0]
+    assert shape_data[0]["stype"] == "path"
+    assert shape_data[0]["points"] == [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]]
+    assert shape_data[0]["radius"] == 0.02
+    assert shape_data[0]["linewidth"] == 2.0
     browser.stop()
 
 
