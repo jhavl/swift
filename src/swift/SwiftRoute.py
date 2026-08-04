@@ -295,6 +295,17 @@ class SwiftServer:
                 else:
                     pass
 
+            def end_headers(self):
+                # This server's process (and the port it's bound to) never
+                # outlives one Python session, so there's no real caching
+                # benefit -- only the risk of a browser silently serving a
+                # stale cached JS/mesh file across a dev-session file edit
+                # (hit repeatedly in practice: scene.js and ui.js each
+                # served stale after an on-disk fix, only noticed because
+                # the fix appeared to have no effect).
+                self.send_header("Cache-Control", "no-store")
+                http.server.SimpleHTTPRequestHandler.end_headers(self)
+
             def do_GET(self):
                 if self.path == "/":
                     self.send_response(301)
