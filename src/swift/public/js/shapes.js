@@ -109,6 +109,10 @@ function loadPrimitive(part, scene, cb) {
     geometry = new THREE.SphereGeometry(part.radius, 64, 64);
   } else if (part.stype === "cylinder") {
     geometry = new THREE.CylinderGeometry(part.radius, part.radius, part.length, 32);
+    // CylinderGeometry's default axis is Y -- rotate onto Z to match
+    // spatialgeometry's Cylinder ("axis along Z"), same correction the
+    // Arrow shaft cylinder below already applies for its own +Z convention.
+    geometry.rotateX(Math.PI / 2);
   }
   const mesh = new THREE.Mesh(geometry, materialFor(part));
   setPose(mesh, part.t, part.q);
