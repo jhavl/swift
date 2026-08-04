@@ -432,6 +432,7 @@ class Swift:
                     cb = self.shape_callbacks.get(i)
                     if cb is not None:
                         obj.T = cb(t, values)
+                        self._send_shape_update_if_changed(obj)
                     else:
                         self._step_shape(obj, dt)
                 elif isinstance(obj, AssemblyHandle):
@@ -1128,12 +1129,24 @@ class Swift:
         # function of handle.q, rather than reading the scene-graph's
         # mutated/cached world transform. See jhavl/swift#85.
 
-    def _step_shape(self, shape, dt):
-
+    def _send_shape_update_if_changed(self, shape):
+        # A shape's @update-decorated setters (color, opacity, scale, ...)
+        # only flip shape._changed -- this is the one place that turns that
+        # flag into an actual "shape_update" message. Must run for every
+        # shape every step, callback-driven or not (see step()'s caller in
+        # the cb-is-not-None branch) -- it used to only run from within
+        # _step_shape(), which callback-driven shapes never reach, so a
+        # callback shape's color/scale/opacity changes were silently
+        # dropped forever, even though its pose kept updating fine via the
+        # callback's own SE3 return value.
         if shape._changed:
             shape._changed = False
             id = self.swift_objects.index(shape)
             self._send_socket("shape_update", [id, shape.to_dict()])
+
+    def _step_shape(self, shape, dt):
+
+        self._send_shape_update_if_changed(shape)
 
         step_shape(
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
