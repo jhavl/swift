@@ -57,9 +57,16 @@ function setPose(object3d, t, q) {
   object3d.quaternion.set(q[0], q[1], q[2], q[3]);
 }
 
-function materialFor(part) {
+function materialFor(part, geometry) {
+  // Mesh.to_dict() sets use_vertex_colors when no explicit color= was ever
+  // given (see spatialgeometry's Mesh) -- in that case, prefer whatever
+  // per-vertex/per-face colors the loader parsed out of the file itself
+  // (PLY/STL both support this) over the flat default. Primitives (no
+  // geometry passed, or no color attribute present) are unaffected.
+  const useVertexColors = !!(part.use_vertex_colors && geometry?.hasAttribute("color"));
   return new THREE.MeshPhongMaterial({
-    color: part.color,
+    color: useVertexColors ? 0xffffff : part.color,
+    vertexColors: useVertexColors,
     specular: 0x111111,
     shininess: 200,
     transparent: true,
@@ -246,7 +253,7 @@ function loadMesh(part, scene, cb, errCb) {
     stlLoader.load(
       url,
       (geometry) => {
-        const mesh = new THREE.Mesh(geometry, materialFor(part));
+        const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
         setPose(mesh, part.t, part.q);
         mesh.castShadow = true;
@@ -303,7 +310,7 @@ function loadMesh(part, scene, cb, errCb) {
       part.filename,
       (geometry) => {
         geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(geometry, materialFor(part));
+        const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
