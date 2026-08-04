@@ -62,7 +62,13 @@ function materialFor(part) {
     color: part.color,
     specular: 0x111111,
     shininess: 200,
-    transparent: true,
+    // Only join the transparent render queue for genuinely translucent
+    // shapes -- three.js sorts transparent objects per-object (by bounding
+    // sphere distance), not per-pixel, so an opaque shape marked transparent
+    // can win outright against another transparent object it intersects
+    // (e.g. a shape straddling the translucent ground plane) instead of
+    // being correctly depth-tested against it.
+    transparent: part.opacity < 1,
     opacity: part.opacity,
   });
 }
