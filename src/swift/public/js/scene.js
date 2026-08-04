@@ -81,8 +81,11 @@ export function createScene() {
   scene.add(ground);
 
   scene.add(new THREE.HemisphereLight(0x666666, 0x222233));
-  addShadowedLight(scene, 1, 1, 1, 0xffffff, 1.35);
-  addShadowedLight(scene, 0.5, 1, -1, 0xffffff, 1);
+  // y negated to match the camera's -y position above -- these lights
+  // need to stay on the camera's side of the scene, else the faces
+  // facing the camera end up in shadow.
+  addShadowedLight(scene, 1, -1, 1, 0xffffff, 1.35);
+  addShadowedLight(scene, 0.5, -1, -1, 0xffffff, 1);
 
   const axesHelper = new THREE.AxesHelper(5);
   scene.add(axesHelper);
