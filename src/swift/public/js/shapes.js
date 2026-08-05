@@ -109,8 +109,13 @@ function loadPrimitive(part, scene, cb) {
     geometry = new THREE.SphereGeometry(part.radius, 64, 64);
   } else if (part.stype === "cylinder") {
     geometry = new THREE.CylinderGeometry(part.radius, part.radius, part.length, 32);
+  } else if (part.stype === "ellipsoid") {
+    // A unit sphere non-uniformly scaled per-axis below -- cheaper than a
+    // dedicated ellipsoid geometry, and Three.js has no such class anyway.
+    geometry = new THREE.SphereGeometry(1, 64, 64);
   }
   const mesh = new THREE.Mesh(geometry, materialFor(part));
+  if (part.stype === "ellipsoid") mesh.scale.set(part.radii[0], part.radii[1], part.radii[2]);
   setPose(mesh, part.t, part.q);
   finish(part, mesh, scene, cb);
 }
@@ -346,7 +351,7 @@ function loadMesh(part, scene, cb, errCb) {
 
 function load(part, scene, cb, errCb) {
   if (part.stype === "mesh") loadMesh(part, scene, cb, errCb);
-  else if (["cuboid", "box", "sphere", "cylinder"].includes(part.stype)) loadPrimitive(part, scene, cb);
+  else if (["cuboid", "box", "sphere", "cylinder", "ellipsoid"].includes(part.stype)) loadPrimitive(part, scene, cb);
   else if (part.stype === "axes") loadAxes(part, scene, cb);
   else if (part.stype === "arrow") loadArrow(part, scene, cb);
   else {
