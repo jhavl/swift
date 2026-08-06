@@ -239,6 +239,8 @@ class Swift:
         browser: str | None = None,
         axes: bool = True,
         ground_opacity: float = 1.0,
+        ground_pattern: bool | str = False,
+        ground_pattern_width: float = 1.0,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
         **kwargs,
@@ -307,6 +309,22 @@ class Swift:
         :param ground_opacity: Opacity of the ground plane, from 0
             (invisible) to 1 (opaque), defaults to 1
         :type ground_opacity: float
+        :param ground_pattern: Repeating pattern on the ground plane.
+            ``False`` (default) is a plain flat floor. ``True`` or
+            ``"@tile"`` is a built-in checkerboard; ``"@grid"`` is a
+            built-in grid. Anything else is treated as an absolute path
+            to an image file to tile as a texture -- its tile height
+            follows the image's own aspect ratio (never distorted); see
+            ``ground_pattern_width``. Whenever a pattern is active, the
+            ground plane recentres under the camera every frame (snapped
+            to a whole tile, so the pattern never visibly shifts) so its
+            edge is never reachable regardless of pan/zoom -- skipped
+            entirely for the plain flat floor, which has no visible edge
+            to begin with.
+        :type ground_pattern: bool | str
+        :param ground_pattern_width: x-extent of one tile, in metres.
+            Only meaningful when ``ground_pattern`` is set, defaults to 1.
+        :type ground_pattern_width: float
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
@@ -337,6 +355,8 @@ class Swift:
         self.headless = headless
         self.axes = axes
         self.ground_opacity = ground_opacity
+        self.ground_pattern = ground_pattern
+        self.ground_pattern_width = ground_pattern_width
         # Anchors realtime_speed's pacing clock (see step()) -- needed in
         # headless mode too, not just for rendering.
         self.last_time = time.time()
@@ -361,6 +381,13 @@ class Swift:
 
             if self.ground_opacity != 1.0:
                 self._send_socket("ground_opacity", self.ground_opacity, expected=False)
+
+            if self.ground_pattern:
+                self._send_socket(
+                    "ground_pattern",
+                    {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
+                    expected=False,
+                )
 
             self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
