@@ -1,11 +1,11 @@
-import { createScene } from "./scene.js";
+import { createScene, setLights } from "./scene.js";
 import { SwiftObject } from "./shapes.js";
 import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
 import { WebSocketTransport, portFromLocation } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
 
-const { scene, camera, renderer, controls, axesHelper, groundMaterial } = createScene();
+const { scene, camera, renderer, controls, axesHelper, groundMaterial, lights } = createScene();
 
 const fps = new FPS(document.getElementById("fps"));
 const simTime = new SimTime(document.getElementById("sim-time"));
@@ -162,6 +162,10 @@ transport.onMessage((func, data) => {
     }
     case "ground_opacity": {
       groundMaterial.opacity = data;
+      break;
+    }
+    case "lights": {
+      setLights(scene, lights, data);
       break;
     }
     case "camera_pose": {

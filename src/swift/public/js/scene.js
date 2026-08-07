@@ -8,11 +8,21 @@ import { resizeLines } from "./shapes.js";
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
-function addShadowedLight(scene, x, y, z, color, intensity) {
-  const light = new THREE.DirectionalLight(color, intensity);
-  light.position.set(x, y, z);
-  light.castShadow = true;
+// Swift's default 3-light rig -- same shape (ltype/fields) as
+// Light.to_dict() in Python's Light.py, so user-supplied lights (see
+// setLights() below) go through the identical code path as these
+// defaults.
+const DEFAULT_LIGHTS = [
+  { ltype: "hemisphere", sky_color: 0x666666, ground_color: 0x222233, intensity: 1 },
+  { ltype: "directional", color: 0xffffff, intensity: 1.35, position: [1, 1, 1], target: [0, 0, 0], cast_shadow: true },
+  { ltype: "directional", color: 0xffffff, intensity: 1, position: [0.5, 1, -1], target: [0, 0, 0], cast_shadow: true },
+];
 
+// Tuned to this scene's own ~1m scale, not user-adjustable (see
+// DirectionalLight's docstring in Light.py) -- exposing these raw was
+// deliberately deferred, see the tech-debt issue for the fuller lighting
+// API this is the first cut of.
+function applyDirectionalShadow(light) {
   const d = 1;
   light.shadow.camera.left = -d;
   light.shadow.camera.right = d;
@@ -21,8 +31,70 @@ function addShadowedLight(scene, x, y, z, color, intensity) {
   light.shadow.camera.near = 1;
   light.shadow.camera.far = 4;
   light.shadow.bias = -0.002;
+}
 
-  scene.add(light);
+// One branch per Light subclass in Light.py -- ltype is that class's own
+// `ltype` class attribute, sent verbatim over the wire.
+function buildLight(cfg) {
+  switch (cfg.ltype) {
+    case "ambient":
+      return new THREE.AmbientLight(cfg.color, cfg.intensity);
+    case "hemisphere":
+      return new THREE.HemisphereLight(cfg.sky_color, cfg.ground_color, cfg.intensity);
+    case "directional": {
+      const light = new THREE.DirectionalLight(cfg.color, cfg.intensity);
+      light.position.set(...cfg.position);
+      light.target.position.set(...cfg.target);
+      if (cfg.cast_shadow) {
+        light.castShadow = true;
+        applyDirectionalShadow(light);
+      }
+      return light;
+    }
+    case "point": {
+      const light = new THREE.PointLight(cfg.color, cfg.intensity, cfg.distance, cfg.decay);
+      light.position.set(...cfg.position);
+      light.castShadow = !!cfg.cast_shadow;
+      return light;
+    }
+    case "spot": {
+      const light = new THREE.SpotLight(cfg.color, cfg.intensity, cfg.distance, cfg.angle, cfg.penumbra, cfg.decay);
+      light.position.set(...cfg.position);
+      light.target.position.set(...cfg.target);
+      light.castShadow = !!cfg.cast_shadow;
+      return light;
+    }
+    default:
+      console.error(`unknown light type '${cfg.ltype}'`);
+      return null;
+  }
+}
+
+/**
+ * Replaces every light currently in the scene (`lights`, mutated in
+ * place so callers keep the same reference) with a fresh set built from
+ * `configs` -- see Swift.set_lights()/launch(lights=). A light with a
+ * `.target` (directional/spot) needs that target added to the scene
+ * separately, since three.js's own target defaults to being un-parented.
+ *
+ * @param {THREE.Scene} scene
+ * @param {THREE.Light[]} lights current lights, mutated in place
+ * @param {object[]} configs new light configs, Light.to_dict()'s shape
+ */
+export function setLights(scene, lights, configs) {
+  for (const light of lights) {
+    if (light.target) scene.remove(light.target);
+    scene.remove(light);
+  }
+  lights.length = 0;
+
+  for (const cfg of configs) {
+    const light = buildLight(cfg);
+    if (!light) continue;
+    scene.add(light);
+    if (light.target) scene.add(light.target);
+    lights.push(light);
+  }
 }
 
 /**
@@ -80,9 +152,8 @@ export function createScene() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  scene.add(new THREE.HemisphereLight(0x666666, 0x222233));
-  addShadowedLight(scene, 1, 1, 1, 0xffffff, 1.35);
-  addShadowedLight(scene, 0.5, 1, -1, 0xffffff, 1);
+  const lights = [];
+  setLights(scene, lights, DEFAULT_LIGHTS);
 
   const axesHelper = new THREE.AxesHelper(5);
   scene.add(axesHelper);
@@ -94,5 +165,5 @@ export function createScene() {
     resizeLines(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, camera, renderer, controls, axesHelper, groundMaterial };
+  return { scene, camera, renderer, controls, axesHelper, groundMaterial, lights };
 }
