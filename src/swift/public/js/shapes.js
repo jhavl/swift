@@ -266,6 +266,55 @@ function loadPath(part, scene, cb) {
   finish(part, path, scene, cb);
 }
 
+// =====================================================================
+// LOUD WARNING -- read this before touching y_up.
+//
+// This rotation MUST stay bit-for-bit equivalent to the y_up correction
+// applied in SpatialGeometry's CollisionShape.py (search "_Y_UP_TO_Z_UP"
+// there -- applied directly to the mesh's vertex data before building the
+// Coal BVH used for collision). These two implementations live in
+// different languages in different repos, and NOTHING enforces they
+// agree. If they ever diverge, there is no test or type checker that
+// will catch it -- collision geometry will just silently stop matching
+// what's actually rendered. If you change one side, you MUST change the
+// other, in the same PR pair.
+//
+// What it does: a mesh authored with +Y as "up" is reinterpreted as if
+// it were authored +Z "up" (this ecosystem's convention) -- the same
+// Rx(+90 degrees) correction already used for the Cylinder primitive's
+// own axis fix elsewhere in this file (three.js's default axis
+// conventions don't match spatialgeometry's).
+//
+// Where this gets applied matters. setPose() does an ABSOLUTE
+// quaternion/position assignment (object3d.quaternion.set(...)), so
+// rotating a loader's top-level Object3D and then calling setPose() on
+// that same object silently discards the rotation -- setPose() just
+// overwrites it. Two cases:
+//   - STL/PLY hand back a raw BufferGeometry: rotate it directly, before
+//     wrapping in a Mesh. This bakes into the vertex data itself, which
+//     setPose() never touches.
+//   - DAE/OBJ/glTF/WRL/PCD hand back an already-posed Object3D/scene:
+//     wrap it in a fresh Group, rotate the *wrapped* object (not the
+//     group), and call setPose() on the *group* -- same "compose a fixed
+//     local rotation, pose the wrapper" pattern makeArrow()/loadAxes()
+//     already use for their own composite Group() objects.
+// =====================================================================
+function applyYUpCorrection(object3dOrGeometry) {
+  object3dOrGeometry.rotateX(Math.PI / 2);
+}
+
+function poseWithOptionalYUp(object3d, part) {
+  if (!part.y_up) {
+    setPose(object3d, part.t, part.q);
+    return object3d;
+  }
+  const wrapper = new THREE.Group();
+  applyYUpCorrection(object3d);
+  wrapper.add(object3d);
+  setPose(wrapper, part.t, part.q);
+  return wrapper;
+}
+
 function loadMesh(part, scene, cb, errCb) {
   const ext = part.filename.split(".").pop().toLowerCase();
 
@@ -307,12 +356,12 @@ function loadMesh(part, scene, cb, errCb) {
       url,
       (collada) => {
         const mesh = collada.scene;
-        setPose(mesh, part.t, part.q);
         mesh.traverse((child) => {
           if (child.isMesh) child.castShadow = true;
           else if (child.type === "PointLight") child.visible = false;
         });
-        finish(part, mesh, scene, cb);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
       },
       onProgress,
       onError("Collada")
@@ -321,6 +370,7 @@ function loadMesh(part, scene, cb, errCb) {
     stlLoader.load(
       url,
       (geometry) => {
+        if (part.y_up) applyYUpCorrection(geometry);
         const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
         setPose(mesh, part.t, part.q);
@@ -347,8 +397,8 @@ function loadMesh(part, scene, cb, errCb) {
               }
             });
             object.scale.set(part.scale[0], part.scale[1], part.scale[2]);
-            setPose(object, part.t, part.q);
-            finish(part, object, scene, cb);
+            const result = poseWithOptionalYUp(object, part);
+            finish(part, result, scene, cb);
           },
           onProgress,
           onError("obj")
@@ -369,8 +419,8 @@ function loadMesh(part, scene, cb, errCb) {
           }
         });
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
-        setPose(mesh, part.t, part.q);
-        finish(part, mesh, scene, cb);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
       },
       onProgress,
       onError("GLTF")
@@ -380,6 +430,7 @@ function loadMesh(part, scene, cb, errCb) {
       url,
       (geometry) => {
         geometry.computeVertexNormals();
+        if (part.y_up) applyYUpCorrection(geometry);
         const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -397,8 +448,8 @@ function loadMesh(part, scene, cb, errCb) {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
-        setPose(mesh, part.t, part.q);
-        finish(part, mesh, scene, cb);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
       },
       onProgress,
       onError("VRML")
@@ -408,8 +459,8 @@ function loadMesh(part, scene, cb, errCb) {
       url,
       (mesh) => {
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
-        setPose(mesh, part.t, part.q);
-        finish(part, mesh, scene, cb);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
       },
       onProgress,
       onError("PCD")
