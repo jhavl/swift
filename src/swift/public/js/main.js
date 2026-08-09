@@ -1,11 +1,11 @@
-import { createScene } from "./scene.js";
+import { createScene, setGroundPattern, updateGroundPatternPosition } from "./scene.js";
 import { SwiftObject } from "./shapes.js";
 import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
 import { WebSocketTransport, portFromLocation } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
 
-const { scene, camera, renderer, controls, axesHelper, groundMaterial } = createScene();
+const { scene, camera, renderer, controls, axesHelper, ground, groundMaterial } = createScene();
 
 const fps = new FPS(document.getElementById("fps"));
 const simTime = new SimTime(document.getElementById("sim-time"));
@@ -164,6 +164,10 @@ transport.onMessage((func, data) => {
       groundMaterial.opacity = data;
       break;
     }
+    case "ground_pattern": {
+      setGroundPattern(ground, groundMaterial, data.pattern, data.width);
+      break;
+    }
     case "camera_pose": {
       camera.position.set(...data.t);
       camera.lookAt(...data.look_at);
@@ -200,6 +204,7 @@ transport.onMessage((func, data) => {
 function animate() {
   if (!connected) return; // freeze on the last frame instead of looping forever
   requestAnimationFrame(animate);
+  updateGroundPatternPosition(ground, camera.position);
   renderer.render(scene, camera);
   recorder.captureFrame(renderer.domElement);
   fps.frame();
