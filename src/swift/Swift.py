@@ -3,7 +3,7 @@
 @author Jesse Haviland
 """
 
-from os import read
+import os
 import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
@@ -12,6 +12,7 @@ from queue import Queue, Empty
 import json
 from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
+from swift.Light import Light
 
 
 def _se3_to_wire(T):
@@ -239,6 +240,9 @@ class Swift:
         browser: str | None = None,
         axes: bool = True,
         ground_opacity: float = 1.0,
+        ground_pattern: bool | str = False,
+        ground_pattern_width: float = 1.0,
+        lights: list[Light] | None = None,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
         **kwargs,
@@ -248,6 +252,16 @@ class Swift:
 
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
+
+        .. warning::
+
+            The scene's lights are fixed in world space and never move on
+            their own -- including in response to :meth:`set_camera_pose`.
+            Moving the camera far enough from its default position can
+            leave every camera-facing surface in shadow, since the
+            default lights are positioned specifically to match that
+            default camera position. Use ``lights=``/:meth:`set_lights`
+            to reposition them to match, if needed.
 
         ``timeout`` and ``browser_timeout`` cover two independent,
         opposite-direction halves of the same disconnect -- worth
@@ -307,6 +321,28 @@ class Swift:
         :param ground_opacity: Opacity of the ground plane, from 0
             (invisible) to 1 (opaque), defaults to 1
         :type ground_opacity: float
+        :param ground_pattern: Repeating pattern on the ground plane.
+            ``False`` (default) is a plain flat floor. ``True`` or
+            ``"@tile"`` is a built-in checkerboard; ``"@grid"`` is a
+            built-in grid. Anything else is treated as an absolute path
+            to an image file to tile as a texture -- its tile height
+            follows the image's own aspect ratio (never distorted); see
+            ``ground_pattern_width``. Whenever a pattern is active, the
+            ground plane recentres under the camera every frame (snapped
+            to a whole tile, so the pattern never visibly shifts) so its
+            edge is never reachable regardless of pan/zoom -- skipped
+            entirely for the plain flat floor, which has no visible edge
+            to begin with.
+        :type ground_pattern: bool | str
+        :param ground_pattern_width: x-extent of one tile, in metres.
+            Only meaningful when ``ground_pattern`` is set, defaults to 1.
+        :type ground_pattern_width: float
+        :param lights: custom scene lights, replacing Swift's default
+            3-light rig entirely -- there is no way to add to the
+            defaults, only replace them outright. ``None`` (default)
+            keeps the default rig unchanged. See :meth:`set_lights` to
+            change lights again after launch.
+        :type lights: list[Light] | None
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
@@ -337,6 +373,21 @@ class Swift:
         self.headless = headless
         self.axes = axes
         self.ground_opacity = ground_opacity
+        if (
+            isinstance(ground_pattern, str)
+            and ground_pattern not in ("@tile", "@grid")
+            and not os.path.isabs(ground_pattern)
+        ):
+            raise ValueError(
+                f"ground_pattern={ground_pattern!r} is a relative path, but "
+                "Swift serves custom textures from an absolute path on disk "
+                "(via the same mechanism as Mesh filenames) -- pass an "
+                "absolute path, e.g. str(Path(__file__).parent / "
+                f"{ground_pattern!r})"
+            )
+        self.ground_pattern = ground_pattern
+        self.ground_pattern_width = ground_pattern_width
+        self.lights = lights
         # Anchors realtime_speed's pacing clock (see step()) -- needed in
         # headless mode too, not just for rendering.
         self.last_time = time.time()
@@ -361,6 +412,16 @@ class Swift:
 
             if self.ground_opacity != 1.0:
                 self._send_socket("ground_opacity", self.ground_opacity, expected=False)
+
+            if self.ground_pattern:
+                self._send_socket(
+                    "ground_pattern",
+                    {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
+                    expected=False,
+                )
+
+            if self.lights is not None:
+                self.set_lights(self.lights)
 
             self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
@@ -432,6 +493,7 @@ class Swift:
                     cb = self.shape_callbacks.get(i)
                     if cb is not None:
                         obj.T = cb(t, values)
+                        self._send_shape_update_if_changed(obj)
                     else:
                         self._step_shape(obj, dt)
                 elif isinstance(obj, AssemblyHandle):
@@ -445,7 +507,7 @@ class Swift:
             # no scene-graph propagation needed, see jhavl/swift#85)
             for obj in self.swift_objects:
                 if isinstance(obj, Shape):
-                    obj._propogate_scene_tree()
+                    obj.update()
 
             if self.realtime_speed:
                 # Delay progress if we're running too quickly for the
@@ -644,7 +706,15 @@ class Swift:
         ``id = env.add_shape(shape)`` adds ``shape`` to the graphical
         environment and returns its id.
         """
-        shape._propogate_scene_tree()
+        filename = getattr(shape, "filename", None)
+        if isinstance(filename, str) and not os.path.isabs(filename):
+            raise ValueError(
+                f"{type(shape).__name__}(filename={filename!r}) is a "
+                "relative path, but Swift serves mesh files from an "
+                "absolute path on disk -- pass an absolute path, e.g. "
+                f"str(Path(__file__).parent / {filename!r})"
+            )
+        shape.update()
         shape._added_to_swift = True
         if not self.headless:
             id = int(self._send_socket("shape", [shape.to_dict()]))
@@ -727,7 +797,7 @@ class Swift:
         ``fk(handle.q)``.
         """
         for part in parts:
-            part._propogate_scene_tree()
+            part.update()
             part._added_to_swift = True
 
         if not self.headless:
@@ -780,7 +850,7 @@ class Swift:
         deprecated, see :class:`~swift.Handle.AssemblyHandle`).
         """
         robot._update_link_tf()
-        robot._propogate_scene_tree()
+        robot.update()
         robot._qlim = robot.qlim
 
         if not self.headless:
@@ -1067,6 +1137,15 @@ class Swift:
         point in space defined by look_at. Note that the camera is
         oriented with the positive z-axis.
 
+        .. warning::
+
+            The scene's lights do not move with the camera -- they're
+            fixed in world space, positioned to match the *default*
+            camera position set at launch. Moving the camera far enough
+            away with this method can leave every camera-facing surface
+            in shadow. Use :meth:`set_lights` to reposition them to
+            match, if needed.
+
         :param position: The desired position of the camera
         :type position: 3 vector (list or ndarray)
         :param look_at: A point in the scene in which the camera will look at
@@ -1093,6 +1172,25 @@ class Swift:
         }
 
         self._send_socket("camera_pose", transform, False)
+
+    def set_lights(self, lights: list[Light]) -> None:
+        """
+        Replace the scene's current lights.
+
+        ``env.set_lights(lights)`` replaces every light currently in the
+        scene -- including Swift's own default rig, if it's still
+        active -- with ``lights``. There is no way to add or remove a
+        single light individually; the whole rig is always replaced as
+        one unit. Call again with the same lights given to
+        :meth:`launch` to restore them after temporarily using
+        something else.
+
+        :param lights: the new set of lights, replacing every light
+            currently in the scene
+        """
+        self.lights = lights
+        if not self.headless:
+            self._send_socket("lights", [light.to_dict() for light in lights], expected=False)
 
     def _step_assembly(self, handle, dt):
 
@@ -1128,12 +1226,24 @@ class Swift:
         # function of handle.q, rather than reading the scene-graph's
         # mutated/cached world transform. See jhavl/swift#85.
 
-    def _step_shape(self, shape, dt):
-
+    def _send_shape_update_if_changed(self, shape):
+        # A shape's @update-decorated setters (color, opacity, scale, ...)
+        # only flip shape._changed -- this is the one place that turns that
+        # flag into an actual "shape_update" message. Must run for every
+        # shape every step, callback-driven or not (see step()'s caller in
+        # the cb-is-not-None branch) -- it used to only run from within
+        # _step_shape(), which callback-driven shapes never reach, so a
+        # callback shape's color/scale/opacity changes were silently
+        # dropped forever, even though its pose kept updating fine via the
+        # callback's own SE3 return value.
         if shape._changed:
             shape._changed = False
             id = self.swift_objects.index(shape)
             self._send_socket("shape_update", [id, shape.to_dict()])
+
+    def _step_shape(self, shape, dt):
+
+        self._send_shape_update_if_changed(shape)
 
         step_shape(
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq

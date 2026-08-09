@@ -10,6 +10,14 @@ from swift.SwiftElement import (
 )
 from swift.Swift import Swift
 from swift.Handle import AssemblyHandle
+from swift.Light import (
+    Light,
+    AmbientLight,
+    HemisphereLight,
+    DirectionalLight,
+    PointLight,
+    SpotLight,
+)
 
 __all__ = [
     "Swift",
@@ -24,4 +32,10 @@ __all__ = [
     "Button",
     "Label",
     "AssemblyHandle",
+    "Light",
+    "AmbientLight",
+    "HemisphereLight",
+    "DirectionalLight",
+    "PointLight",
+    "SpotLight",
 ]
