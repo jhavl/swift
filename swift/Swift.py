@@ -224,7 +224,7 @@ class Swift:
 
         # Update world transform of objects
         for obj in self.swift_objects:
-            obj._propagate_scene_tree()
+            obj.update()
 
         # Adjust sim time
         self.sim_time += dt
@@ -353,7 +353,7 @@ class Swift:
         # list of robots which will act upon the step() method being called.
 
         if isinstance(ob, Shape):
-            ob._propagate_scene_tree()
+            ob.update()
             ob._added_to_swift = True
             if not self.headless:
                 id = int(self._send_socket("shape", [ob.to_dict()]))
@@ -391,7 +391,7 @@ class Swift:
 
             # Update robot transforms
             ob._update_link_tf()
-            ob._propagate_scene_tree()
+            ob.update()
 
             # Update robot qlim
             ob._qlim = ob.qlim
