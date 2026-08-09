@@ -205,6 +205,51 @@ function loadAxes(part, scene, cb) {
   finish(part, axes, scene, cb);
 }
 
+/**
+ * spatialgeometry.Path: a polyline through a sequence of waypoints --
+ * straight segments joining consecutive points, not a smoothed curve.
+ * radius == 0 renders as a single screen-space-width Line2 (mirrors
+ * Arrow's line-mode shaft, connecting every point in sequence); radius > 0
+ * renders as a real tube built from a CurvePath of straight LineCurve3
+ * segments, so bends stay sharp corners rather than getting smoothed the
+ * way a spline through the same points would -- same logical path either
+ * way, only the rendering mode differs (matches Arrow's own radius vs.
+ * linewidth invariant).
+ *
+ * Unlike Arrow/Axes, a Path is always a single object (one Line2, or one
+ * Mesh) in either mode -- no Group/userData.disposables wrapper needed,
+ * disposeMesh()'s plain disposeChild() fallback (same path loadPrimitive()
+ * uses) is enough.
+ */
+function makePath(points, radius, linewidth, color) {
+  const vectors = points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+
+  if (radius > 0) {
+    const curvePath = new THREE.CurvePath();
+    for (let i = 0; i < vectors.length - 1; i++) {
+      curvePath.add(new THREE.LineCurve3(vectors[i], vectors[i + 1]));
+    }
+    const tubularSegments = Math.max(1, vectors.length - 1);
+    const geometry = new THREE.TubeGeometry(curvePath, tubularSegments, radius, 16, false);
+    return new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color, specular: 0x111111, shininess: 200 }));
+  }
+
+  const positions = vectors.flatMap((v) => [v.x, v.y, v.z]);
+  const lineGeometry = new LineGeometry();
+  lineGeometry.setPositions(positions);
+  const material = new LineMaterial({ color, linewidth, worldUnits: false });
+  material.resolution.copy(lineResolution);
+  const line = new Line2(lineGeometry, material);
+  lineMaterials.push(material); // kept in sync on resize -- see scene.js
+  return line;
+}
+
+function loadPath(part, scene, cb) {
+  const path = makePath(part.points, part.radius, part.linewidth, part.color);
+  setPose(path, part.t, part.q);
+  finish(part, path, scene, cb);
+}
+
 function loadMesh(part, scene, cb, errCb) {
   const ext = part.filename.split(".").pop().toLowerCase();
 
@@ -355,6 +400,7 @@ function load(part, scene, cb, errCb) {
   else if (["cuboid", "box", "sphere", "cylinder"].includes(part.stype)) loadPrimitive(part, scene, cb);
   else if (part.stype === "axes") loadAxes(part, scene, cb);
   else if (part.stype === "arrow") loadArrow(part, scene, cb);
+  else if (part.stype === "path") loadPath(part, scene, cb);
   else {
     const reason = `unsupported shape type '${part.stype}'`;
     console.error(reason);
