@@ -105,6 +105,12 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+# Vendored third-party JS (three.js etc.) happens to live in a directory
+# also named build/ -- exempt it from the Python build/ rule above, or
+# any file added here without an explicit `git add -f` (e.g. three.core.js,
+# gif.worker.js) silently never gets committed, and is missing from every
+# fresh clone/worktree even though the app is broken without it.
+!src/swift/public/js/vendor/build/
 develop-eggs/
 dist/
 downloads/

@@ -240,6 +240,8 @@ class Swift:
         browser: str | None = None,
         axes: bool = True,
         ground_opacity: float = 1.0,
+        ground_pattern: bool | str = False,
+        ground_pattern_width: float = 1.0,
         lights: list[Light] | None = None,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
@@ -319,6 +321,22 @@ class Swift:
         :param ground_opacity: Opacity of the ground plane, from 0
             (invisible) to 1 (opaque), defaults to 1
         :type ground_opacity: float
+        :param ground_pattern: Repeating pattern on the ground plane.
+            ``False`` (default) is a plain flat floor. ``True`` or
+            ``"@tile"`` is a built-in checkerboard; ``"@grid"`` is a
+            built-in grid. Anything else is treated as an absolute path
+            to an image file to tile as a texture -- its tile height
+            follows the image's own aspect ratio (never distorted); see
+            ``ground_pattern_width``. Whenever a pattern is active, the
+            ground plane recentres under the camera every frame (snapped
+            to a whole tile, so the pattern never visibly shifts) so its
+            edge is never reachable regardless of pan/zoom -- skipped
+            entirely for the plain flat floor, which has no visible edge
+            to begin with.
+        :type ground_pattern: bool | str
+        :param ground_pattern_width: x-extent of one tile, in metres.
+            Only meaningful when ``ground_pattern`` is set, defaults to 1.
+        :type ground_pattern_width: float
         :param lights: custom scene lights, replacing Swift's default
             3-light rig entirely -- there is no way to add to the
             defaults, only replace them outright. ``None`` (default)
@@ -355,6 +373,8 @@ class Swift:
         self.headless = headless
         self.axes = axes
         self.ground_opacity = ground_opacity
+        self.ground_pattern = ground_pattern
+        self.ground_pattern_width = ground_pattern_width
         self.lights = lights
         # Anchors realtime_speed's pacing clock (see step()) -- needed in
         # headless mode too, not just for rendering.
@@ -380,6 +400,13 @@ class Swift:
 
             if self.ground_opacity != 1.0:
                 self._send_socket("ground_opacity", self.ground_opacity, expected=False)
+
+            if self.ground_pattern:
+                self._send_socket(
+                    "ground_pattern",
+                    {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
+                    expected=False,
+                )
 
             if self.lights is not None:
                 self.set_lights(self.lights)
@@ -454,6 +481,7 @@ class Swift:
                     cb = self.shape_callbacks.get(i)
                     if cb is not None:
                         obj.T = cb(t, values)
+                        self._send_shape_update_if_changed(obj)
                     else:
                         self._step_shape(obj, dt)
                 elif isinstance(obj, AssemblyHandle):
@@ -1178,12 +1206,24 @@ class Swift:
         # function of handle.q, rather than reading the scene-graph's
         # mutated/cached world transform. See jhavl/swift#85.
 
-    def _step_shape(self, shape, dt):
-
+    def _send_shape_update_if_changed(self, shape):
+        # A shape's @update-decorated setters (color, opacity, scale, ...)
+        # only flip shape._changed -- this is the one place that turns that
+        # flag into an actual "shape_update" message. Must run for every
+        # shape every step, callback-driven or not (see step()'s caller in
+        # the cb-is-not-None branch) -- it used to only run from within
+        # _step_shape(), which callback-driven shapes never reach, so a
+        # callback shape's color/scale/opacity changes were silently
+        # dropped forever, even though its pose kept updating fine via the
+        # callback's own SE3 return value.
         if shape._changed:
             shape._changed = False
             id = self.swift_objects.index(shape)
             self._send_socket("shape_update", [id, shape.to_dict()])
+
+    def _step_shape(self, shape, dt):
+
+        self._send_shape_update_if_changed(shape)
 
         step_shape(
             dt, shape.v, shape._SceneNode__T, shape._SceneNode__wT, shape._SceneNode__wq
