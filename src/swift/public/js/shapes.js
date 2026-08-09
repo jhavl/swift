@@ -222,8 +222,11 @@ function loadAxes(part, scene, cb) {
 }
 
 /**
- * spatialgeometry.Path: a polyline through a sequence of waypoints --
- * straight segments joining consecutive points, not a smoothed curve.
+ * spatialgeometry.Polyline (renamed from Path to avoid clashing with
+ * pathlib.Path -- jhavl/spatialgeometry#42; the wire-protocol stype
+ * string below deliberately stayed "path", see the dispatch site in
+ * load()): a polyline through a sequence of waypoints -- straight
+ * segments joining consecutive points, not a smoothed curve.
  * radius == 0 renders as a single screen-space-width Line2 (mirrors
  * Arrow's line-mode shaft, connecting every point in sequence); radius > 0
  * renders as a real tube built from a CurvePath of straight LineCurve3
@@ -477,6 +480,10 @@ function load(part, scene, cb, errCb) {
   else if (["cuboid", "box", "sphere", "cylinder", "ellipsoid"].includes(part.stype)) loadPrimitive(part, scene, cb);
   else if (part.stype === "axes") loadAxes(part, scene, cb);
   else if (part.stype === "arrow") loadArrow(part, scene, cb);
+  // "path" is spatialgeometry.Polyline's stype (not "polyline") -- the
+  // Python class was renamed (avoids clashing with pathlib.Path), but
+  // the wire string deliberately wasn't, to avoid a breaking protocol
+  // change for a rename that's purely cosmetic on the Python side.
   else if (part.stype === "path") loadPath(part, scene, cb);
   else {
     const reason = `unsupported shape type '${part.stype}'`;
