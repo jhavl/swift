@@ -22,6 +22,7 @@ def make_env():
     return env
 
 
+@pytest.mark.rtb
 def test_add_robot_returns_a_handle_with_independent_state():
     env = make_env()
     panda = rtb.models.Panda()
@@ -39,6 +40,7 @@ def test_add_robot_returns_a_handle_with_independent_state():
     assert not np.array_equal(handle1.q, handle2.q)
 
 
+@pytest.mark.rtb
 def test_setting_handle_q_drives_part_poses():
     env = make_env()
     panda = rtb.models.Panda()
@@ -53,6 +55,7 @@ def test_setting_handle_q_drives_part_poses():
     assert not np.allclose(poses_zero[-1].t, poses_ready[-1].t)
 
 
+@pytest.mark.rtb
 def test_legacy_direct_mutation_still_works_but_warns_once():
     env = make_env()
     panda = rtb.models.Panda()
@@ -73,6 +76,7 @@ def test_legacy_direct_mutation_still_works_but_warns_once():
     assert np.array_equal(handle.q, panda.q)
 
 
+@pytest.mark.rtb
 def test_new_style_usage_never_warns():
     env = make_env()
     panda = rtb.models.Panda()
@@ -85,6 +89,7 @@ def test_new_style_usage_never_warns():
     assert len(record) == 0
 
 
+@pytest.mark.rtb
 def test_control_mode_validation():
     env = make_env()
     panda = rtb.models.Panda()
@@ -176,6 +181,7 @@ def test_named_slider_pushes_into_values():
     assert env.values["q1"] == 9
 
 
+@pytest.mark.rtb
 def test_show_does_not_raise(capsys):
     env = make_env()
     box = sg.Cuboid([0.1, 0.1, 0.1])

@@ -151,6 +151,7 @@ def test_send_socket_raises_timeout_instead_of_hanging_forever(monkeypatch):
         env._send_socket("shape", ["dummy"])
 
 
+@pytest.mark.rtb
 def test_add_robot_sends_flat_list_of_all_link_parts():
     env = make_env()
     panda = rtb.models.Panda()

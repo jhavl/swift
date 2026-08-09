@@ -84,6 +84,17 @@ package-dir = { "" = "src" }
 packages = ["swift"]
 
 
+[tool.pytest.ini_options]
+
+# rtb: constructs a real roboticstoolbox model (rtb.models.Panda(), not a
+# bare fk= callable) -- excluded by default. Swift depends on
+# spatialgeometry directly, not on roboticstoolbox; a test in this set
+# failing reflects an RTB/SG compatibility break upstream, not a swift
+# regression, and shouldn't gate swift's own PRs. Run explicitly with
+# `pytest -m rtb`.
+markers = ["rtb: requires roboticstoolbox to build a real robot model"]
+addopts = "-m 'not rtb'"
+
 [tool.black]
 
 line-length = 88
