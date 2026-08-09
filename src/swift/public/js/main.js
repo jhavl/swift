@@ -1,7 +1,7 @@
 import { createScene, setGroundPattern, updateGroundPatternPosition, setLights } from "./scene.js";
 import { SwiftObject } from "./shapes.js";
 import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
-import { WebSocketTransport, portFromLocation } from "./comms.js";
+import { WebSocketTransport, portFromLocation, SWIFT_JS_VERSION } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
 
@@ -58,7 +58,13 @@ const transport = new WebSocketTransport(`ws://localhost:${portFromLocation()}/`
 let connected = false;
 
 transport.onOpen(() => {
-  transport.send("Connected");
+  // Plain JSON, not one of main.js's own [func, data] wire-protocol
+  // pairs -- this is the very first message, before Python's read loop
+  // has even started dispatching those; SwiftRoute.py's start_servers()
+  // reads it directly to check this tab's JS version against the
+  // installed package's, so it can warn about a stale browser cache
+  // rather than something more confusing further down the line.
+  transport.send(JSON.stringify({ event: "connected", js_version: SWIFT_JS_VERSION }));
   connected = true;
   requestAnimationFrame(animate);
 });
