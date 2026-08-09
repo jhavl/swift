@@ -12,6 +12,21 @@
  * dispatch table.
  */
 
+// Patched in place to match pyproject.toml's `version` before every
+// release build -- see scripts/sync_js_version.py, run as a step in
+// .github/workflows/cibuildwheel.yml, so this can never drift out of
+// sync via a forgotten manual bump. The value checked in here is only
+// what a local editable install/dev checkout sees.
+//
+// Baked directly into this source file (not injected at serve time) so
+// that a *stale, browser-cached* copy of this exact file still reports
+// whatever version was true when it was cached -- that's the whole
+// point: SwiftRoute.py's start_servers() compares this against the
+// currently-installed package version at connection time, so a browser
+// tab running old cached JS against a freshly-upgraded install gets a
+// clear warning instead of silently misbehaving.
+export const SWIFT_JS_VERSION = "2.0.0";
+
 export class WebSocketTransport {
   /** @param {string} url */
   constructor(url) {

@@ -16,6 +16,7 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
+from importlib.metadata import version as _installed_version, PackageNotFoundError
 
 
 from queue import Queue
@@ -37,6 +38,55 @@ try:
     COLAB = True
 except ImportError:
     COLAB = False
+
+
+def _check_js_version(handshake_msg) -> None:
+    """
+    Warn if the connecting browser tab's JS reports a different version
+    than the currently-installed swift-sim package -- almost always a
+    stale, browser-cached page from before an upgrade. comms.js's
+    SWIFT_JS_VERSION is what makes this detectable at all: it's baked
+    into that file's own source (patched to match pyproject.toml at
+    release-build time -- see scripts/sync_js_version.py), so a stale
+    cached copy keeps reporting whatever version was true when it was
+    cached, not the current one.
+
+    :param handshake_msg: the raw first message received over the
+        websocket, expected to be JSON containing "js_version" -- a
+        pre-version-reporting JS build just sends the bare string
+        "Connected" instead, which fails to parse and is treated the
+        same as "no version reported at all"
+    """
+    try:
+        installed = _installed_version("swift-sim")
+    except PackageNotFoundError:
+        # Editable/dev install with no dist-info to compare against --
+        # nothing meaningful to warn about.
+        return
+
+    js_version = None
+    try:
+        payload = json.loads(handshake_msg)
+        if isinstance(payload, dict):
+            js_version = payload.get("js_version")
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    if js_version is None:
+        print(
+            "\nWarning: this browser tab appears to be running a very "
+            "old, cached copy of Swift's JavaScript -- older than the "
+            f"version that added version reporting -- while swift-sim "
+            f"{installed} is installed. If anything looks broken, "
+            "hard-refresh the browser tab (or open a new one).\n"
+        )
+    elif js_version != installed:
+        print(
+            f"\nWarning: this browser tab is running Swift JS v{js_version}, "
+            f"but swift-sim v{installed} is installed -- likely a stale "
+            "cached page. Hard-refresh the browser tab (or open a new "
+            "one) to pick up the current version.\n"
+        )
 
 
 def start_servers(
@@ -143,7 +193,7 @@ def start_servers(
     # auto-opening -- give them realistic time to notice and click it.
     handshake_timeout = 60 if COLAB else 10
     try:
-        inq.get(timeout=handshake_timeout)
+        handshake_msg = inq.get(timeout=handshake_timeout)
     except Empty:
         if COLAB:
             print(
@@ -157,6 +207,8 @@ def start_servers(
         else:
             print("\nCould not connect to the Swift simulator \n")
         raise
+
+    _check_js_version(handshake_msg)
 
     return socket, socket_instance, server, server_instance, notebook_handle
 
