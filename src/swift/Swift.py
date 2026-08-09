@@ -197,9 +197,12 @@ class Swift:
     def _describe(self, i, obj):
         name = self.swift_names.get(i)
         if isinstance(obj, AssemblyHandle):
-            kind = "AssemblyHandle(robot)" if obj.robot is not None else "AssemblyHandle"
+            if obj.robot is not None:
+                kind = f"AssemblyHandle(robot={obj.robot.name!r}, links={len(obj.robot.links)})"
+            else:
+                kind = "AssemblyHandle"
         else:
-            kind = type(obj).__name__
+            kind = repr(obj)
         return f"[{i}] {kind}" + (f' "{name}"' if name else "")
 
     def __repr__(self):
@@ -209,17 +212,59 @@ class Swift:
             if ob is None:
                 continue
             s += f"\n  {self._describe(i, ob)}"
+            if isinstance(ob, AssemblyHandle) and ob.robot is not None:
+                for link in ob.robot.links:
+                    counts = []
+                    if len(link.geometry):
+                        counts.append(f"{len(link.geometry)} geometry")
+                    if len(link.collision):
+                        counts.append(f"{len(link.collision)} collision")
+                    suffix = f" ({', '.join(counts)})" if counts else ""
+                    s += f"\n      {link.name}{suffix}"
         return s
+
+    def __getitem__(self, key):
+        """
+        Retrieve a previously-added shape/robot/assembly by id or name.
+
+        ``env[3]`` retrieves by the id returned from ``add_shape()`` etc.
+        ``env["gripper"]`` retrieves by the ``name=`` given at add time --
+        only objects actually given a name are reachable this way.
+
+        :param key: the object's id, or its ``name=``
+        :type key: int | str
+        :raises KeyError: no object exists under ``key`` (never named,
+            already removed, or an out-of-range id)
+        """
+        if isinstance(key, str):
+            for i, name in self.swift_names.items():
+                if name == key and self.swift_objects[i] is not None:
+                    return self.swift_objects[i]
+            raise KeyError(f"no object named {key!r}")
+
+        try:
+            obj = self.swift_objects[key]
+        except IndexError:
+            obj = None
+        if obj is None:
+            raise KeyError(f"no object with id {key!r} (removed, or never existed)")
+        return obj
 
     def show(self):
         """
         Print the current display list, for debugging.
 
         ``env.show()`` prints every object currently added to the scene
-        (shapes, assemblies/robots, and UI elements) with its id, type,
-        and name if one was given via ``name=`` at add time. The
+        (shapes, assemblies/robots, and UI elements) with its id, a
+        ``repr()`` of the object itself, and its name if one was given
+        via ``name=`` at add time -- an assembly/robot also lists its
+        links, indented, with their geometry/collision shape counts. The
         pause/realtime-speed controls _add_controls() adds to every
         launch() aren't user-added UI, so they're excluded here too.
+
+        Any named object, or any object by its id, can also be
+        retrieved directly with ``env[name]`` / ``env[id]`` -- see
+        :meth:`__getitem__`.
         """
         print(repr(self))
         for eid, el in self.elements.items():
