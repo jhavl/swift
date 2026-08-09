@@ -3,7 +3,7 @@
 @author Jesse Haviland
 """
 
-from os import read
+import os
 import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
@@ -373,6 +373,18 @@ class Swift:
         self.headless = headless
         self.axes = axes
         self.ground_opacity = ground_opacity
+        if (
+            isinstance(ground_pattern, str)
+            and ground_pattern not in ("@tile", "@grid")
+            and not os.path.isabs(ground_pattern)
+        ):
+            raise ValueError(
+                f"ground_pattern={ground_pattern!r} is a relative path, but "
+                "Swift serves custom textures from an absolute path on disk "
+                "(via the same mechanism as Mesh filenames) -- pass an "
+                "absolute path, e.g. str(Path(__file__).parent / "
+                f"{ground_pattern!r})"
+            )
         self.ground_pattern = ground_pattern
         self.ground_pattern_width = ground_pattern_width
         self.lights = lights
@@ -694,6 +706,14 @@ class Swift:
         ``id = env.add_shape(shape)`` adds ``shape`` to the graphical
         environment and returns its id.
         """
+        filename = getattr(shape, "filename", None)
+        if isinstance(filename, str) and not os.path.isabs(filename):
+            raise ValueError(
+                f"{type(shape).__name__}(filename={filename!r}) is a "
+                "relative path, but Swift serves mesh files from an "
+                "absolute path on disk -- pass an absolute path, e.g. "
+                f"str(Path(__file__).parent / {filename!r})"
+            )
         shape.update()
         shape._added_to_swift = True
         if not self.headless:
