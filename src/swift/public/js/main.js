@@ -1,11 +1,11 @@
-import { createScene, setGroundPattern, updateGroundPatternPosition } from "./scene.js";
+import { createScene, setGroundPattern, updateGroundPatternPosition, setLights } from "./scene.js";
 import { SwiftObject } from "./shapes.js";
 import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
 import { WebSocketTransport, portFromLocation } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
 
-const { scene, camera, renderer, controls, axesHelper, ground, groundMaterial } = createScene();
+const { scene, camera, renderer, controls, axesHelper, ground, groundMaterial, lights } = createScene();
 
 const fps = new FPS(document.getElementById("fps"));
 const simTime = new SimTime(document.getElementById("sim-time"));
@@ -166,6 +166,10 @@ transport.onMessage((func, data) => {
     }
     case "ground_pattern": {
       setGroundPattern(ground, groundMaterial, data.pattern, data.width);
+      break;
+    }
+    case "lights": {
+      setLights(scene, lights, data);
       break;
     }
     case "camera_pose": {

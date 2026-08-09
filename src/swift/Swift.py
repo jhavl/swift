@@ -12,6 +12,7 @@ from queue import Queue, Empty
 import json
 from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
+from swift.Light import Light
 
 
 def _se3_to_wire(T):
@@ -241,6 +242,7 @@ class Swift:
         ground_opacity: float = 1.0,
         ground_pattern: bool | str = False,
         ground_pattern_width: float = 1.0,
+        lights: list[Light] | None = None,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
         **kwargs,
@@ -250,6 +252,16 @@ class Swift:
 
         ``env = launch(args)`` create a 3D scene in a running Swift instance as
         defined by args, and returns a reference to the backend.
+
+        .. warning::
+
+            The scene's lights are fixed in world space and never move on
+            their own -- including in response to :meth:`set_camera_pose`.
+            Moving the camera far enough from its default position can
+            leave every camera-facing surface in shadow, since the
+            default lights are positioned specifically to match that
+            default camera position. Use ``lights=``/:meth:`set_lights`
+            to reposition them to match, if needed.
 
         ``timeout`` and ``browser_timeout`` cover two independent,
         opposite-direction halves of the same disconnect -- worth
@@ -325,6 +337,12 @@ class Swift:
         :param ground_pattern_width: x-extent of one tile, in metres.
             Only meaningful when ``ground_pattern`` is set, defaults to 1.
         :type ground_pattern_width: float
+        :param lights: custom scene lights, replacing Swift's default
+            3-light rig entirely -- there is no way to add to the
+            defaults, only replace them outright. ``None`` (default)
+            keeps the default rig unchanged. See :meth:`set_lights` to
+            change lights again after launch.
+        :type lights: list[Light] | None
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
@@ -357,6 +375,7 @@ class Swift:
         self.ground_opacity = ground_opacity
         self.ground_pattern = ground_pattern
         self.ground_pattern_width = ground_pattern_width
+        self.lights = lights
         # Anchors realtime_speed's pacing clock (see step()) -- needed in
         # headless mode too, not just for rendering.
         self.last_time = time.time()
@@ -388,6 +407,9 @@ class Swift:
                     {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
                     expected=False,
                 )
+
+            if self.lights is not None:
+                self.set_lights(self.lights)
 
             self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
@@ -1095,6 +1117,15 @@ class Swift:
         point in space defined by look_at. Note that the camera is
         oriented with the positive z-axis.
 
+        .. warning::
+
+            The scene's lights do not move with the camera -- they're
+            fixed in world space, positioned to match the *default*
+            camera position set at launch. Moving the camera far enough
+            away with this method can leave every camera-facing surface
+            in shadow. Use :meth:`set_lights` to reposition them to
+            match, if needed.
+
         :param position: The desired position of the camera
         :type position: 3 vector (list or ndarray)
         :param look_at: A point in the scene in which the camera will look at
@@ -1121,6 +1152,25 @@ class Swift:
         }
 
         self._send_socket("camera_pose", transform, False)
+
+    def set_lights(self, lights: list[Light]) -> None:
+        """
+        Replace the scene's current lights.
+
+        ``env.set_lights(lights)`` replaces every light currently in the
+        scene -- including Swift's own default rig, if it's still
+        active -- with ``lights``. There is no way to add or remove a
+        single light individually; the whole rig is always replaced as
+        one unit. Call again with the same lights given to
+        :meth:`launch` to restore them after temporarily using
+        something else.
+
+        :param lights: the new set of lights, replacing every light
+            currently in the scene
+        """
+        self.lights = lights
+        if not self.headless:
+            self._send_socket("lights", [light.to_dict() for light in lights], expected=False)
 
     def _step_assembly(self, handle, dt):
 
