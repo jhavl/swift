@@ -274,7 +274,15 @@ function loadMesh(part, scene, cb, errCb) {
   // and Swift._wait_mounted() in Swift.py); a swallowed error here means
   // that poll spins forever with no way for the caller to find out why.
   const onError = (label) => (error) => {
-    const reason = `failed to load ${label} file '${part.filename}': ${error}`;
+    // FileLoader routes both fetch-level failures (a non-2xx HTTP response,
+    // which it wraps in an HttpError carrying the real Response as
+    // .response) and this loader's own parse() exceptions (thrown on
+    // malformed/unsupported file content) through this same callback --
+    // distinguishing them here is the difference between "wrong path" and
+    // "found it, but couldn't read it" for whoever's debugging this.
+    const reason = error?.response
+      ? `${label} file '${part.filename}' not found: server responded ${error.response.status} ${error.response.statusText} for ${error.response.url}`
+      : `${label} file '${part.filename}' was fetched but could not be parsed -- likely malformed or an unsupported variant of this format: ${error}`;
     console.error(reason, error);
     errCb(-2, reason);
   };
@@ -313,12 +321,12 @@ function loadMesh(part, scene, cb, errCb) {
     );
   } else if (ext === "obj") {
     mtlLoader.load(
-      part.filename.slice(0, part.filename.length - 3) + "mtl",
+      url.slice(0, url.length - 3) + "mtl",
       (materials) => {
         materials.preload();
         objLoader.setMaterials(materials);
         objLoader.load(
-          part.filename,
+          url,
           (object) => {
             object.traverse((child) => {
               if (child.isMesh) {
@@ -333,11 +341,13 @@ function loadMesh(part, scene, cb, errCb) {
           onProgress,
           onError("obj")
         );
-      }
+      },
+      onProgress,
+      onError("MTL")
     );
   } else if (ext === "gltf" || ext === "glb") {
     gltfLoader.load(
-      part.filename,
+      url,
       (gltf) => {
         const mesh = gltf.scene;
         mesh.traverse((child) => {
@@ -355,7 +365,7 @@ function loadMesh(part, scene, cb, errCb) {
     );
   } else if (ext === "ply") {
     plyLoader.load(
-      part.filename,
+      url,
       (geometry) => {
         geometry.computeVertexNormals();
         const mesh = new THREE.Mesh(geometry, materialFor(part));
@@ -370,7 +380,7 @@ function loadMesh(part, scene, cb, errCb) {
     );
   } else if (ext === "wrl") {
     vrmLoader.load(
-      part.filename,
+      url,
       (mesh) => {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -383,7 +393,7 @@ function loadMesh(part, scene, cb, errCb) {
     );
   } else if (ext === "pcd") {
     pcdLoader.load(
-      part.filename,
+      url,
       (mesh) => {
         mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
         setPose(mesh, part.t, part.q);
