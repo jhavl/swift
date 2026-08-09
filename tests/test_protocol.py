@@ -97,7 +97,13 @@ def test_add_path_sends_points_radius_and_linewidth():
     browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
 
     points = np.array([[0.0, 1.0, 2.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
-    path = sg.Path(points, radius=0.02, linewidth=2.0, color=[1.0, 0.0, 0.0, 1.0])
+    # spatialgeometry renamed the Python class Path -> Polyline (avoids
+    # clashing with pathlib.Path -- see jhavl/spatialgeometry#42), but
+    # deliberately left the wire-protocol stype string as "path" --
+    # changing that too would be a breaking protocol change requiring a
+    # matching shapes.js update, for a rename that's purely cosmetic on
+    # the Python side.
+    path = sg.Polyline(points, radius=0.02, linewidth=2.0, color=[1.0, 0.0, 0.0, 1.0])
     env.add(path)
 
     _, shape_data = browser.received[0]
