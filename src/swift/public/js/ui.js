@@ -51,7 +51,7 @@ export class Slider {
       // it (0.30000000000000004 and the like).
       this.value.innerHTML = Number(this.slider.value).toFixed(this.precision) + this.unit;
       this.changed = true;
-      this.data = this.slider.value;
+      this.data = Number(this.slider.value);
     };
     this.slider.addEventListener("input", this.onInput);
 
