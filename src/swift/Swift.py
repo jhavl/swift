@@ -495,7 +495,7 @@ class Swift:
             # no scene-graph propagation needed, see jhavl/swift#85)
             for obj in self.swift_objects:
                 if isinstance(obj, Shape):
-                    obj._propogate_scene_tree()
+                    obj.update()
 
             if self.realtime_speed:
                 # Delay progress if we're running too quickly for the
@@ -694,7 +694,7 @@ class Swift:
         ``id = env.add_shape(shape)`` adds ``shape`` to the graphical
         environment and returns its id.
         """
-        shape._propogate_scene_tree()
+        shape.update()
         shape._added_to_swift = True
         if not self.headless:
             id = int(self._send_socket("shape", [shape.to_dict()]))
@@ -777,7 +777,7 @@ class Swift:
         ``fk(handle.q)``.
         """
         for part in parts:
-            part._propogate_scene_tree()
+            part.update()
             part._added_to_swift = True
 
         if not self.headless:
@@ -830,7 +830,7 @@ class Swift:
         deprecated, see :class:`~swift.Handle.AssemblyHandle`).
         """
         robot._update_link_tf()
-        robot._propogate_scene_tree()
+        robot.update()
         robot._qlim = robot.qlim
 
         if not self.headless:
