@@ -280,7 +280,7 @@ class Swift:
     def launch(
         self,
         realtime: bool | float = False,
-        headless: bool = False,
+        headless: bool | None = None,
         rate: int = 60,
         browser: str | None = None,
         axes: bool = True,
@@ -351,8 +351,13 @@ class Swift:
         :type realtime: bool | float
         :param headless: Do not launch the graphical front-end of the
             simulator. Will still simulate the robot. Runs faster due to not
-            needing to display anything.
-        :type headless: bool
+            needing to display anything. ``None`` (default) falls back to
+            the ``SWIFT_HEADLESS`` environment variable (headless if set to
+            any non-empty value), then ``False`` if that's also unset --
+            lets a test harness or CI environment force headless mode
+            globally without every calling script having to pass
+            ``headless=True`` itself.
+        :type headless: bool | None
         :param rate: The rate (Hz) at which the simulator will be run,
             defaults to 60Hz
         :type rate: int
@@ -415,6 +420,8 @@ class Swift:
             self.realtime_speed = 1.0 if realtime else None
         else:
             self.realtime_speed = float(realtime)
+        if headless is None:
+            headless = bool(os.environ.get("SWIFT_HEADLESS"))
         self.headless = headless
         self.axes = axes
         self.ground_opacity = ground_opacity
@@ -483,7 +490,7 @@ class Swift:
             # event loop to return.
             self.socket.stop()
             self.socket_thread.join(1)
-        if not self._dev:
+        if not self._dev and not self.headless:
             # server.stop() (httpd.shutdown()) is what actually lets
             # serve_forever() return -- without it, Thread.run() never
             # reaches its own cleanup of the arguments it was started
@@ -517,6 +524,10 @@ class Swift:
             - The control type is defined by the robot object, and not all
               robot objects support all control types.
             - Execution is blocked for the specified interval
+
+        :seealso: :meth:`run` for repeatedly calling this in a loop with
+            disconnect-awareness built in, instead of hand-writing
+            ``while True: env.step(dt)``.
 
         """
 
@@ -1067,6 +1078,9 @@ class Swift:
             ``None`` never gives up on a disconnect (still stops at
             ``duration``, if given).
         :type timeout: float | None
+
+        :seealso: :meth:`step` for a single manual update, if you need
+            finer control than a bounded/unbounded loop gives you.
         """
 
         if timeout is None:
