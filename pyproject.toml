@@ -95,6 +95,13 @@ packages = ["swift"]
 markers = ["rtb: requires roboticstoolbox to build a real robot model"]
 addopts = "-m 'not rtb'"
 
+# tests/test_lights.py imports fixtures from tests/test_protocol.py as
+# `tests.test_protocol`, which needs the repo root on sys.path. That's
+# implicit when running via `python -m pytest` (which prepends cwd) but
+# not for a bare `pytest` invocation -- which is what CI's workflow uses,
+# so every CI run has been failing at collection since this landed.
+pythonpath = ["."]
+
 [tool.black]
 
 line-length = 88
