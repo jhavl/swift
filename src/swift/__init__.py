@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from swift.SwiftRoute import SwiftServer, SwiftSocket, start_servers
 from swift.SwiftElement import (
     SwiftElement,
@@ -19,7 +21,15 @@ from swift.Light import (
     SpotLight,
 )
 
+try:
+    __version__ = version("swift-sim")
+except PackageNotFoundError:
+    # running from a source checkout without an installed/editable
+    # swift-sim distribution -- e.g. importing straight from src/
+    __version__ = "unknown"
+
 __all__ = [
+    "__version__",
     "Swift",
     "SwiftServer",
     "SwiftSocket",
