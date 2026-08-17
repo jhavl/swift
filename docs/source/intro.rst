@@ -29,6 +29,99 @@ Rethink, as well as classical robots such as the Puma 560 and the Stanford
 arm.
 
 
+Displaying shapes
+-----------------
+
+Swift opens a browser tab and renders whatever is added to the scene:
+
+.. code-block:: python
+
+    # pip install swift-sim
+    import spatialgeometry as gm
+    from spatialmath import SE3
+    from swift import Swift
+
+    env = Swift()
+    env.launch(realtime=True)
+
+    cube = gm.Cuboid([1, 2, 3], pose=SE3(0, 0, 0.5), color="blue")
+    sphere = gm.Sphere(0.3, pose=SE3(2, 0, 0.3), color="red")
+    gripper = gm.Mesh("../figs/panda_hand.dae", pose=SE3.Rx(90, unit="deg")*SE3.Tx(0.3))
+
+    env.add(cube)
+    env.add(sphere)
+    env.add(gripper)
+
+Swift's ``env.add()`` accepts a bare ``Shape`` directly -- internally it
+just calls the shape's ``to_dict()`` (shown above) and sends it over
+a websocket to the browser which runs Swift's JavaScript code to render the scene.
+
+The scene is navigated with the mouse, using three.js's standard
+`OrbitControls <https://threejs.org/docs/#examples/en/controls/OrbitControls>`__:
+
+.. list-table:: Mouse controls
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Control
+     - Action
+   * - Left button, drag
+     - Rotate (orbit) the camera around the orbit target
+   * - Right button, drag
+     - Pan the camera and orbit target together
+   * - Scroll wheel
+     - Zoom in/out (dolly the camera towards/away from the orbit target)
+
+The camera always looks at a fixed point in space called the *orbit target*
+-- dragging with the left button rotates the camera around this point rather
+than around the scene's origin. Swift sets the orbit target just above the
+ground plane, at ``(0, 0, 0.2)``, so that rotating the view keeps your
+shapes centred rather than swinging around the ground plane at ``z=0``.
+Panning (right button or Ctrl/Cmd/Shift+left button) moves the orbit target itself, so subsequent
+rotations pivot around wherever you've panned to.
+
+Notes:
+
+* The shapes have a finite z-displacement to lift them above the ground plane at
+  z=0. The parts of objects below the ground plane are not visible from above the ground
+  plane (default camera position) but if you rotate the scene using the mouse you can
+  look beneath the ground and see the hidden part of the object.
+
+ * While we can use a wide variety of mesh formats for Spatial Geometry, Swift only
+   supports a subset of them: Collada (``.dae``) and STL (``.stl``). Collada (``.dae``)
+   supports color and texture, which STL (``.stl``) does not. See Swift's README for
+   more details.
+
+
+See ``examples/displaying_shapes.py`` for a complete example.
+
+Animating shapes
+----------------
+
+To animate a shape, we simply change its pose and call ``env.step()`` to update the
+scene. The following example animates a sphere moving back and forth along the x-axis:
+
+.. code-block:: python
+
+    # pip install swift-sim
+    import spatialgeometry as gm
+    from spatialmath import SE3
+    from swift import Swift
+
+    env = Swift()
+    env.launch(realtime=True)
+
+    sphere = gm.Sphere(0.3, pose=SE3(0, 0, 0.3), color="red")
+
+    env.add(sphere)
+
+    for i in range(500):
+        x = math.sin(i/20) * 0.5
+        sphere.T = SE3.Trans(x, 0, 0.3)
+        env.step(0.05)  # wait 0.05 seconds before next step
+
+See ``examples/animating_shapes.py`` for a complete example.
+
 Installation
 ============
 

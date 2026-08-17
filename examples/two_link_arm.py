@@ -50,5 +50,7 @@ handle = env.add_assembly(
 env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 1", unit="rad"), name="q1")
 env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 2", unit="rad"), name="q2")
 
+env.show()
+
 while True:
     env.step(0.05)

@@ -19,7 +19,7 @@ import spatialmath as sm
 from swift import Swift
 
 env = Swift()
-env.launch(realtime=True)
+env.launch(realtime=True, ground_opacity=0.5)
 
 W = 0.1
 box = sg.Cuboid([W, W, W], color=[0.2, 0.4, 1.0, 1.0])

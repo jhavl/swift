@@ -14,7 +14,7 @@ from spatialmath import SE3
 from swift import Swift, Slider
 
 env = Swift()
-env.launch(realtime=True)
+env.launch(realtime=True, ground_opacity=0.5)
 
 SIDE = 0.2
 box = sg.Cuboid([SIDE, SIDE, SIDE], pose=SE3(0, 0, SIDE / 2), color=[0.2, 0.4, 1.0, 1.0])
@@ -22,6 +22,7 @@ box = sg.Cuboid([SIDE, SIDE, SIDE], pose=SE3(0, 0, SIDE / 2), color=[0.2, 0.4, 1
 
 def box_pose(t, values):
     # z is height above the floor, not the box centre
+    print(values)
     return SE3(values["x"], values["y"], values["z"] + SIDE / 2)
 
 

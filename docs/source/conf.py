@@ -13,7 +13,7 @@ import re
 # -- Project information -----------------------------------------------------
 
 project = 'Swift'
-copyright = '2020, Jesse Haviland and Peter Corke'
+copyright = '2020-present, Jesse Haviland and Peter Corke'
 author = 'Jesse Haviland and Peter Corke'
 
 # Parse version number out of pyproject.toml
