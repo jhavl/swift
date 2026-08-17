@@ -34,14 +34,14 @@ jobs:
         run: pip install numpy setuptools wheel
 
       - name: Install roboticstoolbox-python and dev/test tools
-        # tests/ exercises Robot.fkine_geometry(q), added to
-        # roboticstoolbox-python on the feat/fkine-geometry branch but not
-        # yet released to PyPI (swift/roboticstoolbox/spatialgeometry are
-        # developed together across git branches, ahead of what's actually
-        # released -- see jhavl/swift#88). Installing from that branch
-        # directly, same idea as installing swift-sim itself from source
-        # below.
-        run: pip install "git+https://github.com/petercorke/robotics-toolbox-python.git@feat/fkine-geometry" websockets pytest pytest-cov black flake8 pyyaml
+        # tests/ exercises Robot.fkine_geometry(q) -- merged into
+        # roboticstoolbox-python's main (the feat/fkine-geometry branch it
+        # originally landed on is now redundant) but not yet released to
+        # PyPI (swift/roboticstoolbox/spatialgeometry are developed together
+        # across git branches, ahead of what's actually released -- see
+        # jhavl/swift#88). Installing from main directly, same idea as
+        # installing spatialgeometry itself from source below.
+        run: pip install "git+https://github.com/petercorke/robotics-toolbox-python.git@main" websockets pytest pytest-cov black flake8 pyyaml
 
       - name: Install spatialgeometry from its own main branch
         # main renamed Path -> Polyline (jhavl/spatialgeometry#42, merged
