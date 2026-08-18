@@ -1,0 +1,14 @@
+{
+  "name": "swift-public-assets",
+  "private": true,
+  "description": "Vendored browser assets for the Swift visualizer's static frontend (swift/public/). Not published, not needed to install/use the swift-sim Python package -- this is a maintainer-side tool for refreshing the vendored copies in js/vendor/, which are committed to git so end users never need Node.js.",
+  "type": "module",
+  "scripts": {
+    "build:vendor": "node scripts/build-vendor.cjs",
+    "test": "node --test js/*.test.js"
+  },
+  "dependencies": {
+    "three": "0.185.1",
+    "ccapture.js": "1.1.0"
+  }
+}

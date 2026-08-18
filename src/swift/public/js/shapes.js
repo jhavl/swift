@@ -1,0 +1,580 @@
+/**
+ * Loading and pose updates for scene objects.
+ *
+ * Swift.py's protocol has no separate "robot" concept on the wire: adding a
+ * robot just sends a flat list of its link geometries, each in the same
+ * per-part dict shape a lone Shape uses (spatialgeometry's Shape.to_dict()):
+ * {stype, t, q, v, color, opacity, ...type-specific fields}. A Shape is the
+ * one-part case of the same list. `q` is [w, x, y, z] -- THREE.Quaternion's
+ * constructor is (x, y, z, w), so it's always passed as
+ * (q[1], q[2], q[3], q[0]). `color` is a 0xRRGGBB int, `opacity` a 0-1 float.
+ */
+
+import * as THREE from "three";
+import { ColladaLoader } from "three/addons/loaders/ColladaLoader.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
+import { VRMLLoader } from "three/addons/loaders/VRMLLoader.js";
+import { PCDLoader } from "three/addons/loaders/PCDLoader.js";
+import { PLYLoader } from "three/addons/loaders/PLYLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+
+const daeLoader = new ColladaLoader();
+const stlLoader = new STLLoader();
+const objLoader = new OBJLoader();
+const mtlLoader = new MTLLoader();
+const vrmLoader = new VRMLLoader();
+const pcdLoader = new PCDLoader();
+const plyLoader = new PLYLoader();
+const gltfLoader = new GLTFLoader();
+
+// LineMaterial (used for Arrow's radius=0 shaft and, later, Path) renders
+// screen-space-width lines via a resolution uniform it needs kept in sync
+// with the canvas size -- unlike everything else here, it doesn't pick this
+// up automatically. scene.js's resize handler calls resizeLines() with the
+// new canvas size; every LineMaterial ever created gets its own resolution
+// updated in place (copying into a material's Vector2 doesn't establish a
+// live reference back to this one).
+const lineResolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+const lineMaterials = [];
+
+export function resizeLines(width, height) {
+  lineResolution.set(width, height);
+  for (const material of lineMaterials) material.resolution.copy(lineResolution);
+}
+
+function setPose(object3d, t, q) {
+  object3d.position.set(t[0], t[1], t[2]);
+  // q is already [x, y, z, w] -- spatialgeometry's SceneNode._wq is computed
+  // via spatialmath's r2q(..., order="xyzs"), which is also THREE.Quaternion's
+  // native constructor order, so no reordering is needed (unlike the old
+  // public/js/lib.js, which reordered assuming [w, x, y, z] -- that must have
+  // matched an older, since-changed version of this wire format).
+  object3d.quaternion.set(q[0], q[1], q[2], q[3]);
+}
+
+function materialFor(part, geometry) {
+  // Mesh.to_dict() sets use_vertex_colors when no explicit color= was ever
+  // given (see spatialgeometry's Mesh) -- in that case, prefer whatever
+  // per-vertex/per-face colors the loader parsed out of the file itself
+  // (PLY/STL both support this) over the flat default. Primitives (no
+  // geometry passed, or no color attribute present) are unaffected.
+  const useVertexColors = !!(part.use_vertex_colors && geometry?.hasAttribute("color"));
+  return new THREE.MeshPhongMaterial({
+    color: useVertexColors ? 0xffffff : part.color,
+    vertexColors: useVertexColors,
+    specular: 0x111111,
+    shininess: 200,
+    // Only join the transparent render queue for genuinely translucent
+    // shapes -- three.js sorts transparent objects per-object (by bounding
+    // sphere distance), not per-pixel, so an opaque shape marked transparent
+    // can win outright against another transparent object it intersects
+    // (e.g. a shape straddling the translucent ground plane) instead of
+    // being correctly depth-tested against it.
+    transparent: part.opacity < 1,
+    opacity: part.opacity,
+  });
+}
+
+function finish(part, mesh, scene, cb) {
+  scene.add(mesh);
+  part.mesh = mesh;
+  cb();
+}
+
+/**
+ * Frees GPU resources for anything `finish()` handed to a scene -- a plain
+ * THREE.Mesh (material/geometry directly on it), a helper with its own
+ * dispose() (AxesHelper, ArrowHelper), or one of this module's own
+ * multi-child Groups (Arrow's shaft+cone, Axes' three per-axis arrows --
+ * see makeArrow()/loadAxes(), which tag every child needing disposal onto
+ * userData.disposables since Group itself owns no geometry/material).
+ */
+function disposeChild(child) {
+  child.material?.dispose?.();
+  child.geometry?.dispose?.();
+  // LineMaterial instances (Arrow's radius=0 shaft) are tracked in
+  // lineMaterials so resizeLines() can keep their resolution uniform
+  // current -- forgetting to untrack here would leak one entry per Arrow
+  // ever created, for the life of the page.
+  const idx = lineMaterials.indexOf(child.material);
+  if (idx !== -1) lineMaterials.splice(idx, 1);
+}
+
+function disposeMesh(object) {
+  if (typeof object.dispose === "function") {
+    object.dispose();
+    return;
+  }
+  disposeChild(object);
+  for (const child of object.userData.disposables ?? []) disposeChild(child);
+}
+
+function loadPrimitive(part, scene, cb) {
+  let geometry;
+  if (part.stype === "cuboid" || part.stype === "box") {
+    geometry = new THREE.BoxGeometry(part.scale[0], part.scale[1], part.scale[2]);
+  } else if (part.stype === "sphere") {
+    geometry = new THREE.SphereGeometry(part.radius, 64, 64);
+  } else if (part.stype === "cylinder") {
+    geometry = new THREE.CylinderGeometry(part.radius, part.radius, part.length, 32);
+    // CylinderGeometry's default axis is Y -- rotate onto Z to match
+    // spatialgeometry's Cylinder ("axis along Z"), same correction the
+    // Arrow shaft cylinder below already applies for its own +Z convention.
+    geometry.rotateX(Math.PI / 2);
+  } else if (part.stype === "ellipsoid") {
+    // A unit sphere non-uniformly scaled per-axis below -- cheaper than a
+    // dedicated ellipsoid geometry, and Three.js has no such class anyway.
+    geometry = new THREE.SphereGeometry(1, 64, 64);
+  }
+  const mesh = new THREE.Mesh(geometry, materialFor(part));
+  if (part.stype === "ellipsoid") mesh.scale.set(part.radii[0], part.radii[1], part.radii[2]);
+  setPose(mesh, part.t, part.q);
+  finish(part, mesh, scene, cb);
+}
+
+/**
+ * spatialgeometry.Arrow: a shaft (cylinder if radius > 0, otherwise a
+ * screen-space-width line via LineMaterial) plus a cone head. radius and
+ * linewidth are mutually exclusive -- radius > 0 always wins, matching
+ * Arrow's own Python-side docstring.
+ *
+ * @param {number} color 0xRRGGBB
+ * @returns {THREE.Object3D} local +Z is the arrow's direction, tip at
+ *   `length` -- callers position/orient this however they need (setPose(),
+ *   or a parent group for Axes' per-axis rotation).
+ */
+function makeArrow(length, radius, linewidth, headLength, headRadius, color) {
+  const group = new THREE.Group();
+  const headLen = length * headLength;
+  // head_radius is a fraction of headLen and *is* the cone's base radius --
+  // not a diameter needing to be halved. Halving it here (an earlier bug)
+  // left the cone barely wider than the shaft for typical values, e.g.
+  // radius=0.01 with the 0.2/0.2 defaults produced a cone radius of only
+  // ~2x the shaft radius -- reads as "about the same width," not a
+  // recognisable arrowhead.
+  const headR = headLen * headRadius;
+  const shaftLen = Math.max(0.0001, length - headLen);
+
+  let shaft;
+  if (radius > 0) {
+    const geometry = new THREE.CylinderGeometry(radius, radius, shaftLen, 16);
+    // CylinderGeometry is centred on Y with the app's default axis -- shift
+    // so the base sits at the origin, then rotate Y-up into Z-forward to
+    // match spatialgeometry's Arrow (+Z) convention.
+    geometry.translate(0, shaftLen / 2, 0);
+    geometry.rotateX(Math.PI / 2);
+    shaft = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color, specular: 0x111111, shininess: 200 }));
+  } else {
+    const positions = [0, 0, 0, 0, 0, shaftLen];
+    const lineGeometry = new LineGeometry();
+    lineGeometry.setPositions(positions);
+    const material = new LineMaterial({ color, linewidth, worldUnits: false });
+    material.resolution.copy(lineResolution);
+    shaft = new Line2(lineGeometry, material);
+    lineMaterials.push(material); // kept in sync on resize -- see scene.js
+  }
+  group.add(shaft);
+
+  const coneGeometry = new THREE.ConeGeometry(headR, headLen, 16);
+  coneGeometry.translate(0, headLen / 2, 0);
+  coneGeometry.rotateX(Math.PI / 2);
+  const cone = new THREE.Mesh(coneGeometry, new THREE.MeshPhongMaterial({ color, specular: 0x111111, shininess: 200 }));
+  cone.position.z = shaftLen;
+  group.add(cone);
+
+  group.userData.disposables = [shaft, cone];
+  return group;
+}
+
+function loadArrow(part, scene, cb) {
+  const arrow = makeArrow(part.length, part.radius, part.linewidth, part.head_length, part.head_radius, part.color);
+  setPose(arrow, part.t, part.q);
+  finish(part, arrow, scene, cb);
+}
+
+const _AXIS_COLORS = [0xff0000, 0x00ff00, 0x0000ff]; // X red, Y green, Z blue
+const _AXIS_ROTATIONS = [
+  new THREE.Euler(0, Math.PI / 2, 0), // +Z -> +X
+  new THREE.Euler(-Math.PI / 2, 0, 0), // +Z -> +Y
+  new THREE.Euler(0, 0, 0), // +Z -> +Z, no rotation needed
+];
+
+function loadAxes(part, scene, cb) {
+  let axes;
+  if (part.arrows) {
+    axes = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const arrow = makeArrow(part.length, part.radius, part.linewidth, 0.2, 0.2, _AXIS_COLORS[i]);
+      arrow.setRotationFromEuler(_AXIS_ROTATIONS[i]);
+      axes.add(arrow);
+    }
+    axes.userData.disposables = axes.children.flatMap((a) => a.userData.disposables);
+  } else {
+    axes = new THREE.AxesHelper(part.length);
+  }
+  setPose(axes, part.t, part.q);
+  finish(part, axes, scene, cb);
+}
+
+/**
+ * spatialgeometry.Polyline (renamed from Path to avoid clashing with
+ * pathlib.Path -- jhavl/spatialgeometry#42; the wire-protocol stype
+ * string below deliberately stayed "path", see the dispatch site in
+ * load()): a polyline through a sequence of waypoints -- straight
+ * segments joining consecutive points, not a smoothed curve.
+ * radius == 0 renders as a single screen-space-width Line2 (mirrors
+ * Arrow's line-mode shaft, connecting every point in sequence); radius > 0
+ * renders as a real tube built from a CurvePath of straight LineCurve3
+ * segments, so bends stay sharp corners rather than getting smoothed the
+ * way a spline through the same points would -- same logical path either
+ * way, only the rendering mode differs (matches Arrow's own radius vs.
+ * linewidth invariant).
+ *
+ * Unlike Arrow/Axes, a Path is always a single object (one Line2, or one
+ * Mesh) in either mode -- no Group/userData.disposables wrapper needed,
+ * disposeMesh()'s plain disposeChild() fallback (same path loadPrimitive()
+ * uses) is enough.
+ */
+function makePath(points, radius, linewidth, color) {
+  const vectors = points.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+
+  if (radius > 0) {
+    const curvePath = new THREE.CurvePath();
+    for (let i = 0; i < vectors.length - 1; i++) {
+      curvePath.add(new THREE.LineCurve3(vectors[i], vectors[i + 1]));
+    }
+    const tubularSegments = Math.max(1, vectors.length - 1);
+    const geometry = new THREE.TubeGeometry(curvePath, tubularSegments, radius, 16, false);
+    return new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({ color, specular: 0x111111, shininess: 200 }));
+  }
+
+  const positions = vectors.flatMap((v) => [v.x, v.y, v.z]);
+  const lineGeometry = new LineGeometry();
+  lineGeometry.setPositions(positions);
+  const material = new LineMaterial({ color, linewidth, worldUnits: false });
+  material.resolution.copy(lineResolution);
+  const line = new Line2(lineGeometry, material);
+  lineMaterials.push(material); // kept in sync on resize -- see scene.js
+  return line;
+}
+
+function loadPath(part, scene, cb) {
+  const path = makePath(part.points, part.radius, part.linewidth, part.color);
+  setPose(path, part.t, part.q);
+  finish(part, path, scene, cb);
+}
+
+// =====================================================================
+// LOUD WARNING -- read this before touching y_up.
+//
+// This rotation MUST stay bit-for-bit equivalent to the y_up correction
+// applied in SpatialGeometry's CollisionShape.py (search "_Y_UP_TO_Z_UP"
+// there -- applied directly to the mesh's vertex data before building the
+// Coal BVH used for collision). These two implementations live in
+// different languages in different repos, and NOTHING enforces they
+// agree. If they ever diverge, there is no test or type checker that
+// will catch it -- collision geometry will just silently stop matching
+// what's actually rendered. If you change one side, you MUST change the
+// other, in the same PR pair.
+//
+// What it does: a mesh authored with +Y as "up" is reinterpreted as if
+// it were authored +Z "up" (this ecosystem's convention) -- the same
+// Rx(+90 degrees) correction already used for the Cylinder primitive's
+// own axis fix elsewhere in this file (three.js's default axis
+// conventions don't match spatialgeometry's).
+//
+// Where this gets applied matters. setPose() does an ABSOLUTE
+// quaternion/position assignment (object3d.quaternion.set(...)), so
+// rotating a loader's top-level Object3D and then calling setPose() on
+// that same object silently discards the rotation -- setPose() just
+// overwrites it. Two cases:
+//   - STL/PLY hand back a raw BufferGeometry: rotate it directly, before
+//     wrapping in a Mesh. This bakes into the vertex data itself, which
+//     setPose() never touches.
+//   - DAE/OBJ/glTF/WRL/PCD hand back an already-posed Object3D/scene:
+//     wrap it in a fresh Group, rotate the *wrapped* object (not the
+//     group), and call setPose() on the *group* -- same "compose a fixed
+//     local rotation, pose the wrapper" pattern makeArrow()/loadAxes()
+//     already use for their own composite Group() objects.
+// =====================================================================
+function applyYUpCorrection(object3dOrGeometry) {
+  object3dOrGeometry.rotateX(Math.PI / 2);
+}
+
+function poseWithOptionalYUp(object3d, part) {
+  if (!part.y_up) {
+    setPose(object3d, part.t, part.q);
+    return object3d;
+  }
+  const wrapper = new THREE.Group();
+  applyYUpCorrection(object3d);
+  wrapper.add(object3d);
+  setPose(wrapper, part.t, part.q);
+  return wrapper;
+}
+
+function loadMesh(part, scene, cb, errCb) {
+  const ext = part.filename.split(".").pop().toLowerCase();
+
+  // Mesh filenames arrive as absolute filesystem paths (e.g. rtbdata's
+  // installed location), not URLs -- SwiftServer.do_GET only serves those
+  // through its "/retrieve/<path>" passthrough route, everything else is
+  // resolved against swift/public/ as the static root.
+  let filename = part.filename;
+  if (navigator.appVersion.indexOf("Win") !== -1) {
+    filename = filename.slice(2);
+  }
+  const url = "/retrieve" + encodeURI(filename);
+
+  // Every loader below must be given this (or call errCb() directly on an
+  // unsupported/malformed input) -- Swift.py's add_shape()/add_assembly()/
+  // add_robot() poll "shape_mounted" in a loop that only terminates on
+  // load-complete or load-failed (see SwiftObject.hasError() in this file
+  // and Swift._wait_mounted() in Swift.py); a swallowed error here means
+  // that poll spins forever with no way for the caller to find out why.
+  const onError = (label) => (error) => {
+    // FileLoader routes both fetch-level failures (a non-2xx HTTP response,
+    // which it wraps in an HttpError carrying the real Response as
+    // .response) and this loader's own parse() exceptions (thrown on
+    // malformed/unsupported file content) through this same callback --
+    // distinguishing them here is the difference between "wrong path" and
+    // "found it, but couldn't read it" for whoever's debugging this.
+    const reason = error?.response
+      ? `${label} file '${part.filename}' not found: server responded ${error.response.status} ${error.response.statusText} for ${error.response.url}`
+      : `${label} file '${part.filename}' was fetched but could not be parsed -- likely malformed or an unsupported variant of this format: ${error}`;
+    console.error(reason, error);
+    errCb(-2, reason);
+  };
+  const onProgress = (xhr) => {
+    if (xhr.total) console.log(`${((xhr.loaded / xhr.total) * 100).toFixed(0)}% loaded`);
+  };
+
+  if (ext === "dae") {
+    daeLoader.load(
+      url,
+      (collada) => {
+        const mesh = collada.scene;
+        mesh.traverse((child) => {
+          if (child.isMesh) child.castShadow = true;
+          else if (child.type === "PointLight") child.visible = false;
+        });
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
+      },
+      onProgress,
+      onError("Collada")
+    );
+  } else if (ext === "stl") {
+    stlLoader.load(
+      url,
+      (geometry) => {
+        if (part.y_up) applyYUpCorrection(geometry);
+        const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        setPose(mesh, part.t, part.q);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        finish(part, mesh, scene, cb);
+      },
+      onProgress,
+      onError("STL")
+    );
+  } else if (ext === "obj") {
+    mtlLoader.load(
+      url.slice(0, url.length - 3) + "mtl",
+      (materials) => {
+        materials.preload();
+        objLoader.setMaterials(materials);
+        objLoader.load(
+          url,
+          (object) => {
+            object.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+            object.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+            const result = poseWithOptionalYUp(object, part);
+            finish(part, result, scene, cb);
+          },
+          onProgress,
+          onError("obj")
+        );
+      },
+      onProgress,
+      onError("MTL")
+    );
+  } else if (ext === "gltf" || ext === "glb") {
+    gltfLoader.load(
+      url,
+      (gltf) => {
+        const mesh = gltf.scene;
+        mesh.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
+      },
+      onProgress,
+      onError("GLTF")
+    );
+  } else if (ext === "ply") {
+    plyLoader.load(
+      url,
+      (geometry) => {
+        geometry.computeVertexNormals();
+        if (part.y_up) applyYUpCorrection(geometry);
+        const mesh = new THREE.Mesh(geometry, materialFor(part, geometry));
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        setPose(mesh, part.t, part.q);
+        finish(part, mesh, scene, cb);
+      },
+      onProgress,
+      onError("PLY")
+    );
+  } else if (ext === "wrl") {
+    vrmLoader.load(
+      url,
+      (mesh) => {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
+      },
+      onProgress,
+      onError("VRML")
+    );
+  } else if (ext === "pcd") {
+    pcdLoader.load(
+      url,
+      (mesh) => {
+        mesh.scale.set(part.scale[0], part.scale[1], part.scale[2]);
+        const result = poseWithOptionalYUp(mesh, part);
+        finish(part, result, scene, cb);
+      },
+      onProgress,
+      onError("PCD")
+    );
+  } else {
+    const reason = `unsupported mesh extension '${ext}' (${part.filename})`;
+    console.error(reason);
+    errCb(-2, reason);
+  }
+}
+
+function load(part, scene, cb, errCb) {
+  if (part.stype === "mesh") loadMesh(part, scene, cb, errCb);
+  else if (["cuboid", "box", "sphere", "cylinder", "ellipsoid"].includes(part.stype)) loadPrimitive(part, scene, cb);
+  else if (part.stype === "axes") loadAxes(part, scene, cb);
+  else if (part.stype === "arrow") loadArrow(part, scene, cb);
+  // "path" is spatialgeometry.Polyline's stype (not "polyline") -- the
+  // Python class was renamed (avoids clashing with pathlib.Path), but
+  // the wire string deliberately wasn't, to avoid a breaking protocol
+  // change for a rename that's purely cosmetic on the Python side.
+  else if (part.stype === "path") loadPath(part, scene, cb);
+  else {
+    const reason = `unsupported shape type '${part.stype}'`;
+    console.error(reason);
+    errCb(-1, reason);
+  }
+}
+
+/**
+ * One entry in Swift's `swift_objects` list -- either a lone Shape (one
+ * part) or a Robot (one part per link/gripper geometry). Both are added,
+ * posed and removed identically since the wire protocol treats them the
+ * same way (see module docstring).
+ */
+export class SwiftObject {
+  /**
+   * @param {THREE.Scene} scene
+   * @param {Array<object>} parts flat list of shape dicts
+   */
+  constructor(scene, parts) {
+    this.scene = scene;
+    this.parts = parts;
+    this.loaded = 0;
+    this.failed = 0;
+    // First failure's code/reason -- see load()'s two error paths
+    // (-1 unsupported shape type, -2 asset/mesh load failed). Kept as
+    // the *first* one seen: with several parts, only one reason is ever
+    // surfaced to Swift.py's exception, and the first is the most
+    // actionable/deterministic choice.
+    this.errorCode = null;
+    this.errorReason = null;
+
+    const cb = () => {
+      this.loaded++;
+    };
+    const errCb = (code, reason) => {
+      this.failed++;
+      if (this.errorCode === null) {
+        this.errorCode = code;
+        this.errorReason = reason;
+      }
+    };
+    for (const part of this.parts) load(part, scene, cb, errCb);
+  }
+
+  isMounted() {
+    return this.loaded === this.parts.length;
+  }
+
+  /** True once any part has failed to load -- see load()'s error paths. */
+  hasError() {
+    return this.failed > 0;
+  }
+
+  setPoses(poses) {
+    for (let i = 0; i < this.parts.length; i++) {
+      const mesh = this.parts[i].mesh;
+      if (mesh) setPose(mesh, poses[i].t, poses[i].q);
+    }
+  }
+
+  /** Handles "shape_update" -- a Shape's geometry/color/etc changed, not just its pose. */
+  updatePart(index, partData) {
+    const old = this.parts[index];
+    if (old.mesh) {
+      disposeMesh(old.mesh);
+      this.scene.remove(old.mesh);
+      this.loaded--;
+    }
+    this.parts[index] = partData;
+    load(
+      partData,
+      this.scene,
+      () => {
+        this.loaded++;
+      },
+      (code, reason) => {
+        this.failed++;
+        if (this.errorCode === null) {
+          this.errorCode = code;
+          this.errorReason = reason;
+        }
+      }
+    );
+  }
+
+  remove(scene) {
+    for (const part of this.parts) {
+      if (!part.mesh) continue;
+      disposeMesh(part.mesh);
+      scene.remove(part.mesh);
+    }
+  }
+}

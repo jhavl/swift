@@ -4,20 +4,20 @@ name = "swift-sim"
 
 description = "A Python/Javascript Robot Simulator and Visualiser"
 
-version = "1.1.0"
+version = "2.0.0"
 
 authors = [
     { name = "Jesse Haviland", email = "j.haviland@qut.edu.au" },
     { name = "Peter Corke", email = "rvc@petercorke.com" },
 ]
 
-dependencies = ["numpy>=1.17.4", "spatialgeometry>=1.0.0", "websockets"]
+dependencies = ["numpy>=2.0", "spatialgeometry>=1.4.0", "websockets"]
 
 license = { file = "LICENSE" }
 
 readme = "README.md"
 
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 
 keywords = [
     "python",
@@ -42,11 +42,10 @@ classifiers = [
     # Pick your license as you wish (should match "license" above)
     "License :: OSI Approved :: MIT License",
     # Specify the Python versions you support here.
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 
@@ -70,26 +69,43 @@ dev = [
 
 docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun"]
 
-vision = ["aiortc", "opencv-python"]
-
 nb = ["ipython", "notebook"]
 
 [build-system]
 
-requires = ["setuptools", "oldest-supported-numpy"]
+requires = ["setuptools", "numpy>=2.0.0"]
 
 build-backend = "setuptools.build_meta"
 
 
 [tool.setuptools]
 
+package-dir = { "" = "src" }
 packages = ["swift"]
 
+
+[tool.pytest.ini_options]
+
+# rtb: constructs a real roboticstoolbox model (rtb.models.Panda(), not a
+# bare fk= callable) -- excluded by default. Swift depends on
+# spatialgeometry directly, not on roboticstoolbox; a test in this set
+# failing reflects an RTB/SG compatibility break upstream, not a swift
+# regression, and shouldn't gate swift's own PRs. Run explicitly with
+# `pytest -m rtb`.
+markers = ["rtb: requires roboticstoolbox to build a real robot model"]
+addopts = "-m 'not rtb'"
+
+# tests/test_lights.py imports fixtures from tests/test_protocol.py as
+# `tests.test_protocol`, which needs the repo root on sys.path. That's
+# implicit when running via `python -m pytest` (which prepends cwd) but
+# not for a bare `pytest` invocation -- which is what CI's workflow uses,
+# so every CI run has been failing at collection since this landed.
+pythonpath = ["."]
 
 [tool.black]
 
 line-length = 88
-target_version = ['py37']
+target-version = ['py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
 exclude = '''
 
@@ -128,8 +144,8 @@ extend-ignore = 'E203'
 manylinux-x86_64-image = "manylinux2014"
 manylinux-aarch64-image = "manylinux2014"
 
-# Build CPython 3.7 - 3.11
-build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*"]
+# Build CPython
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
 
 # Disable building musllinux wheels on all platforms
 skip = ["pp*", "*musllinux*"]

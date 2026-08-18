@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Vendored browser assets (three.js, ccapture.js) for the Swift
+  # visualizer's static frontend. Proactive version-update PRs here are
+  # the whole point -- the previous vendored three.js sat at r121 (2020)
+  # for years, unnoticed, until it hit a public CVE (see js/vendor/'s
+  # package.json). Committing to a version bump still means manually
+  # running `npm run build:vendor` and reviewing the diff; Dependabot
+  # only opens the PR, it doesn't refresh the vendored files itself.
+  - package-ecosystem: "npm"
+    directory: "/swift/public"
+    schedule:
+      interval: "weekly"

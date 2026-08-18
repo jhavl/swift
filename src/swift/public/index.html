@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Swift</title>
+		<!-- 'unsafe-inline' is required for the inline import map below --
+		     browsers don't yet allow CSP-exempting import maps any other
+		     way from a static file (no server-side nonce here). Swift only
+		     ever serves this page on localhost to the one local user, so
+		     there's no untrusted-content threat model this CSP is guarding
+		     against in the first place. -->
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' app:; object-src 'self' app:;">
+		<link rel="stylesheet" href="./style/index.css">
+		<meta charset="utf-8">
+		<meta http-equiv='cache-control' content='no-cache'>
+		<meta http-equiv='expires' content='0'>
+		<meta http-equiv='pragma' content='no-cache'>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+		<script type="importmap">
+		{
+			"imports": {
+				"three": "./js/vendor/build/three.module.js",
+				"three/addons/": "./js/vendor/examples/jsm/"
+			}
+		}
+		</script>
+		<!-- CCapture isn't published as an ES module -- classic global script. -->
+		<script src="js/vendor/build/CCapture.all.min.js"></script>
+	</head>
+	<body>
+		<script type="module" src="js/main.js"></script>
+
+		<div id="canvas">
+			<div class="info">
+				<div id="fps">60 fps</div>
+				<div id="sim-time">00:00.000</div>
+			</div>
+		</div>
+
+		<div class="sidenav" id="sidenav"></div>
+		<div class="control-panel" id="control-panel"></div>
+	</body>
+</html>
