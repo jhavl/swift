@@ -9,6 +9,7 @@ import spatialmath as sm
 from spatialgeometry import Shape
 import time
 from queue import Queue, Empty
+from threading import Event
 import json
 from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
@@ -71,6 +72,12 @@ _REALTIME_SPEEDS = [None, 1.0, 0.5, 0.25]
 # (closed, crashed, or dropped into a different window/profile mid-drag,
 # see bugs.md) rather than being legitimately busy.
 _REPLY_TIMEOUT = 15
+
+# How often _send_socket() re-checks for a server-detected disconnect while
+# waiting for a reply -- short enough that a disconnect mid-wait (the
+# common case during an active step() loop) ends the wait almost
+# immediately, rather than only ever bailing out at _REPLY_TIMEOUT.
+_DISCONNECT_POLL_INTERVAL = 0.05
 
 rtb = None
 
@@ -184,6 +191,14 @@ class Swift:
         self._browser_timeout = 5
         # Set by launch(browser="notebook") -- see close()'s clear_cell=.
         self._notebook_display_handle = None
+        # Set by SwiftSocket the instant a disconnect is detected server-
+        # side -- lets _send_socket()'s wait bail out well before
+        # _REPLY_TIMEOUT. Cleared again at the top of launch(), not
+        # recreated -- close()/launch() (the documented reconnect path)
+        # don't call _init() again, so the same Event persists and must
+        # be explicitly re-armed rather than left set from a prior
+        # session's disconnect.
+        self._disconnected = Event()
 
     @property
     def rate(self):
@@ -447,10 +462,12 @@ class Swift:
         if not self.headless:
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
+            self._disconnected.clear()
             self.socket_thread, self.socket, self.server_thread, self.server, self._notebook_display_handle = start_servers(
                 self.outq,
                 self.inq,
                 self._servers_running,
+                self._disconnected,
                 browser=browser,
             )
 
@@ -1350,16 +1367,26 @@ class Swift:
         self.outq.put(msg)
 
         if expected:
-            try:
-                return self.inq.get(timeout=_REPLY_TIMEOUT)
-            except Empty:
-                raise TimeoutError(
-                    "Swift browser tab stopped responding (no reply to "
-                    f"'{code}' within {_REPLY_TIMEOUT}s) -- it may have been "
-                    "closed, crashed, or dropped into a different window/"
-                    "profile mid-drag. Call env.close() then env.launch() "
-                    "again to reconnect."
-                ) from None
+            # Poll in short slices rather than one blocking
+            # inq.get(timeout=_REPLY_TIMEOUT) -- so a disconnect
+            # SwiftSocket notices mid-wait (see SwiftRoute.py's
+            # expect_message()) ends this well before the full timeout,
+            # instead of _REPLY_TIMEOUT being the only possible bound.
+            start = time.time()
+            while True:
+                try:
+                    return self.inq.get(timeout=_DISCONNECT_POLL_INTERVAL)
+                except Empty:
+                    elapsed = time.time() - start
+                    if self._disconnected.is_set() or elapsed >= _REPLY_TIMEOUT:
+                        raise TimeoutError(
+                            "Swift browser tab stopped responding (no "
+                            f"reply to '{code}' after {elapsed:.1f}s) -- "
+                            "it may have been closed, crashed, or dropped "
+                            "into a different window/profile mid-drag. "
+                            "Call env.close() then env.launch() again to "
+                            "reconnect."
+                        ) from None
         else:
             return "0"
 
