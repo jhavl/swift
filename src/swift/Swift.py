@@ -1270,6 +1270,7 @@ class Swift:
 
             robot = handle.robot
             step_v(robot._n, robot._valid_qlim, dt, handle.q, handle.qd, robot._qlim)
+            handle._push_legacy()
 
         elif handle.control_mode == "a":
             pass
