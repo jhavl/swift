@@ -141,8 +141,8 @@ extend-ignore = 'E203'
 # test-requires = "pytest"
 # test-command = "pytest {project}/tests"
 
-manylinux-x86_64-image = "manylinux2014"
-manylinux-aarch64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
 
 # Build CPython
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*"]
