@@ -77,6 +77,38 @@ def test_legacy_direct_mutation_still_works_but_warns_once():
 
 
 @pytest.mark.rtb
+def test_legacy_qd_mutation_updates_robot_q_after_step():
+    """
+    A control loop driving the deprecated robot.qd style (e.g. RTB's own
+    README p_servo example) needs robot.q to reflect Swift's own per-step
+    integration afterwards, or it's stuck reading a permanently stale
+    configuration and never converges. See jhavl/swift#125.
+    """
+    env = make_env()
+    panda = rtb.models.Panda()
+    panda.q = panda.qr
+    env.add_robot(panda)
+
+    q_before = panda.q.copy()
+
+    with pytest.warns(DeprecationWarning):
+        panda.qd = np.full(panda.n, 0.1)
+        env.step(0.05)
+
+    assert np.allclose(panda.q, q_before + 0.1 * 0.05)
+
+    # Second step: no further warning, q keeps advancing from where it
+    # left off (not re-integrated from the stale pre-loop value).
+    q_before = panda.q.copy()
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        panda.qd = np.full(panda.n, 0.1)
+        env.step(0.05)
+    assert len(record) == 0
+    assert np.allclose(panda.q, q_before + 0.1 * 0.05)
+
+
+@pytest.mark.rtb
 def test_new_style_usage_never_warns():
     env = make_env()
     panda = rtb.models.Panda()
