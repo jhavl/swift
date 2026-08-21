@@ -29,6 +29,99 @@ Rethink, as well as classical robots such as the Puma 560 and the Stanford
 arm.
 
 
+Displaying shapes
+-----------------
+
+Swift opens a browser tab and renders whatever is added to the scene:
+
+.. code-block:: python
+
+    # pip install swift-sim
+    import spatialgeometry as gm
+    from spatialmath import SE3
+    from swift import Swift
+
+    env = Swift()
+    env.launch(realtime=True)
+
+    cube = gm.Cuboid([1, 2, 3], pose=SE3(0, 0, 0.5), color="blue")
+    sphere = gm.Sphere(0.3, pose=SE3(2, 0, 0.3), color="red")
+    gripper = gm.Mesh("../figs/panda_hand.dae", pose=SE3.Rx(90, unit="deg")*SE3.Tx(0.3))
+
+    env.add(cube)
+    env.add(sphere)
+    env.add(gripper)
+
+Swift's ``env.add()`` accepts a bare ``Shape`` directly -- internally it
+just calls the shape's ``to_dict()`` (shown above) and sends it over
+a websocket to the browser which runs Swift's JavaScript code to render the scene.
+
+The scene is navigated with the mouse, using three.js's standard
+`OrbitControls <https://threejs.org/docs/#examples/en/controls/OrbitControls>`__:
+
+.. list-table:: Mouse controls
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Control
+     - Action
+   * - Left button, drag
+     - Rotate (orbit) the camera around the orbit target
+   * - Right button, drag
+     - Pan the camera and orbit target together
+   * - Scroll wheel
+     - Zoom in/out (dolly the camera towards/away from the orbit target)
+
+The camera always looks at a fixed point in space called the *orbit target*
+-- dragging with the left button rotates the camera around this point rather
+than around the scene's origin. Swift sets the orbit target just above the
+ground plane, at ``(0, 0, 0.2)``, so that rotating the view keeps your
+shapes centred rather than swinging around the ground plane at ``z=0``.
+Panning (right button or Ctrl/Cmd/Shift+left button) moves the orbit target itself, so subsequent
+rotations pivot around wherever you've panned to.
+
+Notes:
+
+* The shapes have a finite z-displacement to lift them above the ground plane at
+  z=0. The parts of objects below the ground plane are not visible from above the ground
+  plane (default camera position) but if you rotate the scene using the mouse you can
+  look beneath the ground and see the hidden part of the object.
+
+ * While we can use a wide variety of mesh formats for Spatial Geometry, Swift only
+   supports a subset of them: Collada (``.dae``) and STL (``.stl``). Collada (``.dae``)
+   supports color and texture, which STL (``.stl``) does not. See Swift's README for
+   more details.
+
+
+See ``examples/displaying_shapes.py`` for a complete example.
+
+Animating shapes
+----------------
+
+To animate a shape, we simply change its pose and call ``env.step()`` to update the
+scene. The following example animates a sphere moving back and forth along the x-axis:
+
+.. code-block:: python
+
+    # pip install swift-sim
+    import spatialgeometry as gm
+    from spatialmath import SE3
+    from swift import Swift
+
+    env = Swift()
+    env.launch(realtime=True)
+
+    sphere = gm.Sphere(0.3, pose=SE3(0, 0, 0.3), color="red")
+
+    env.add(sphere)
+
+    for i in range(500):
+        x = math.sin(i/20) * 0.5
+        sphere.T = SE3.Trans(x, 0, 0.3)
+        env.step(0.05)  # wait 0.05 seconds before next step
+
+See ``examples/animating_shapes.py`` for a complete example.
+
 Installation
 ============
 
@@ -87,6 +180,90 @@ See `Swift's own README
 examples of increasing complexity -- moving shapes with sliders, robots
 following an interactive target, programmatic pose trajectories, and
 video recording -- and the :doc:`api` page for the full class reference.
+
+
+Ending a session: :meth:`~swift.Swift.Swift.hold`, :meth:`~swift.Swift.Swift.run`, :meth:`~swift.Swift.Swift.close`
+=====================================================================================================================
+
+A script that just falls off the end after its simulation loop kills the
+process immediately, taking the browser tab down with it. Three methods
+manage that:
+
+* :meth:`~swift.Swift.Swift.hold` blocks -- for a fixed ``duration``, or
+  until interrupted -- so the final frame stays visible. It's disconnect-
+  aware: if the browser tab goes away, it gives up after ``timeout``
+  seconds rather than hanging forever.
+* :meth:`~swift.Swift.Swift.run` is :meth:`step` wrapped in the loop most
+  scripts would otherwise hand-write themselves (``while True:
+  env.step(dt)``), with the same disconnect-awareness as :meth:`hold`.
+* :meth:`~swift.Swift.Swift.close` gracefully disconnects and stops
+  Swift's background threads. Called automatically by :meth:`hold` and
+  :meth:`run` on ^C, so a script using either doesn't need its own
+  ``try``/``except KeyboardInterrupt`` to exit cleanly.
+
+All three are interrupt-safe: pressing ^C during :meth:`step`,
+:meth:`hold`, or :meth:`run` closes the connection and exits quietly
+(no traceback) rather than raising -- ^C is treated as the normal way
+to end an interactive session, not an error.
+
+
+Notebook operation
+===================
+
+``env.launch(browser="notebook")`` renders inline in the current cell's
+output via :class:`IPython.display.IFrame`, instead of opening a separate
+browser tab -- useful in Jupyter/JupyterLab. Combined with
+:meth:`~swift.Swift.Swift.hold` and
+:meth:`~swift.Swift.Swift.close`'s ``clear_cell`` option:
+
+.. code-block:: python
+
+    import roboticstoolbox as rtb
+    from swift import Swift
+
+    env = Swift()
+    env.launch(browser="notebook")
+
+    panda = rtb.models.Panda()
+    handle = env.add_robot(panda)
+    handle.q = panda.qr
+    env.step()
+
+    env.hold(5)               # show the result for 5 seconds
+    env.close(clear_cell=True)  # then blank this cell's output
+
+``close(clear_cell=True)`` blanks specifically the cell that rendered the
+iframe, regardless of which cell is executing when ``close()`` runs --
+plain ``clear_output()`` only ever affects the currently-executing cell,
+which isn't the same thing once execution has moved past the ``launch()``
+call. Leave ``clear_cell`` at its default (``False``) to keep the last
+frame visible instead.
+
+See ``docs/notebooks/swift.ipynb`` for a runnable version of this example.
+
+
+Google Colab
+============
+
+Swift does not currently work on Google Colab. ``launch()`` detects a
+Colab environment and prints a warning up front, before attempting to
+connect, but still tries anyway in case that changes.
+
+Two independent problems, neither fixed as of this writing:
+
+* Colab proxies a notebook's outputs through
+  ``google.colab.kernel.proxyPort()``, which was found to fail
+  consistently (0 successes across 500 isolated test attempts) --
+  unrelated to Swift, and outside this repo's control.
+* Separately, Swift's websocket connection is never routed through that
+  proxy at all (it's hardcoded to ``ws://localhost``), so even if
+  ``proxyPort()`` worked, the websocket handshake specifically would
+  still fail.
+
+See ``tech-debt.md``'s "Google Colab support" section for the full
+investigation, including what was ruled out (reviving WebRTC) and the
+more promising direction if this is ever revisited (``eval_js``/
+``register_callback`` instead of a raw websocket).
 
 
 Scene graph and data structures
