@@ -49,7 +49,25 @@ def test_button_to_dict():
 def test_label_to_dict():
     lab = Label(desc="hello")
     lab._id = 1
-    assert lab.to_dict() == {"element": "label", "id": 1, "builtin": False, "desc": "hello"}
+    assert lab.to_dict() == {
+        "element": "label",
+        "id": 1,
+        "builtin": False,
+        "desc": "hello",
+        "compact": False,
+    }
+
+
+def test_label_compact_to_dict():
+    lab = Label(desc="hello", compact=True)
+    lab._id = 1
+    assert lab.to_dict() == {
+        "element": "label",
+        "id": 1,
+        "builtin": False,
+        "desc": "hello",
+        "compact": True,
+    }
 
 
 def test_select_to_dict_and_update():
