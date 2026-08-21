@@ -10,7 +10,4 @@ env.launch(ground_opacity=0.5)
 box = sg.Cuboid([0.2, 0.2, 0.2], color="blue")
 env.add_shape(box)
 
-env.step()
-env.screenshot(file_name="swift_snap")
-
 env.hold()  # keep the browser tab open
