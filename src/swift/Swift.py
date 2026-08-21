@@ -1108,7 +1108,19 @@ class Swift:
 
         try:
             while duration is None or (self.sim_time - start_time) < duration:
-                self.step(dt)
+                try:
+                    self.step(dt)
+                except TimeoutError:
+                    # A disconnect noticed *during* step() (SwiftRoute.py's
+                    # expect_message()/producer racing wait_closed()) raises
+                    # here directly, rather than only ever surfacing via
+                    # the _check_disconnected() poll below -- without this,
+                    # it would propagate straight out of run() as a raw
+                    # traceback instead of the same graceful message/return
+                    # every other disconnect path already gets.
+                    print("\nSwift browser tab closed.")
+                    self.close()
+                    return
                 time.sleep(dt)
                 disconnected_since, expired = self._check_disconnected(disconnected_since, timeout)
                 if expired:

@@ -725,6 +725,29 @@ def test_run_exits_quietly_on_keyboard_interrupt(monkeypatch):
     assert closed == [True]
 
 
+def test_run_exits_quietly_on_disconnect_during_step(capsys):
+    # A disconnect noticed *during* step() (SwiftRoute.py's
+    # expect_message()/producer racing wait_closed()) raises TimeoutError
+    # directly out of step(), rather than only ever surfacing via
+    # _check_disconnected()'s poll between steps -- run() must catch this
+    # the same way it already handles that poll-detected case (print,
+    # close(), return), not let it propagate as a raw traceback.
+    env = make_env()
+    env.headless = True
+
+    def step_raises(dt=0.05, render=True):
+        raise TimeoutError("Swift browser tab stopped responding")
+
+    env.step = step_raises
+    closed = []
+    env.close = lambda *a, **kw: closed.append(True)
+
+    env.run()  # must return normally, not raise
+
+    assert closed == [True]
+    assert "Swift browser tab closed." in capsys.readouterr().out
+
+
 def test_hold_exits_quietly_on_keyboard_interrupt(monkeypatch):
     env = make_env()
     env.headless = True
