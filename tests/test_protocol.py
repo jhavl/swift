@@ -13,7 +13,7 @@ frontend has no way to detect on its own.
 import importlib
 import json
 import threading
-from queue import Queue
+from queue import Empty, Queue
 
 import numpy as np
 import pytest
@@ -498,7 +498,9 @@ def test_start_servers_socket_thread_actually_stops_on_close():
     outq, inq = Queue(), Queue()
     run_flag = [True]
     t = threading.Thread(
-        target=SwiftSocket, args=(outq, inq, lambda: run_flag[0]), daemon=True
+        target=SwiftSocket,
+        args=(outq, inq, lambda: run_flag[0], threading.Event()),
+        daemon=True,
     )
     t.start()
     port, instance = inq.get(timeout=5)
@@ -560,7 +562,7 @@ def test_swift_socket_notices_disconnect_even_while_idle():
 
     outq, inq = Queue(), Queue()
     t = threading.Thread(
-        target=SwiftSocket, args=(outq, inq, lambda: True), daemon=True
+        target=SwiftSocket, args=(outq, inq, lambda: True, threading.Event()), daemon=True
     )
     t.start()
     port, instance = inq.get(timeout=5)
@@ -588,6 +590,78 @@ def test_swift_socket_notices_disconnect_even_while_idle():
         "SwiftSocket.USERS was never cleaned up after an idle disconnect "
         "-- hold()'s disconnect-timeout polling would never fire"
     )
+
+
+def test_disconnect_while_waiting_for_a_reply_is_noticed_quickly():
+    # Regression test for the gap the idle-disconnect fix above didn't
+    # cover: serve()'s producer/wait_closed race only guards the *send*
+    # side, at the top of each loop iteration. expect_message()'s
+    # websocket.recv() -- where the server actually spends nearly all its
+    # time during an active step() loop, waiting for the browser's reply
+    # to the last message -- had no such race, so a disconnect right there
+    # (the common case, e.g. killing the tab mid-RRMC-loop) fell through
+    # entirely to _send_socket()'s own _REPLY_TIMEOUT fallback. Exercises
+    # a real client over a real websocket that vanishes without ever
+    # replying to a queued message, and asserts the resulting wait is a
+    # small fraction of _REPLY_TIMEOUT, not the full 15s.
+    import asyncio
+    import time
+
+    import websockets
+
+    from swift.SwiftRoute import SwiftSocket
+
+    outq, inq = Queue(), Queue()
+    disconnected = threading.Event()
+    t = threading.Thread(
+        target=SwiftSocket, args=(outq, inq, lambda: True, disconnected), daemon=True
+    )
+    t.start()
+    port, instance = inq.get(timeout=5)
+
+    connected = threading.Event()
+
+    def client_thread():
+        async def client():
+            async with websockets.connect(f"ws://localhost:{port}/") as ws:
+                await ws.send("Connected")
+                connected.set()
+                # Long enough for the server to have sent the queued
+                # message below and be sitting in expect_message()'s
+                # recv() -- then vanish without ever replying, simulating
+                # a tab killed mid-step().
+                await asyncio.sleep(0.3)
+
+        asyncio.run(client())
+
+    ct = threading.Thread(target=client_thread, daemon=True)
+    ct.start()
+    connected.wait(timeout=5)
+    inq.get(timeout=5)  # drain the handshake message
+
+    # Mirrors Swift._send_socket()'s own polling loop against this same
+    # outq/inq/disconnected, without needing a full Swift instance.
+    outq.put([True, ["shape_poses", []]])
+
+    start = time.time()
+    while True:
+        try:
+            inq.get(timeout=swift_module._DISCONNECT_POLL_INTERVAL)
+            break
+        except Empty:
+            if disconnected.is_set() or (time.time() - start) >= swift_module._REPLY_TIMEOUT:
+                break
+    elapsed = time.time() - start
+
+    assert disconnected.is_set(), "disconnect was never detected"
+    assert elapsed < 1.0, (
+        f"took {elapsed:.2f}s to notice the disconnect -- should be near-"
+        "instant, not bounded by _REPLY_TIMEOUT"
+    )
+
+    ct.join(timeout=2)
+    instance.stop()
+    t.join(timeout=3)
 
 
 def test_hold_duration_returns_even_while_still_connected(monkeypatch):
