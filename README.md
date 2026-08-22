@@ -7,7 +7,7 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[GitHub repository](https://github.com/jhavl/swift) &nbsp;|&nbsp; [Documentation](https://jhavl.github.io/swift) (not yet published)
+[GitHub repository](https://github.com/jhavl/swift) &nbsp;|&nbsp; [Documentation](https://jhavl.github.io/swift)
 
 Swift is a light-weight browser-based animation visualizer which provides:
 
@@ -26,8 +26,6 @@ Built using Python and Javascript, Swift is cross-platform (Linux, MacOS, and Wi
 Swift provides robotics-specific functionality for rapid prototyping of algorithms, research, and education. 
 Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python), Swift can visualise over 30 supplied robot models: well-known contemporary robots from Franka-Emika, Kinova, Universal Robotics, Rethink as well as classical robots such as the Puma 560 and the Stanford arm. Swift is under development and will support mobile robots in the future.
 
-
-
 ## What's new in 2.0
 
 Swift's browser frontend has been rebuilt from scratch as modern, dependency-free ES modules (no bundler, no framework, current three.js) — see this release's changelog for the full list. For existing users:
@@ -43,24 +41,8 @@ Swift's browser frontend has been rebuilt from scratch as modern, dependency-fre
 ## Examples
 
 These build up from the simplest possible scene to a fully interactive one. All are in [`examples/`](./examples) and runnable as-is.
+More detailed documentation at [Introduction and tutorial](https://jhavl.github.io/swift/intro.html).
 
-### Render a box
-
-The simplest possible Swift scene: one shape, no motion.
-
-```python
-import spatialgeometry as sg
-from spatialmath import SE3
-from swift import Swift
-
-env = Swift()
-env.launch(realtime=True)
-
-box = sg.Cuboid([0.2, 0.2, 0.2], pose=SE3(0, 0, 0.1), color=[0.2, 0.4, 1.0, 1.0])
-env.add_shape(box)
-
-env.hold()  # keep the browser tab open
-```
 
 ### Render a box, with sliders to move it
 
@@ -94,106 +76,6 @@ while True:
     env.step(0.05)
     time.sleep(0.05)
 ```
-
-### A 2-link arm, built from raw shapes (no robot model)
-
-Before reaching for a full robot model, it's worth seeing what one actually automates. `add_assembly(fk, parts)` takes a pure forward-kinematics function — given the assembly's current `q`, return one world pose per part — plus the parts themselves, and swift builds and owns the handle for you. Here two elongated cuboids stand in for the links of a 2-revolute-joint arm:
-
-```python
-import time
-import numpy as np
-import spatialgeometry as sg
-from spatialmath import SE3
-from swift import Swift, Slider
-
-env = Swift()
-env.launch(realtime=True)
-
-
-class TwoLinkArm:
-    """A pure kinematic model: two links, two revolute joints about z."""
-
-    def __init__(self, L1=0.3, L2=0.25, thickness=0.03):
-        self.L1 = L1
-        self.L2 = L2
-        self.link1 = sg.Cuboid([L1, thickness, thickness], color=[0.8, 0.2, 0.2, 1.0])
-        self.link2 = sg.Cuboid([L2, thickness, thickness], color=[0.2, 0.4, 1.0, 1.0])
-
-    def part_poses(self, q) -> list[SE3]:
-        """World pose of each link, purely as a function of q. Each
-        cuboid's local origin sits at its own proximal (joint) end, so
-        Tx(length / 2) places its centre correctly."""
-        joint1 = SE3.Rz(q[0])
-        joint2 = joint1 * SE3.Tx(self.L1) * SE3.Rz(q[1])
-        return [joint1 * SE3.Tx(self.L1 / 2), joint2 * SE3.Tx(self.L2 / 2)]
-
-
-arm = TwoLinkArm()
-handle = env.add_assembly(
-    arm.part_poses,
-    [arm.link1, arm.link2],
-    q0=[0.0, 0.0],
-    callback=lambda t, values: [values["q1"], values["q2"]],
-)
-
-env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 1", unit="rad"), name="q1")
-env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 2", unit="rad"), name="q2")
-
-while True:
-    env.step(0.05)
-    time.sleep(0.05)
-```
-
-`TwoLinkArm` is the kinematic model — shareable, and it knows nothing about its own current configuration. `env.add_assembly()` builds the piece that does: an `AssemblyHandle` owning live `q`, exactly what `add_robot()` (below) returns for a real `rtb.Robot` — same class either way. The leap from here to a full robot model is then just: a kinematic model with more than two links, described by `roboticstoolbox` instead of by hand.
-
-### Render a Panda
-
-```python
-import roboticstoolbox as rtb
-from swift import Swift
-
-env = Swift()
-env.launch(realtime=True)
-
-panda = rtb.models.Panda()
-handle = env.add_robot(panda)
-handle.q = panda.qr
-
-env.hold()  # keep the browser tab open
-```
-
-### A box driven by pure kinematics (no interaction)
-
-Not every scene needs sliders — a pose can just as easily be a function of time. Here a box orbits the origin on a circle of radius `3*W` (`W` = box width), while the plane of that circle slowly tilts about the x-axis. Swift owns `t` and calls the callback each step, so there's no manual pose assignment in the loop:
-
-```python
-import time
-import spatialgeometry as sg
-import spatialmath as sm
-from swift import Swift
-
-env = Swift()
-env.launch(realtime=True)
-
-W = 0.1
-box = sg.Cuboid([W, W, W], color=[0.2, 0.4, 1.0, 1.0])
-
-
-def orbit(t, values):
-    return sm.SE3.Rx(t / 10) * sm.SE3.Rz(t) * sm.SE3.Tx(3 * W)
-
-
-env.add_shape(box, callback=orbit)
-
-dt = 0.02
-while True:
-    env.step(dt)
-    time.sleep(dt)
-```
-
-`Tx(3*W)` places the box at the orbit radius; `Rz(t)` spins it around the circle; `Rx(t/10)`, applied last (so in the world frame, after the orbit is computed), tilts the whole orbital plane about x — ten times slower than the orbit itself.
-
-Worth knowing: the ground plane is solid and opaque, so once the tilt carries the box below z=0 it's genuinely hidden underneath the ground from a normal above-ground viewpoint — the same as burying a real box and looking down at the dirt, not a rendering glitch. This particular orbit has no z-offset, so it dips underground for part of every cycle by construction; add a z-offset to `Tx`/wrap it in a translation if you'd rather the whole orbit stayed above the floor.
 
 ### Panda arm follows a target, positioned by sliders
 
@@ -259,29 +141,6 @@ To embed within a Jupyter Notebook cell, use the `browser="notebook"` option whe
 ```python
 env.launch(realtime=True, browser="notebook")
 ```
-
-## Playback controls
-
-Every non-headless session shows a small panel bottom-left of the browser view:
-
-  * a pause/play button (`||`/`▶`) — also bound to the spacebar;
-  * a realtime-speed selector (Max/1x/0.5x/0.25x) — `1x` matches `env.launch(realtime=True)`, `Max` matches the default (`realtime=False`, uncapped). `env.launch(realtime=0.5)` (a specific float, not just `True`/`False`) sets an initial speed directly.
-
-Pressing `s` anywhere in the browser tab (outside a text input) saves a screenshot of the current view, named `swift-YYYY-MM-DD_HH-MM-SS.png` — the same mechanism as `env.screenshot()`, just without a Python round-trip.
-
-## Recording video
-
-Any scene can be recorded straight from Python — call `env.start_recording(...)` around the part you want captured, `env.stop_recording()` when done. The `.webm` file downloads automatically once encoding finishes:
-
-```python
-env.start_recording("my_recording", framerate=20, format="webm")
-
-# ... normal env.step() loop, or any pose changes ...
-
-env.stop_recording()
-```
-
-`format` also accepts `"png"`/`"jpg"` (frame sequences). `"gif"` currently captures real frames but doesn't reliably trigger a download yet — use `"webm"` for now if you need the file to actually save.
 
 ## Installing
 ### Using pip
