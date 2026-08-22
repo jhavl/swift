@@ -69,7 +69,10 @@ class Slider(SwiftElement):
 
     :param cb: A callback function which is executed when the value of the
         slider changes. The callback should accept one argument which
-        represents the new value of the slider
+        represents the new value of the slider. Optional -- if not given,
+        the slider has no per-element callback, which is the common case
+        for a named slider read via ``env.values`` in a shape/assembly
+        callback instead.
     :type cb: function
     :param min: the minimum value of the slider, optional
     :type min: float
@@ -95,7 +98,7 @@ class Slider(SwiftElement):
 
     """
 
-    def __init__(self, cb, min=0, max=100, step=1, value=0, label='', unit='', precision=3, desc=None):
+    def __init__(self, cb=None, min=0, max=100, step=1, value=0, label='', unit='', precision=3, desc=None):
         super(Slider, self).__init__()
 
         if desc is not None:
@@ -107,7 +110,7 @@ class Slider(SwiftElement):
             label = desc
 
         self._element = 'slider'
-        self.cb = cb
+        self.cb = cb if cb is not None else lambda x: None
         self.min = min
         self.max = max
         self.step = step

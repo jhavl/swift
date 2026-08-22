@@ -42,6 +42,12 @@ def test_slider_precision_defaults_to_3_and_is_settable():
     assert s2.to_dict()["precision"] == 1
 
 
+def test_slider_cb_is_optional():
+    s = Slider(min=0, max=10, value=3, desc="d")
+    assert s.to_dict()["value"] == 3.0
+    s.cb(3)  # default no-op cb must be callable, not None
+
+
 def test_button_to_dict():
     b = Button(lambda v: None, label="Click Me")
     b._id = 0
