@@ -267,6 +267,8 @@ Every non-headless session shows a small panel bottom-left of the browser view:
   * a pause/play button (`||`/`▶`) — also bound to the spacebar;
   * a realtime-speed selector (Max/1x/0.5x/0.25x) — `1x` matches `env.launch(realtime=True)`, `Max` matches the default (`realtime=False`, uncapped). `env.launch(realtime=0.5)` (a specific float, not just `True`/`False`) sets an initial speed directly.
 
+Pressing `s` anywhere in the browser tab (outside a text input) saves a screenshot of the current view, named `swift-YYYY-MM-DD_HH-MM-SS.png` — the same mechanism as `env.screenshot()`, just without a Python round-trip.
+
 ## Recording video
 
 Any scene can be recorded straight from Python — call `env.start_recording(...)` around the part you want captured, `env.stop_recording()` when done. The `.webm` file downloads automatically once encoding finishes:

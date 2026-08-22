@@ -79,6 +79,11 @@ view:
   (``realtime=False``, uncapped). ``env.launch(realtime=0.5)`` (a specific
   float, not just ``True``/``False``) sets an initial speed directly.
 
+Pressing ``s`` anywhere in the browser tab (outside a text input) saves a
+screenshot of the current view, named ``swift-YYYY-MM-DD_HH-MM-SS.png`` --
+the same mechanism as :meth:`~swift.Swift.Swift.screenshot`, just without a
+Python round-trip.
+
 See `Swift's own README
 <https://github.com/jhavl/swift#readme>`_ for a full set of worked
 examples of increasing complexity -- moving shapes with sliders, robots
