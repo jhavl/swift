@@ -17,13 +17,13 @@
 
 Swift is a light-weight browser-based animation visualizer which provides:
 
-  * visualisation of mesh objects (Collada, STL, OBJ, glTF/GLB, PLY, VRML/WRL, and PCD files) and primitive shapes;
+  * visualisation of mesh objects (Collada, STL, OBJ, glTF/GLB, PLY, VRML/WRL, and PCD files) and primitive shapes such as cuboids, spheres, cylinders, ellipsoids, polylines and axes;
   * visualisation of multi-link robots created with the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python);
   * interactive UI controls (sliders, buttons, and more) for driving a scene from the browser;
   * recording and saving a video of the simulation;
   * source code which can be read for learning and teaching;
 
-Built using Python and Javascript, Swift is cross-platform (Linux, MacOS, and Windows) while also leveraging the ubiquity and support of these languages.
+Built using Python and JavaScript (ES modules), Swift is cross-platform (Linux, MacOS, and Windows) while also leveraging the ubiquity and support of these languages.
 
 <p align="center">
  <img src=".github/figures/panda_follow_target.gif" alt="A Panda arm following a slider-controlled target box in Swift">
