@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Render a single blue box -- the simplest possible Swift scene."""
+"""Render a single arrow."""
 import spatialgeometry as sg
 from spatialmath import SE3
 from swift import Swift

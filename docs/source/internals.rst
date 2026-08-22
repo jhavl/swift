@@ -67,7 +67,7 @@ event-loop thread. Everything crosses through them -- there is no other
 shared state.
 
 - **``outq``**: Python → browser. ``Swift._send_socket(code, data,
-  expected=True)`` puts ``(expected, (code, data))`` onto ``outq``.
+  expected=True)`` puts ``[expected, [code, data]]`` onto ``outq``.
   ``SwiftSocket.producer()`` (running on the event-loop thread) takes it
   off, JSON-encodes it, and sends it over the WebSocket.
 - **``inq``**: browser → Python. Every reply from the browser (and the
@@ -145,9 +145,10 @@ Disconnect detection
 
 ``SwiftSocket.USERS`` is a ``set`` of currently-connected websocket
 objects (really just 0 or 1 in normal use -- one browser tab).
-:meth:`~swift.Swift.Swift.hold`/:meth:`~swift.Swift.Swift.run` poll
-``len(self.socket.USERS) > 0`` once a second to decide whether the
-browser is still there.
+:meth:`~swift.Swift.Swift.hold`/:meth:`~swift.Swift.Swift.run` both
+poll ``len(self.socket.USERS) > 0`` to decide whether the browser is
+still there -- once a second for :meth:`hold`, once per ``dt`` (every
+:meth:`step` call, 0.05s by default) for :meth:`run`.
 
 Getting ``USERS`` cleaned up *promptly* when the tab actually closes
 took real work, and is worth understanding if you're ever debugging
@@ -195,7 +196,7 @@ otherwise finished. The fix pushes a throwaway sentinel value into
 same way a real message would.
 
 Once ``USERS`` is empty, :meth:`hold`/:meth:`run` see it on their next
-1-second poll, wait out ``timeout`` (see the table in
+poll, wait out ``timeout`` (see the table in
 :meth:`~swift.Swift.Swift.launch`'s docstring), print ``"Swift browser
 tab closed."``, and call :meth:`~swift.Swift.Swift.close`.
 

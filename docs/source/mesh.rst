@@ -55,12 +55,12 @@ Formats Swift's JS can load
 
 All of these are fetched from disk via Swift's ``/retrieve/<absolute
 path>`` HTTP route, which requires an **absolute** path -- ``Mesh(filename=...)``
-and ``launch(ground_pattern=...)`` both raise a ``ValueError`` immediately
-if given a relative one, rather than letting it fail later as a confusing
-404 in the browser console.
+and :meth:`~swift.Swift.Swift.launch`'s ``ground_pattern`` argument both
+raise a ``ValueError`` immediately if given a relative one, rather than
+letting it fail later as a confusing 404 in the browser console.
 
 Vertex colors
--------------
+--------------
 
 STL and PLY carry no material/scene information at all, only geometry --
 but both formats can carry a per-vertex color attribute. When a ``Mesh``
@@ -84,7 +84,7 @@ local transforms intact.
 
 Swift, however, only ever applies **one** pose to the root of whatever
 was loaded -- see ``setPose()`` in ``shapes.js``, called once at load time
-and again on every subsequent ``step()``. Nothing in Swift's Python/JS
+and again on every subsequent :meth:`~swift.Swift.Swift.step`. Nothing in Swift's Python/JS
 bridge reaches into a mesh's internal nodes individually, and any
 baked-in COLLADA/glTF animation or skinning is ignored entirely (the
 loader just grabs the static bind pose). A DAE/glTF with internal
@@ -93,7 +93,7 @@ you can move/rotate the whole thing as a unit, but not drive its internal
 parts independently.
 
 This is a different mechanism from Swift's actual articulated-robot
-support (``add_robot()`` / ``AssemblyHandle``), where each link is its own
+support (:meth:`~swift.Swift.Swift.add_robot` / ``AssemblyHandle``), where each link is its own
 independent ``Shape`` and Python drives each one's pose separately every
 step from forward kinematics. Don't reach for a single multi-node mesh
 file as a way to represent something you need to actuate.
@@ -175,6 +175,15 @@ winding throughout will appear inside-out.
   ``trimesh`` (``mesh.invert()``) before ever pointing Swift at the file.
 * There is currently no per-shape "render both sides" override in Swift
   to paper over this live -- see the implementor note below.
+
+Y-up or Z-up meshes
+===================
+
+Typically in robotics applications the z-axis is "up", but
+many mesh exporters default to y-up. Swift doesn't care which convention a mesh uses, as
+long as you apply the right pose.  Spatial Geometry's ``Mesh`` shape has no notion of "up" so
+vertices are passed through to the browser as-is.  If you have a mesh that is y-up, you can rotate it to z-up by
+passing the ``y_up=True`` argument to the ``Mesh`` constructor, which applies a 90-degree rotation about the x-axis to the mesh's vertices.
 
 Implementor notes
 ====================

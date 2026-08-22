@@ -1,3 +1,5 @@
+"""Simple scene graph demonstation.  Two spheres defined relative to a box, move the box
+and the spheres come too."""
 import spatialgeometry as gm
 from spatialmath import SE3
 from swift import Swift

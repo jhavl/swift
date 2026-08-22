@@ -69,4 +69,9 @@ for i in range(101):
 ring = sg.Path(np.array(points).T, radius=0.05, pose=SE3(0.5, 0.5,1.2)*SE3.Rx(45, "deg"), color=[1.0, 1.0, 0.2, 1.0])
 env.add_shape(ring)
 
+import time
+time.sleep(10)
+env.step()
+env.screenshot(file_name="swift_snap")
+
 env.hold()  # keep the browser tab open

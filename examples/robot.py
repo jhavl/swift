@@ -1,4 +1,5 @@
-"""Render a scene with many objects using Swift."""
+"""Render a mesh using Swift.  This object has has its vertical axis along the y-axis,
+so we rotate it to z-up with the ``y_up=True`` argument to ``Mesh``."""
 from pathlib import Path
 
 import spatialgeometry as sg
@@ -14,6 +15,6 @@ ASSETS = Path(__file__).parent / "assets"
 env = Swift()
 env.launch(realtime=True, ground_opacity=0.2)
 
-mesh = sg.Mesh(str(ASSETS / "robot.glb"), y_up=False)
+mesh = sg.Mesh(str(ASSETS / "robot.glb"), y_up=True)
 env.add(mesh)
 env.hold()

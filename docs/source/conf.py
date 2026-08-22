@@ -34,11 +34,19 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.doctest',
     'sphinx.ext.inheritance_diagram',
+    'sphinx.ext.extlinks',
     'sphinx_autorun',
 ]
 
 autosummary_generate = True
 autodoc_member_order = 'bysource'
+
+# :example:`box1.py` -> hyperlink to the file on GitHub, displayed as
+# "examples/box1.py". Use the explicit-title form, e.g.
+# :example:`box1.py, line 5 <box1.py#L5>`, to link a specific line.
+extlinks = {
+    'example': ('https://github.com/jhavl/swift/blob/main/examples/%s', 'examples/%s'),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
