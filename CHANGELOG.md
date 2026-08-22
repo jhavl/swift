@@ -1,12 +1,16 @@
 # Changelog
 
-Notable changes to this project are documented in this file. This is the
-first entry — swift has never kept a changelog before, so this covers
-everything since the last PyPI release, v1.1.0 (2023-04-30), effectively
-three years of accumulated work on the `future` branch, now merged into
-`main`.
+Notable changes to this project are documented in this file. swift has
+never kept a changelog before, so this covers everything since the last
+PyPI release, v1.1.0 (2023-04-30) — effectively three years of accumulated
+work on the `future` branch, now merged into `main`, plus everything since.
 
-## [2.0.0] - 2026-08-17
+## [Unreleased] — targeting 2.0.0
+
+Not yet published to PyPI (latest release there is still v1.1.0;
+`pyproject.toml` is already at `2.0.0`). This section becomes the
+`## [2.0.0] - YYYY-MM-DD` entry once that release actually ships —
+everything below covers `main` as it stands in the meantime.
 
 ### Breaking
 
@@ -26,6 +30,12 @@ three years of accumulated work on the `future` branch, now merged into
 - **Dead WebRTC/RTC code removed** — was unused, never fully worked.
 - Tracks `spatialgeometry`'s `Path` → `Polyline` rename and its `update()`
   method (replacing the deprecated `_propogate_scene_tree()` alias).
+- **`swift.SwiftElement` module renamed to `swift.Elements`** (the file and
+  the `SwiftElement` class inside it shared a name, which confused static
+  type checkers into resolving `SwiftElement` as the submodule rather than
+  the class). Only affects code importing directly from the submodule path
+  (`from swift.SwiftElement import ...`) — the normal `from swift import
+  Slider, Label, ...` top-level import is unaffected.
 
 ### New
 
@@ -44,6 +54,30 @@ three years of accumulated work on the `future` branch, now merged into
 - Detects and warns on a stale browser-cached JS version.
 - Overhauled browser/notebook connection lifecycle — a `close()` that
   actually closes, `run()`, and Colab-specific diagnostics.
+- `Slider`'s `cb` callback is now optional — a named slider read via
+  `env.values` in a shape/assembly callback no longer needs a throwaway
+  `lambda v: None` just to satisfy the constructor.
+- `Label(compact=True)` — a tighter margin/font-size for several labels
+  stacked close together (e.g. a multi-line live readout), without a
+  shared CSS change affecting every other `Label`.
+- Pressing `s` anywhere in the browser tab (outside a text input) saves a
+  screenshot — the same mechanism as `env.screenshot()`, without a Python
+  round-trip.
+- Full Python 3.10+ type hints across the public API (`Swift`, the UI
+  elements, `AssemblyHandle`, `Light` and subclasses).
+- Documentation is now actually built and published — see
+  https://jhavl.github.io/swift/ (a GitHub Pages deploy workflow existed
+  in name only before this; the site had never had a successful build).
+  Includes a full rewritten introduction/tutorial, a copy-to-clipboard
+  button on every code example, and per-parameter type rendering in the
+  API reference.
+
+### Deprecated
+
+- **`desc=`/`.desc` renamed to `label=`/`.label`** across every UI element
+  (`Slider`, `Label`, `Button`, `Select`, `Checkbox`, `Radio`) — `desc`
+  still works identically, but now raises a `DeprecationWarning` pointing
+  at `label`.
 
 ### Fixed
 
@@ -72,3 +106,16 @@ A large cluster of rendering, lifecycle, and connection-handling bugs:
 - Colab tab-opening, HTTP caching on the local dev server, and the static
   server's threading model (`ThreadingTCPServer`) all fixed.
 - Various wire-protocol bugs; added a pause/speed control panel.
+- The legacy `robot.q`/`robot.qd` direct-mutation path never wrote the
+  handle's own velocity integration back to the robot model — a control
+  loop reading `robot.q` back after `env.step()` (a common pattern, e.g.
+  RTB's own README `p_servo` example) saw a permanently stale value and
+  never converged.
+- A disconnect arriving while `_send_socket()` was mid-wait for a reply
+  could still fall through to the full 15s `_REPLY_TIMEOUT` instead of
+  returning almost immediately.
+- `run()` now lets a disconnect detected mid-`step()` crash out as a plain
+  traceback, instead of a confusing, inconsistent handling path depending
+  on exactly where the disconnect landed.
+- Wheels now build against `manylinux_2_28` (was an older, narrower
+  manylinux tag) — matches current PyPI/pip tooling expectations.
