@@ -39,7 +39,7 @@ test("Slider reports a numeric .data, not the DOM's stringified value", (t) => {
   // event.py callback even if no slider was ever touched.
   const slider = new Slider({
     id: 0,
-    desc: "Box X",
+    label: "Box X",
     unit: "m",
     precision: 2,
     value: 0.3,

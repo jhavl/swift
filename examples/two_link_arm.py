@@ -47,8 +47,8 @@ handle = env.add_assembly(
     callback=lambda t, values: [values["q1"], values["q2"]],
 )
 
-env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 1", unit="rad"), name="q1")
-env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 2", unit="rad"), name="q2")
+env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 1", unit="rad"), name="q1")
+env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 2", unit="rad"), name="q2")
 
 while True:
     env.step(0.05)

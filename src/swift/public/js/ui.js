@@ -24,7 +24,7 @@ export class Slider {
   constructor(data) {
     insert(`
       <div class="slider-div" id="slider-div${data.id}">
-        <p class="slider-p" id="desc${data.id}"></p>
+        <p class="slider-p" id="label${data.id}"></p>
         <input type="range" value="0" step="1" min="0" max="100" class="slider" id="slider${data.id}">
         <div class="slider-val-div" id="slider-val-div${data.id}">
           <p class="slider-vals slider-min" id="min${data.id}">0</p>
@@ -39,7 +39,7 @@ export class Slider {
     this.value = document.getElementById(`value${data.id}`);
     this.min = document.getElementById(`min${data.id}`);
     this.max = document.getElementById(`max${data.id}`);
-    this.desc = document.getElementById(`desc${data.id}`);
+    this.label = document.getElementById(`label${data.id}`);
 
     this.onInput = () => {
       // toFixed(), not toPrecision() -- this.precision is decimal places
@@ -72,7 +72,7 @@ export class Slider {
     // precision=, since these were never touched by that fix at all.
     this.min.innerHTML = Number(data.min).toFixed(data.precision);
     this.max.innerHTML = Number(data.max).toFixed(data.precision);
-    this.desc.innerHTML = data.desc;
+    this.label.innerHTML = data.label;
     this.onInput();
   }
 }
@@ -102,7 +102,7 @@ export class Button {
   }
 
   update(data) {
-    this.button.innerHTML = data.desc;
+    this.button.innerHTML = data.label;
   }
 }
 
@@ -118,7 +118,7 @@ export class Label {
   }
 
   update(data) {
-    this.label.innerHTML = data.desc;
+    this.label.innerHTML = data.label;
   }
 }
 
@@ -154,7 +154,7 @@ export class Select {
   }
 
   update(data) {
-    if (this.label) this.label.innerHTML = data.desc;
+    if (this.label) this.label.innerHTML = data.label;
     this.select.innerHTML = data.options
       .map((opt, i) => `<option value="${i}">${opt}</option>`)
       .join("");
@@ -186,7 +186,7 @@ export class Checkbox {
   }
 
   update(data) {
-    this.label.innerHTML = data.desc;
+    this.label.innerHTML = data.label;
     this.checkbox.innerHTML = data.options
       .map((opt, i) => {
         const checked = data.checked[i] ? "checked" : "";
@@ -225,7 +225,7 @@ export class Radio {
   }
 
   update(data) {
-    this.label.innerHTML = data.desc;
+    this.label.innerHTML = data.label;
     this.radio.innerHTML = data.options
       .map((opt, i) => {
         const checked = data.checked === i ? "checked" : "";
