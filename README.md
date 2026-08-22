@@ -2,6 +2,7 @@
 
 ### Status & Project Health
 [![PyPI version](https://badge.fury.io/py/swift-sim.svg)](https://badge.fury.io/py/swift-sim)
+[![Downloads](https://static.pepy.tech/badge/swift-sim/month)](https://pepy.tech/projects/swift-sim)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
