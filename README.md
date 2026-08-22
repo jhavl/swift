@@ -36,7 +36,7 @@ Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics
 
 Swift's browser frontend has been rebuilt from scratch as modern, dependency-free ES modules (no bundler, no framework, current three.js) — see this release's changelog for the full list. For existing users:
 
-  * a bottom-left playback panel with a pause/play button and a realtime-speed selector (Max/1x/0.5x/0.25x) — see [Playback controls](#playback-controls) below;
+  * a bottom-left playback panel with a pause/play button and a realtime-speed selector (Max/1x/0.5x/0.25x) — see [Playback controls](https://jhavl.github.io/swift/swift.html#playback-controls);
   * WebRTC support has been removed (`comms="rtc"`, the `vision` install extra) — it had no live-camera use case and wasn't providing anything a plain WebSocket doesn't already handle for the normal desktop/browser setup this simulator targets;
   * `env.add()` is now four explicit methods — `add_shape()`, `add_ui()`, `add_assembly()`, `add_robot()` — one entry point per kind of thing, no type-checking required. `env.add()` still works and dispatches to these, kept for backward compatibility;
   * `add_robot()`/`add_assembly()` return an **`AssemblyHandle`** that owns that instance's live joint state (`handle.q`, `handle.qd`) — the `robot` model (or bare forward-kinematics function, for `add_assembly()`) stays plain and shareable, driven functionally (`panda.fkine(handle.q)`, `panda.jacobe(handle.q)`). Setting `robot.q`/`robot.qd` directly still works but is deprecated;
