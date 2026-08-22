@@ -30,11 +30,11 @@ Built using Python and JavaScript (ES modules), Swift is cross-platform (Linux, 
 </p>
 
 Swift provides robotics-specific functionality for rapid prototyping of algorithms, research, and education. 
-Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python), Swift can visualise over 30 supplied robot models: well-known contemporary robots from Franka-Emika, Kinova, Universal Robotics, Rethink as well as classical robots such as the Puma 560 and the Stanford arm. Swift is under development and will support mobile robots in the future.
+Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python), Swift can visualise over 150 supplied robot models: well-known contemporary robots from Franka-Emika, Kinova, Universal Robotics, Rethink as well as classical robots such as the Puma 560 and the Stanford arm. Swift is under development and will support mobile robots in the future.
 
 ## What's new in 2.0
 
-Swift's browser frontend has been rebuilt from scratch as modern, dependency-free ES modules (no bundler, no framework, current three.js) — see this release's changelog for the full list. For existing users:
+Swift's browser frontend has been rebuilt from scratch as modern, dependency-free ES modules (no bundler, no framework, current three.js) — see [CHANGELOG.md](./CHANGELOG.md) for the full list. For existing users:
 
   * a bottom-left playback panel with a pause/play button and a realtime-speed selector (Max/1x/0.5x/0.25x) — see [Playback controls](https://jhavl.github.io/swift/swift.html#playback-controls);
   * WebRTC support has been removed (`comms="rtc"`, the `vision` install extra) — it had no live-camera use case and wasn't providing anything a plain WebSocket doesn't already handle for the normal desktop/browser setup this simulator targets;
@@ -49,13 +49,11 @@ Swift's browser frontend has been rebuilt from scratch as modern, dependency-fre
 These build up from the simplest possible scene to a fully interactive one. All are in [`examples/`](./examples) and runnable as-is.
 More detailed documentation at [Introduction and tutorial](https://jhavl.github.io/swift/intro.html).
 
-
 ### Render a box, with sliders to move it
 
 Named sliders (`name=...`) push their current value into `env.values`; a per-step callback reads it from there and returns the box's new pose — no per-slider setter function, no manual pose assignment in the loop. The Z slider controls height above the floor (the box's bottom face, not its centre), so it's never possible to clip the box through the ground:
 
 ```python
-import time
 import spatialgeometry as sg
 from spatialmath import SE3
 from swift import Swift, Slider
@@ -74,13 +72,11 @@ def box_pose(t, values):
 
 env.add_shape(box, callback=box_pose)
 
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, label="Box X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, label="Box Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.0, max=0.6, step=0.01, value=0.0, label="Box Z", unit="m"), name="z")
+env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box X", unit="m"), name="x")
+env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box Y", unit="m"), name="y")
+env.add_ui(Slider(min=0.0, max=0.6, step=0.01, value=0.0, label="Box Z", unit="m"), name="z")
 
-while True:
-    env.step(0.05)
-    time.sleep(0.05)
+env.run(dt=0.05)  # run forever at 20 fps
 ```
 
 ### Panda arm follows a target, positioned by sliders
@@ -88,7 +84,6 @@ while True:
 The most complete example: a target box is positioned by three named sliders, and on every step the arm runs resolved-rate motion control (`rtb.p_servo`) towards wherever that box currently is — move a slider, the box moves, and the arm continuously chases it. Both the box's pose and the arm's `q` are computed by per-step callbacks reading from `env.values`, so the whole thing runs off a plain `env.step()` loop with no pose/`q` mutation inside it:
 
 ```python
-import time
 import numpy as np
 import roboticstoolbox as rtb
 import spatialgeometry as sg
@@ -131,13 +126,11 @@ def track_target(t, values):
 
 handle.callback = track_target
 
-env.add_ui(Slider(lambda v: None, min=0.2, max=0.7, step=0.01, value=X0, label="Target X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.4, max=0.4, step=0.01, value=Y0, label="Target Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, label="Target Z", unit="m"), name="z")
+env.add_ui(Slider(min=0.2, max=0.7, step=0.01, value=X0, label="Target X", unit="m"), name="x")
+env.add_ui(Slider(min=-0.4, max=0.4, step=0.01, value=Y0, label="Target Y", unit="m"), name="y")
+env.add_ui(Slider(min=0.05, max=0.6, step=0.01, value=Z0, label="Target Z", unit="m"), name="z")
 
-while True:
-    env.step(dt)
-    time.sleep(dt)
+env.run(dt=dt)  # run forever, calling track_target/target_pose each step
 ```
 
 ### Embed within a Jupyter Notebook
@@ -157,20 +150,16 @@ Swift is designed to be controlled through the [Robotics Toolbox for Python](htt
 pip install roboticstoolbox-python
 ```
 
-Otherwise, Swift can be install by
+Otherwise, Swift can be installed by
 
 ```shell script
 pip install swift-sim
 ```
 
-Available options are:
-
-- `nb` provides the ability for Swift to be embedded within a Jupyter Notebook
-
-Put the options in a comma-separated list like
+To include support for embedding within a Jupyter Notebook:
 
 ```shell script
-pip install swift-sim[optionlist]
+pip install swift-sim[nb]
 ```
 
 Swift requires Python 3.10 or later.
