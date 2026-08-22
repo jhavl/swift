@@ -196,7 +196,7 @@ def test_shape_callback_drives_pose_each_step():
 
 
 def test_named_slider_pushes_into_values():
-    from swift.SwiftElement import Slider
+    from swift.Elements import Slider
 
     env = make_env()
     slider = Slider(lambda v: None, min=0, max=10, value=3)

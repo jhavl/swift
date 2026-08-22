@@ -90,7 +90,7 @@ name:
   browser (see `Loading and the shape_mounted protocol`_ below).
 - ``"shape_poses"`` -- the per-step batch pose update every
   :meth:`~swift.Swift.Swift.step` call sends.
-- ``"element"`` -- add a UI element (:class:`~swift.SwiftElement.SwiftElement`
+- ``"element"`` -- add a UI element (:class:`~swift.Elements.SwiftElement`
   subclass).
 - ``"close"`` -- sent once, right before the Python side tears its
   threads down (see `Shutdown`_).
