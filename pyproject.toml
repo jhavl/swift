@@ -67,7 +67,7 @@ dev = [
     "pyyaml",
 ]
 
-docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun"]
+docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun", "sphinx-autodoc-typehints", "sphinx-copybutton"]
 
 nb = ["ipython", "notebook"]
 
