@@ -237,9 +237,17 @@ class Label(SwiftElement):
     :type label: str
     :param desc: deprecated alias for ``label``
     :type desc: str
+    :param compact: use a tighter margin/font-size than the default
+        (sized for an occasional standalone heading) -- for several
+        Labels stacked close together, e.g. a multi-line live readout,
+        rather than a one-off title. Purely a display style, applied as
+        an inline override in the browser -- doesn't affect any other
+        Label instance, and the class-wide default is unchanged.
+        Optional, defaults to False.
+    :type compact: bool
     """
 
-    def __init__(self, label='', desc=None):
+    def __init__(self, label='', compact=False, desc=None):
         super(Label, self).__init__()
 
         if desc is not None:
@@ -252,6 +260,7 @@ class Label(SwiftElement):
 
         self._element = 'label'
         self.label = label
+        self.compact = compact
 
     @property
     def label(self):
@@ -285,7 +294,8 @@ class Label(SwiftElement):
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'label': self.label
+            'label': self.label,
+            'compact': self.compact,
         }
 
     def update(self, _):

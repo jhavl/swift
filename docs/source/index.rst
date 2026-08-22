@@ -5,5 +5,7 @@ Swift
    :maxdepth: 2
 
    intro
+   swift
+   mesh
    internals
    api

@@ -16,21 +16,21 @@ assignment in the loop.
 """
 import spatialgeometry as sg
 import spatialmath as sm
+import numpy as np
+from spatialmath import SE3
 from swift import Swift
 
 env = Swift()
-env.launch(realtime=True)
+env.launch(realtime=True, ground_opacity=0.5)
 
-W = 0.1
-box = sg.Cuboid([W, W, W], color=[0.2, 0.4, 1.0, 1.0])
+W = 0.1 # size of the box
+box = sg.Cuboid([W, W, W], color="blue")
+env.add_shape(box)
 
-
-def orbit(t, values):
-    return sm.SE3.Rx(t / 10) * sm.SE3.Rz(t) * sm.SE3.Tx(3 * W)
-
-
-env.add_shape(box, callback=orbit)
-
-dt = 0.02
-while True:
+# animate
+dt = 0.02   # time step, 50 fps
+for t in np.arange(0, 20, dt):  # run for 5 seconds
+    print(f"t = {t:.2f}")
+    box.T = sm.SE3.Rx(t / 10) * sm.SE3.Rz(t) * sm.SE3.Tx(3 * W)
     env.step(dt)
+env.hold()  # keep the browser tab open

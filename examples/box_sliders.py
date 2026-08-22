@@ -14,16 +14,14 @@ from spatialmath import SE3
 from swift import Swift, Slider
 
 env = Swift()
-env.launch(realtime=True)
+env.launch(realtime=True, ground_opacity=0.5)
 
-SIDE = 0.2
-box = sg.Cuboid([SIDE, SIDE, SIDE], pose=SE3(0, 0, SIDE / 2), color=[0.2, 0.4, 1.0, 1.0])
-
+W = 0.2
+box = sg.Cuboid([W, W, W], color=[0.2, 0.4, 1.0, 1.0])
 
 def box_pose(t, values):
     # z is height above the floor, not the box centre
-    return SE3(values["x"], values["y"], values["z"] + SIDE / 2)
-
+    return SE3(values["x"], values["y"], values["z"] + W / 2)
 
 env.add_shape(box, callback=box_pose)
 
@@ -31,5 +29,5 @@ env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box X", unit="
 env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box Y", unit="m"), name="y")
 env.add_ui(Slider(min=0.0, max=0.6, step=0.01, value=0.0, label="Box Z", unit="m"), name="z")
 
-while True:
-    env.step(0.05)
+# animate
+env.run(dt=0.02)  # run forever at 50 fps

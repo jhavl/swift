@@ -43,7 +43,7 @@ def test_slider_precision_defaults_to_3_and_is_settable():
 
 
 def test_slider_cb_is_optional():
-    s = Slider(min=0, max=10, value=3, desc="d")
+    s = Slider(min=0, max=10, value=3, label="d")
     assert s.to_dict()["value"] == 3.0
     s.cb(3)  # default no-op cb must be callable, not None
 
@@ -57,7 +57,25 @@ def test_button_to_dict():
 def test_label_to_dict():
     lab = Label(label="hello")
     lab._id = 1
-    assert lab.to_dict() == {"element": "label", "id": 1, "builtin": False, "label": "hello"}
+    assert lab.to_dict() == {
+        "element": "label",
+        "id": 1,
+        "builtin": False,
+        "label": "hello",
+        "compact": False,
+    }
+
+
+def test_label_compact_to_dict():
+    lab = Label(label="hello", compact=True)
+    lab._id = 1
+    assert lab.to_dict() == {
+        "element": "label",
+        "id": 1,
+        "builtin": False,
+        "label": "hello",
+        "compact": True,
+    }
 
 
 def test_select_to_dict_and_update():

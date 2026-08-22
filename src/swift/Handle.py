@@ -118,3 +118,29 @@ class AssemblyHandle:
         self._model_q = self.q.copy()
         self._model_qd = self.qd.copy()
         self._model_control_mode = self._control_mode
+
+    def _push_legacy(self):
+        """
+        Mirror image of :meth:`_sync_legacy`. Once a handle has been
+        confirmed to be in the deprecated direct-mutation style
+        (``self._warned``), Swift's own internal updates to
+        ``handle.q``/``handle.qd`` -- e.g. velocity-mode integration in
+        ``Swift._step_assembly`` -- need to reach back into
+        ``robot.q``/``robot.qd`` too, or a control loop that reads
+        ``robot.q`` back after ``env.step()`` (the common pattern, e.g.
+        RTB's own README p_servo example) sees a permanently stale value
+        and never converges.
+
+        Only ever touches the robot once ``_warned`` is set, so a handle
+        never driven the legacy way -- the intended case, and the one
+        where several handles may share one plain, stateless robot model
+        -- never has its q/qd silently overwritten by this.
+        """
+        if self.robot is None or not self._warned:
+            return
+
+        self.robot._q = self.q.copy()
+        self.robot._qd = self.qd.copy()
+        self._model_q = self.q.copy()
+        self._model_qd = self.qd.copy()
+        self._model_control_mode = self._control_mode

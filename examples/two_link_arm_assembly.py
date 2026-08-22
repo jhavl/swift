@@ -19,8 +19,6 @@ from swift import Swift, Slider
 
 env = Swift()
 env.launch(realtime=True)
-
-
 class TwoLinkArm:
     """A pure kinematic model: two links, two revolute joints about z."""
 
@@ -31,13 +29,11 @@ class TwoLinkArm:
         self.link2 = sg.Cuboid([L2, thickness, thickness], color=[0.2, 0.4, 1.0, 1.0])
 
     def part_poses(self, q) -> list[SE3]:
-        """World pose of each link, purely as a function of q. Each
-        cuboid's local origin sits at its own proximal (joint) end, so
-        Tx(length / 2) places its centre correctly."""
+        # World pose of each link, purely as a function of q. Each cuboid's local origin
+        # sits at its own proximal (joint) end, so Tx(length / 2) places its centre correctly
         joint1 = SE3.Rz(q[0])
         joint2 = joint1 * SE3.Tx(self.L1) * SE3.Rz(q[1])
         return [joint1 * SE3.Tx(self.L1 / 2), joint2 * SE3.Tx(self.L2 / 2)]
-
 
 arm = TwoLinkArm()
 handle = env.add_assembly(
@@ -50,5 +46,6 @@ handle = env.add_assembly(
 env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 1", unit="rad"), name="q1")
 env.add_ui(Slider(min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 2", unit="rad"), name="q2")
 
-while True:
-    env.step(0.05)
+env.show()
+
+env.run(dt=0.02) # run forever at 50 fps 

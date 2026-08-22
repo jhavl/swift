@@ -1,5 +1,24 @@
 .viewcode-block {background-color: yellow;}
 
+/* Copyright (left) + GitHub link (right) on one row, wrapping gracefully
+   on narrow viewports instead of overflowing. A slightly smaller font
+   than body text keeps both on one line at normal widths. */
+footer div[role="contentinfo"] {
+   display: flex;
+   flex-wrap: wrap;
+   justify-content: space-between;
+   align-items: baseline;
+   font-size: 0.8em;
+}
+
+footer div[role="contentinfo"] p {
+   margin-bottom: 0;
+}
+
+.footer-github-link {
+   white-space: nowrap;
+}
+
 /* override table width restrictions */
 @media screen and (min-width: 767px) {
 

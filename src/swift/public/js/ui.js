@@ -114,6 +114,20 @@ export class Label {
     this.label = document.getElementById(`label${data.id}`);
     this.changed = false;
     this.data = 0;
+
+    if (data.compact) {
+      // .label-div's default margin/font-size (index.css) is sized for
+      // an occasional standalone heading, not several Labels stacked
+      // close together -- an inline override here (opt-in, per-instance)
+      // avoids touching that shared class and affecting every other
+      // Label, past or future, that wants the current spacious look.
+      const div = this.label.parentElement;
+      div.style.marginTop = "0.15cm";
+      div.style.marginBottom = "0.15cm";
+      this.label.style.fontSize = "13px";
+      this.label.style.fontWeight = "normal";
+    }
+
     this.update(data);
   }
 

@@ -6,7 +6,7 @@
 import swift as sw
 import websockets
 import asyncio
-from threading import Thread
+from threading import Thread, Event
 import webbrowser as wb
 import json
 import http.server
@@ -93,6 +93,7 @@ def start_servers(
     outq: Queue,
     inq: Queue,
     stop_servers,
+    disconnected: Event,
     open_tab: bool = True,
     browser: str | None = None,
 ):
@@ -117,6 +118,7 @@ def start_servers(
             outq,
             inq,
             stop_servers,
+            disconnected,
         ),
         daemon=True,
     )
@@ -214,10 +216,15 @@ def start_servers(
 
 
 class SwiftSocket:
-    def __init__(self, outq, inq, run):
+    def __init__(self, outq, inq, run, disconnected: Event):
         self.run = run
         self.outq = outq
         self.inq = inq
+        # Set the instant either race below (this loop's send side, or
+        # expect_message()'s reply side) notices the browser is gone --
+        # lets Swift._send_socket()'s blocked inq.get() bail out well
+        # before _REPLY_TIMEOUT, instead of it being the only bound.
+        self.disconnected = disconnected
         self.USERS = set()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -288,6 +295,7 @@ class SwiftSocket:
                     # left to consume the result, so its value doesn't
                     # matter.
                     self.outq.put((False, ("__disconnect_sentinel__", None)))
+                    self.disconnected.set()
                     raise websockets.exceptions.ConnectionClosed(None, None)
                 closed_task.cancel()
                 message = producer_task.result()
@@ -306,9 +314,28 @@ class SwiftSocket:
         return
 
     async def expect_message(self, websocket, expected):
-        if expected:
-            recieved = await websocket.recv()
-            self.inq.put(recieved)
+        if not expected:
+            return
+
+        # Race against wait_closed() the same way serve()'s send side
+        # does above -- otherwise a disconnect while waiting for the
+        # browser's reply (the common case during an active step() loop,
+        # where the server spends nearly all its time right here) isn't
+        # noticed until Swift._send_socket()'s own _REPLY_TIMEOUT
+        # fallback gives up, up to _REPLY_TIMEOUT seconds later instead
+        # of near-instantly. See jhavl/swift#125.
+        recv_task = asyncio.ensure_future(websocket.recv())
+        closed_task = asyncio.ensure_future(websocket.wait_closed())
+        done, _ = await asyncio.wait(
+            [recv_task, closed_task], return_when=asyncio.FIRST_COMPLETED
+        )
+        if closed_task in done:
+            recv_task.cancel()
+            self.disconnected.set()
+            raise websockets.exceptions.ConnectionClosed(None, None)
+        closed_task.cancel()
+        recieved = recv_task.result()
+        self.inq.put(recieved)
 
     async def producer(self):
         # self.outq.get() is a genuine blocking call (a plain thread-safe
