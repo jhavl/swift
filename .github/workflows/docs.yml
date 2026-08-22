@@ -1,0 +1,71 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, future]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; don't cancel an in-progress deploy
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build-time dependencies
+        run: pip install numpy setuptools wheel
+
+      - name: Install spatialgeometry from its own main branch
+        # main renamed Path -> Polyline (jhavl/spatialgeometry#42) but that
+        # hasn't been cut into a PyPI release yet -- swift-sim's own
+        # dependency floor (spatialgeometry>=1.4.0) has no matching
+        # release either, so a plain `pip install .[docs]` can't resolve
+        # at all. Same workaround as python-tests.yml.
+        run: pip install --force-reinstall --no-deps "git+https://github.com/jhavl/spatialgeometry.git@main"
+
+      - name: Install swift-sim and docs dependencies
+        run: pip install --no-build-isolation -e ".[docs]"
+
+      - name: Install system dependencies
+        # graphviz is required by sphinx.ext.inheritance_diagram
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      - name: Build docs
+        run: sphinx-build -b html -W docs/source docs/build/html
+
+      - name: Prepare Pages artifact
+        run: touch docs/build/html/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push'
+        with:
+          path: docs/build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
