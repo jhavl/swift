@@ -1,6 +1,7 @@
 # Swift
 
 ### Status & Project Health
+[![Build Status](https://github.com/jhavl/swift/actions/workflows/python-tests.yml/badge.svg)](https://github.com/jhavl/swift/actions/workflows/python-tests.yml)
 [![PyPI version](https://badge.fury.io/py/swift-sim.svg)](https://badge.fury.io/py/swift-sim)
 [![Downloads](https://static.pepy.tech/badge/swift-sim/month)](https://pepy.tech/projects/swift-sim)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
@@ -9,6 +10,8 @@
 ### Ecosystem & Dependencies
 [![A Python Robotics Package](https://raw.githubusercontent.com/petercorke/robotics-toolbox-python/master/.github/svg/py_collection.min.svg)](https://github.com/petercorke/robotics-toolbox-python)
 [![QUT Centre for Robotics Open Source](https://github.com/qcr/qcr.github.io/raw/master/misc/badge.svg)](https://qcr.github.io)
+
+[![powered by three.js](https://img.shields.io/badge/powered_by-three.js-000000?logo=threedotjs&logoColor=white)](https://threejs.org)
 
 [GitHub repository](https://github.com/jhavl/swift) &nbsp;|&nbsp; [Documentation](https://jhavl.github.io/swift/)
 
