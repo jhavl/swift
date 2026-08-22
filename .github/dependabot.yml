@@ -8,6 +8,6 @@ updates:
   # running `npm run build:vendor` and reviewing the diff; Dependabot
   # only opens the PR, it doesn't refresh the vendored files itself.
   - package-ecosystem: "npm"
-    directory: "/swift/public"
+    directory: "/src/swift/public"
     schedule:
       interval: "weekly"
