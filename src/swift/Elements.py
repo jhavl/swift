@@ -2,6 +2,7 @@
 import warnings
 from abc import ABC, abstractmethod
 from functools import wraps
+from typing import Any, Callable
 
 
 class SwiftElement(ABC):
@@ -10,19 +11,19 @@ class SwiftElement(ABC):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
 
-        self._id = None
+        self._id: int | None = None
         self._added_to_swift = False
         self._changed = False
         # Optional debug/display name, also the key under which this
         # element's value is pushed into Swift.values -- see
         # Swift.add_ui()/_notify_value_changed() below.
-        self.name = None
+        self.name: str | None = None
         # Set by Swift.add_ui() for named elements with a .value; called
         # by that subclass's value.setter on every change so Swift.values
         # stays current without Swift having to scan every element.
-        self._on_change = None
+        self._on_change: Callable[[Any], None] | None = None
         # Set True only for the pause/realtime-speed controls Swift adds
         # itself (see Swift._add_controls()) -- lets the frontend route
         # them into its own control panel instead of the user sidebar.
@@ -30,13 +31,13 @@ class SwiftElement(ABC):
 
         super().__init__()
 
-    def _notify_value_changed(self):
+    def _notify_value_changed(self) -> None:
         if self._on_change is not None:
             self._on_change(self.value)
 
-    def _update(func):   # pragma nocover
+    def _update(func: Callable[..., Any]) -> Callable[..., Any]:   # pragma nocover
         @wraps(func)
-        def wrapper_update(*args, **kwargs):
+        def wrapper_update(*args: Any, **kwargs: Any) -> Any:
 
             if args[0]._added_to_swift:
                 args[0]._changed = True
@@ -45,7 +46,7 @@ class SwiftElement(ABC):
         return wrapper_update
 
     @abstractmethod
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         '''
         Outputs the element in dictionary form
 
@@ -54,7 +55,7 @@ class SwiftElement(ABC):
         pass
 
     @abstractmethod
-    def update(self):
+    def update(self) -> None:
         '''
         Update state of element to reflect what's going on in the front-end
 
@@ -98,7 +99,18 @@ class Slider(SwiftElement):
 
     """
 
-    def __init__(self, cb=None, min=0, max=100, step=1, value=0, label='', unit='', precision=3, desc=None):
+    def __init__(
+        self,
+        cb: Callable[[float], None] | None = None,
+        min: float = 0,
+        max: float = 100,
+        step: float = 1,
+        value: float = 0,
+        label: str = '',
+        unit: str = '',
+        precision: int = 3,
+        desc: str | None = None,
+    ) -> None:
         super(Slider, self).__init__()
 
         if desc is not None:
@@ -120,62 +132,62 @@ class Slider(SwiftElement):
         self.precision = precision
 
     @property
-    def cb(self):
+    def cb(self) -> Callable[[float], None]:
         return self._cb
 
     @cb.setter
     @SwiftElement._update
-    def cb(self, value):
+    def cb(self, value: Callable[[float], None]) -> None:
         self._cb = value
 
     @property
-    def min(self):
+    def min(self) -> float:
         return self._min
 
     @min.setter
     @SwiftElement._update
-    def min(self, value):
+    def min(self, value: float) -> None:
         self._min = float(value)
 
     @property
-    def max(self):
+    def max(self) -> float:
         return self._max
 
     @max.setter
     @SwiftElement._update
-    def max(self, value):
+    def max(self, value: float) -> None:
         self._max = float(value)
 
     @property
-    def step(self):
+    def step(self) -> float:
         return self._step
 
     @step.setter
     @SwiftElement._update
-    def step(self, value):
+    def step(self, value: float) -> None:
         self._step = float(value)
 
     @property
-    def value(self):
+    def value(self) -> float:
         return self._value
 
     @value.setter
     @SwiftElement._update
-    def value(self, value):
+    def value(self, value: float) -> None:
         self._value = float(value)
         self._notify_value_changed()
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Slider.desc is deprecated, use Slider.label instead",
             DeprecationWarning,
@@ -184,7 +196,7 @@ class Slider(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Slider.desc is deprecated, use Slider.label instead",
             DeprecationWarning,
@@ -193,24 +205,24 @@ class Slider(SwiftElement):
         self.label = value
 
     @property
-    def unit(self):
+    def unit(self) -> str:
         return self._unit
 
     @unit.setter
     @SwiftElement._update
-    def unit(self, value):
+    def unit(self, value: str) -> None:
         self._unit = value
 
     @property
-    def precision(self):
+    def precision(self) -> int:
         return self._precision
 
     @precision.setter
     @SwiftElement._update
-    def precision(self, value):
+    def precision(self, value: int) -> None:
         self._precision = int(value)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -224,7 +236,7 @@ class Slider(SwiftElement):
             'precision': self.precision,
         }
 
-    def update(self, e):
+    def update(self, e: float) -> None:
         self._value = e
         self._notify_value_changed()
 
@@ -247,7 +259,7 @@ class Label(SwiftElement):
     :type compact: bool
     """
 
-    def __init__(self, label='', compact=False, desc=None):
+    def __init__(self, label: str = '', compact: bool = False, desc: str | None = None) -> None:
         super(Label, self).__init__()
 
         if desc is not None:
@@ -263,16 +275,16 @@ class Label(SwiftElement):
         self.compact = compact
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Label.desc is deprecated, use Label.label instead",
             DeprecationWarning,
@@ -281,7 +293,7 @@ class Label(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Label.desc is deprecated, use Label.label instead",
             DeprecationWarning,
@@ -289,7 +301,7 @@ class Label(SwiftElement):
         )
         self.label = value
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -298,7 +310,7 @@ class Label(SwiftElement):
             'compact': self.compact,
         }
 
-    def update(self, _):
+    def update(self, _: Any) -> None:
         pass
 
 
@@ -316,7 +328,7 @@ class Button(SwiftElement):
     :type desc: str
     """
 
-    def __init__(self, cb, label='', desc=None):
+    def __init__(self, cb: Callable[[Any], None], label: str = '', desc: str | None = None) -> None:
         super(Button, self).__init__()
 
         if desc is not None:
@@ -332,25 +344,25 @@ class Button(SwiftElement):
         self.label = label
 
     @property
-    def cb(self):
+    def cb(self) -> Callable[[Any], None]:
         return self._cb
 
     @cb.setter
     @SwiftElement._update
-    def cb(self, value):
+    def cb(self, value: Callable[[Any], None]) -> None:
         self._cb = value
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Button.desc is deprecated, use Button.label instead",
             DeprecationWarning,
@@ -359,7 +371,7 @@ class Button(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Button.desc is deprecated, use Button.label instead",
             DeprecationWarning,
@@ -367,7 +379,7 @@ class Button(SwiftElement):
         )
         self.label = value
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -375,7 +387,7 @@ class Button(SwiftElement):
             'label': self.label
         }
 
-    def update(self, _):
+    def update(self, _: Any) -> None:
         pass
 
 
@@ -398,7 +410,14 @@ class Select(SwiftElement):
     :type value: int
     """
 
-    def __init__(self, cb, label='', options=[], value=0, desc=None):
+    def __init__(
+        self,
+        cb: Callable[[int], None],
+        label: str = '',
+        options: list[str] = [],
+        value: int = 0,
+        desc: str | None = None,
+    ) -> None:
         super(Select, self).__init__()
 
         if desc is not None:
@@ -416,25 +435,25 @@ class Select(SwiftElement):
         self.value = value
 
     @property
-    def cb(self):
+    def cb(self) -> Callable[[int], None]:
         return self._cb
 
     @cb.setter
     @SwiftElement._update
-    def cb(self, value):
+    def cb(self, value: Callable[[int], None]) -> None:
         self._cb = value
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Select.desc is deprecated, use Select.label instead",
             DeprecationWarning,
@@ -443,7 +462,7 @@ class Select(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Select.desc is deprecated, use Select.label instead",
             DeprecationWarning,
@@ -452,25 +471,25 @@ class Select(SwiftElement):
         self.label = value
 
     @property
-    def options(self):
+    def options(self) -> list[str]:
         return self._options
 
     @options.setter
     @SwiftElement._update
-    def options(self, value):
+    def options(self, value: list[str]) -> None:
         self._options = value
 
     @property
-    def value(self):
+    def value(self) -> int:
         return self._value
 
     @value.setter
     @SwiftElement._update
-    def value(self, nvalue):
+    def value(self, nvalue: int) -> None:
         self._value = nvalue
         self._notify_value_changed()
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -480,7 +499,7 @@ class Select(SwiftElement):
             'value': self.value
         }
 
-    def update(self, e):
+    def update(self, e: int) -> None:
         self._value = e
         self._notify_value_changed()
 
@@ -503,7 +522,14 @@ class Checkbox(SwiftElement):
     :type checked: List of bool
     """
 
-    def __init__(self, cb, label='', options=[], checked=[], desc=None):
+    def __init__(
+        self,
+        cb: Callable[[list[bool]], None],
+        label: str = '',
+        options: list[str] = [],
+        checked: list[bool] = [],
+        desc: str | None = None,
+    ) -> None:
         super(Checkbox, self).__init__()
 
         if desc is not None:
@@ -521,25 +547,25 @@ class Checkbox(SwiftElement):
         self.checked = checked
 
     @property
-    def cb(self):
+    def cb(self) -> Callable[[list[bool]], None]:
         return self._cb
 
     @cb.setter
     @SwiftElement._update
-    def cb(self, value):
+    def cb(self, value: Callable[[list[bool]], None]) -> None:
         self._cb = value
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Checkbox.desc is deprecated, use Checkbox.label instead",
             DeprecationWarning,
@@ -548,7 +574,7 @@ class Checkbox(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Checkbox.desc is deprecated, use Checkbox.label instead",
             DeprecationWarning,
@@ -557,21 +583,21 @@ class Checkbox(SwiftElement):
         self.label = value
 
     @property
-    def options(self):
+    def options(self) -> list[str]:
         return self._options
 
     @options.setter
     @SwiftElement._update
-    def options(self, value):
+    def options(self, value: list[str]) -> None:
         self._options = value
 
     @property
-    def checked(self):
+    def checked(self) -> list[bool]:
         return self._checked
 
     @checked.setter
     @SwiftElement._update
-    def checked(self, value):
+    def checked(self, value: int | list[bool]) -> None:
         print(value)
         if isinstance(value, int):
             new = [False] * len(self.options)
@@ -580,7 +606,7 @@ class Checkbox(SwiftElement):
         else:
             self._checked = value
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -590,7 +616,7 @@ class Checkbox(SwiftElement):
             'checked': self.checked
         }
 
-    def update(self, e):
+    def update(self, e: list[bool]) -> None:
         self._checked = e
 
 
@@ -612,7 +638,14 @@ class Radio(SwiftElement):
     :type checked: int
     """
 
-    def __init__(self, cb, label='', options=[], checked=[], desc=None):
+    def __init__(
+        self,
+        cb: Callable[[int], None],
+        label: str = '',
+        options: list[str] = [],
+        checked: int | list[bool] = [],
+        desc: str | None = None,
+    ) -> None:
         super(Radio, self).__init__()
 
         if desc is not None:
@@ -630,25 +663,25 @@ class Radio(SwiftElement):
         self.checked = checked
 
     @property
-    def cb(self):
+    def cb(self) -> Callable[[int], None]:
         return self._cb
 
     @cb.setter
     @SwiftElement._update
-    def cb(self, value):
+    def cb(self, value: Callable[[int], None]) -> None:
         self._cb = value
 
     @property
-    def label(self):
+    def label(self) -> str:
         return self._label
 
     @label.setter
     @SwiftElement._update
-    def label(self, value):
+    def label(self, value: str) -> None:
         self._label = value
 
     @property
-    def desc(self):
+    def desc(self) -> str:
         warnings.warn(
             "Radio.desc is deprecated, use Radio.label instead",
             DeprecationWarning,
@@ -657,7 +690,7 @@ class Radio(SwiftElement):
         return self._label
 
     @desc.setter
-    def desc(self, value):
+    def desc(self, value: str) -> None:
         warnings.warn(
             "Radio.desc is deprecated, use Radio.label instead",
             DeprecationWarning,
@@ -666,21 +699,21 @@ class Radio(SwiftElement):
         self.label = value
 
     @property
-    def options(self):
+    def options(self) -> list[str]:
         return self._options
 
     @options.setter
     @SwiftElement._update
-    def options(self, value):
+    def options(self, value: list[str]) -> None:
         self._options = value
 
     @property
-    def checked(self):
+    def checked(self) -> list[bool]:
         return self._checked
 
     @checked.setter
     @SwiftElement._update
-    def checked(self, value):
+    def checked(self, value: int | list[bool]) -> None:
         if isinstance(value, int):
             new = [False] * len(self.options)
             new[value] = True
@@ -688,7 +721,7 @@ class Radio(SwiftElement):
         else:
             self._checked = value
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         return {
             'element': self._element,
             'id': self._id,
@@ -698,5 +731,5 @@ class Radio(SwiftElement):
             'checked': self.checked
         }
 
-    def update(self, e):
+    def update(self, e: list[bool]) -> None:
         self._checked = e

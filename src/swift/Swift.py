@@ -4,9 +4,13 @@
 """
 
 import os
+from typing import TYPE_CHECKING, Any, Callable, Literal
 import numpy as np
+from numpy.typing import NDArray
 import spatialmath as sm
+from spatialmath import SE3
 from spatialgeometry import Shape
+from spatialgeometry.geom.Shape import ArrayLike
 import time
 from queue import Queue, Empty
 from threading import Event
@@ -15,19 +19,26 @@ from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
 from swift.Light import Light
 
+if TYPE_CHECKING:
+    # Aliased to avoid shadowing the module-level `rtb` global below,
+    # which holds the actual lazily-imported roboticstoolbox module (see
+    # _import_rtb()) -- this one only exists for static type checkers,
+    # never at runtime.
+    import roboticstoolbox as _rtb_types
 
-def _se3_to_wire(T):
+
+def _se3_to_wire(T: SE3) -> dict[str, list[float]]:
     """Matches spatialgeometry Shape.fk_dict()'s wire format: t + xyzw q."""
     return {"t": T.t.tolist(), "q": sm.base.r2q(T.R, order="xyzs").tolist()}
 
 
-def _step_v_py(n, valid, dt, q, qd, qlim):
+def _step_v_py(n: int, valid: bool, dt: float, q: NDArray, qd: NDArray, qlim: NDArray) -> None:
     q += qd * dt
     if valid:
         np.clip(q, qlim[0], qlim[1], out=q)
 
 
-def _step_shape_py(dt, v, base, sT, sq):
+def _step_shape_py(dt: float, v: NDArray, base: NDArray, sT: NDArray, sq: NDArray) -> None:
     eps = 2.220446049250313e-16
     dv = v * dt
     theta = np.linalg.norm(dv[3:6])
@@ -79,10 +90,10 @@ _REPLY_TIMEOUT = 15
 # immediately, rather than only ever bailing out at _REPLY_TIMEOUT.
 _DISCONNECT_POLL_INTERVAL = 0.05
 
-rtb = None
+rtb: Any = None
 
 
-def _import_rtb():  # pragma nocover
+def _import_rtb() -> None:  # pragma nocover
     import importlib
 
     global rtb
@@ -117,9 +128,9 @@ class Swift:
 
     """
 
-    def __init__(self, _dev=False):
-        self.outq = Queue()
-        self.inq = Queue()
+    def __init__(self, _dev: bool = False) -> None:
+        self.outq: Queue = Queue()
+        self.inq: Queue = Queue()
 
         self._dev = _dev
 
@@ -128,7 +139,7 @@ class Swift:
 
         self._init()
 
-    def _init(self):
+    def _init(self) -> None:
         """
         A private initialization method to make relaunching easy
         """
@@ -138,8 +149,9 @@ class Swift:
 
         # This holds all simulated objects within swift (Shape instances
         # directly, assemblies/robots wrapped in an AssemblyHandle -- see
-        # Handle.py)
-        self.swift_objects = []
+        # Handle.py). A removed slot (see remove()) becomes None rather
+        # than being deleted, so every other object's index stays stable.
+        self.swift_objects: list[Shape | AssemblyHandle | None] = []
 
         # Debug/display names, keyed by the same id as swift_objects --
         # not stored on the objects themselves (Shape isn't swift's to
@@ -149,7 +161,7 @@ class Swift:
         # Per-step pose callbacks for plain shapes, keyed by swift_objects
         # index -- see add_shape(..., callback=...). AssemblyHandle carries
         # its own .callback directly since it's swift's own class.
-        self.shape_callbacks = {}
+        self.shape_callbacks: dict[int, Callable[[float, dict[str, object]], SE3]] = {}
 
         # Current value of every named UI element with a .value, kept
         # current by each element pushing into this dict on change (see
@@ -164,7 +176,7 @@ class Swift:
         self._skipped = 1
 
         # Element dict which holds the callback functions for form updates
-        self.elements = {}
+        self.elements: dict[str, SwiftElement] = {}
 
         self.headless = False
         self.rendering = True
@@ -175,22 +187,22 @@ class Swift:
         # None means uncapped (run as fast as possible); otherwise a
         # multiplier on wall-clock time per unit of simulated time -- 1.0
         # matches real time, 0.5 is half speed (slow motion), etc.
-        self.realtime_speed = None
+        self.realtime_speed: float | None = None
         self.axes = True
         self.ground_opacity = 1.0
         # How long hold() keeps waiting after the browser disconnects
         # before giving up -- see launch()'s timeout= and hold(). None
         # means wait forever (the old behaviour).
-        self._hold_timeout = 1
+        self._hold_timeout: float | None = 1
         # How long the *browser tab* waits after losing its connection to
         # this Python process before closing itself -- see launch()'s
         # browser_timeout=. None means never auto-close. Independent of
         # _hold_timeout: this fires from the browser side, so it still
         # applies even if this process was killed outright rather than
         # exiting through hold().
-        self._browser_timeout = 5
+        self._browser_timeout: float | None = 5
         # Set by launch(browser="notebook") -- see close()'s clear_cell=.
-        self._notebook_display_handle = None
+        self._notebook_display_handle: Any = None
         # Set by SwiftSocket the instant a disconnect is detected server-
         # side -- lets _send_socket()'s wait bail out well before
         # _REPLY_TIMEOUT. Cleared again at the top of launch(), not
@@ -201,15 +213,15 @@ class Swift:
         self._disconnected = Event()
 
     @property
-    def rate(self):
+    def rate(self) -> int:
         return self._rate
 
     @rate.setter
-    def rate(self, new):
+    def rate(self, new: int) -> None:
         self._rate = new
         self._period = 1 / new
 
-    def _describe(self, i, obj):
+    def _describe(self, i: int, obj: Shape | AssemblyHandle) -> str:
         name = self.swift_names.get(i)
         if isinstance(obj, AssemblyHandle):
             if obj.robot is not None:
@@ -220,7 +232,7 @@ class Swift:
             kind = repr(obj)
         return f"[{i}] {kind}" + (f' "{name}"' if name else "")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = f"Swift backend, t = {self.sim_time}, scene:"
 
         for i, ob in enumerate(self.swift_objects):
@@ -238,7 +250,7 @@ class Swift:
                     s += f"\n      {link.name}{suffix}"
         return s
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int | str) -> Shape | AssemblyHandle:
         """
         Retrieve a previously-added shape/robot/assembly by id or name.
 
@@ -247,7 +259,6 @@ class Swift:
         only objects actually given a name are reachable this way.
 
         :param key: the object's id, or its ``name=``
-        :type key: int | str
         :raises KeyError: no object exists under ``key`` (never named,
             already removed, or an out-of-range id)
         """
@@ -265,7 +276,7 @@ class Swift:
             raise KeyError(f"no object with id {key!r} (removed, or never existed)")
         return obj
 
-    def show(self):
+    def show(self) -> None:
         """
         Print the current display list, for debugging.
 
@@ -305,8 +316,8 @@ class Swift:
         lights: list[Light] | None = None,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Launch the Swift Simulator
 
@@ -363,7 +374,6 @@ class Swift:
             ``True`` is 1x speed; a float (e.g. ``0.5``) sets a specific
             wall-clock-per-sim-time multiplier (slow motion below 1.0);
             ``False`` runs uncapped.
-        :type realtime: bool | float
         :param headless: Do not launch the graphical front-end of the
             simulator. Will still simulate the robot. Runs faster due to not
             needing to display anything. ``None`` (default) falls back to
@@ -372,20 +382,15 @@ class Swift:
             lets a test harness or CI environment force headless mode
             globally without every calling script having to pass
             ``headless=True`` itself.
-        :type headless: bool | None
         :param rate: The rate (Hz) at which the simulator will be run,
             defaults to 60Hz
-        :type rate: int
         :param browser: browser to open in: one of 'google-chrome', 'chrome',
             'firefox', 'safari', 'opera' or see for full list
             https://docs.python.org/3/library/webbrowser.html#webbrowser.open_new
-        :type browser: str | None
         :param axes: Show the world-frame axes helper at the origin,
             defaults to True
-        :type axes: bool
         :param ground_opacity: Opacity of the ground plane, from 0
             (invisible) to 1 (opaque), defaults to 1
-        :type ground_opacity: float
         :param ground_pattern: Repeating pattern on the ground plane.
             ``False`` (default) is a plain flat floor. ``True`` or
             ``"@tile"`` is a built-in checkerboard; ``"@grid"`` is a
@@ -398,21 +403,17 @@ class Swift:
             edge is never reachable regardless of pan/zoom -- skipped
             entirely for the plain flat floor, which has no visible edge
             to begin with.
-        :type ground_pattern: bool | str
         :param ground_pattern_width: x-extent of one tile, in metres.
             Only meaningful when ``ground_pattern`` is set, defaults to 1.
-        :type ground_pattern_width: float
         :param lights: custom scene lights, replacing Swift's default
             3-light rig entirely -- there is no way to add to the
             defaults, only replace them outright. ``None`` (default)
             keeps the default rig unchanged. See :meth:`set_lights` to
             change lights again after launch.
-        :type lights: list[Light] | None
         :param timeout: how long :meth:`hold` keeps waiting, in seconds,
             after the browser tab disconnects before giving up and
             returning. ``None`` means wait indefinitely (the pre-2.1
             behaviour), defaults to 1
-        :type timeout: float | None
         :param browser_timeout: how long the *browser tab* waits, in
             seconds, after losing its connection to this process before
             closing itself. ``None`` means never auto-close, defaults to
@@ -423,7 +424,6 @@ class Swift:
             user-opened tab (the common case) ``window.close()`` is a
             silent no-op and the tab is left showing a "Disconnected"
             banner instead.
-        :type browser_timeout: float | None
 
         """
 
@@ -494,10 +494,10 @@ class Swift:
 
             self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
-    def _servers_running(self):
+    def _servers_running(self) -> bool:
         return self._run_thread
 
-    def _stop_threads(self):
+    def _stop_threads(self) -> None:
         self._run_thread = False
         if not self.headless:
             # Setting _run_thread above only ends serve()'s per-connection
@@ -519,15 +519,13 @@ class Swift:
             self.server.stop()
             self.server_thread.join(1)
 
-    def step(self, dt=0.05, render=True):
+    def step(self, dt: float = 0.05, render: bool = True) -> None:
         """
         Update the graphical scene
 
         :param dt: time step in seconds, defaults to 0.05
-        :type dt: int, optional
         :param render: render the change in Swift. If True, this updates the
             pose of the simulated robots and objects in Swift.
-        :type dt: bool, optional
 
         ``env.step(args)`` triggers an update of the 3D scene in the Swift
         window referenced by ``env``.
@@ -646,7 +644,7 @@ class Swift:
             self.close()
             raise SystemExit
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset the graphical scene
 
@@ -658,7 +656,7 @@ class Swift:
 
         self.restart()
 
-    def restart(self):
+    def restart(self) -> None:
         """
         Restart the graphics display
 
@@ -686,7 +684,7 @@ class Swift:
         )
         self.realtime_speed = prior_speed
 
-    def close(self, clear_cell: bool = False):
+    def close(self, clear_cell: bool = False) -> None:
         """
         Close the graphics display
 
@@ -698,7 +696,6 @@ class Swift:
             last frame visible (the default -- matches prior behaviour).
             No effect for any other ``browser=`` mode, or if the iframe's
             cell was never displayed (e.g. still headless).
-        :type clear_cell: bool
         """
 
         self._send_socket("close", "0", False)
@@ -716,7 +713,14 @@ class Swift:
     #  Methods to interface with the robots created in other environemnts
     #
 
-    def add(self, ob, robot_alpha=1.0, collision_alpha=0.0, readonly=False, name=None):
+    def add(
+        self,
+        ob: "Shape | SwiftElement | _rtb_types.Robot",
+        robot_alpha: float = 1.0,
+        collision_alpha: float = 0.0,
+        readonly: bool = False,
+        name: str | None = None,
+    ) -> int | AssemblyHandle | SwiftElement | None:
         """
         Add an object to the graphical scene
 
@@ -728,24 +732,18 @@ class Swift:
             type-checking required.
 
         :param ob: the object to add
-        :type ob: Robot, Shape, or SwiftElement
         :param robot_alpha: Robot visual opacity. If 0, then the geometries
             are invisible, defaults to 1.0
-        :type robot_alpha: bool, optional
         :param collision_alpha: Robot collision visual opacity. If 0, then
             the geometries defaults to 0.0
-        :type collision_alpha: float, optional
         :param readonly: If true, swift will not modify any robot attributes,
             the robot is only being displayed, not simulated,
             defaults to False
-        :type readonly: bool, optional
         :param name: optional debug/display name, see :meth:`show`
-        :type name: str | None
         :return: for a ``Shape``, its object id within the visualizer; for
             a ``Robot``, an :class:`~swift.Handle.AssemblyHandle` owning
             that instance's live joint state; for a ``SwiftElement``, the
             element itself
-        :rtype: int | AssemblyHandle | SwiftElement
         """
 
         if isinstance(ob, Shape):
@@ -760,21 +758,23 @@ class Swift:
                 readonly=readonly,
                 name=name,
             )
+        return None
 
-    def add_shape(self, shape, callback=None, name=None):
+    def add_shape(
+        self,
+        shape: Shape,
+        callback: Callable[[float, dict[str, object]], SE3] | None = None,
+        name: str | None = None,
+    ) -> int:
         """
         Add a single shape to the graphical scene
 
         :param shape: the shape to add
-        :type shape: Shape
         :param callback: optional per-step pose callback ``(t, values) ->
             SE3``, called each ``env.step()`` instead of the default
             velocity/``shape.v``-driven update -- see :meth:`step`
-        :type callback: Callable[[float, dict], SE3] | None
         :param name: optional debug/display name, see :meth:`show`
-        :type name: str | None
         :return: the shape's object id within the visualizer
-        :rtype: int
 
         ``id = env.add_shape(shape)`` adds ``shape`` to the graphical
         environment and returns its id.
@@ -803,19 +803,16 @@ class Swift:
             self.shape_callbacks[int(id)] = callback
         return int(id)
 
-    def add_ui(self, element, name=None):
+    def add_ui(self, element: SwiftElement, name: str | None = None) -> SwiftElement:
         """
         Add a UI element (Slider, Button, ...) to the graphical scene
 
         :param element: the element to add
-        :type element: SwiftElement
         :param name: optional name, collected into the ``values`` dict
             per-step callbacks receive -- see :meth:`step`. Only elements
             with a ``.value`` attribute (e.g. ``Slider``, ``Select``)
             contribute a value.
-        :type name: str | None
         :return: the element itself
-        :rtype: SwiftElement
 
         ``env.add_ui(element)`` adds ``element`` to the sidebar.
         """
@@ -838,32 +835,33 @@ class Swift:
             self._send_socket("element", element.to_dict())
         return element
 
-    def add_assembly(self, fk, parts, q0=None, callback=None, readonly=False, name=None):
+    def add_assembly(
+        self,
+        fk: Callable[[ArrayLike], list[SE3]],
+        parts: list[Shape],
+        q0: ArrayLike | None = None,
+        callback: Callable[[float, dict[str, object]], ArrayLike] | None = None,
+        readonly: bool = False,
+        name: str | None = None,
+    ) -> AssemblyHandle:
         """
         Add an assembly of parts driven by a pure forward-kinematics function
 
         :param fk: pure function mapping this assembly's current ``q`` to
             one world-frame :class:`~spatialmath.SE3` pose per entry in
             ``parts``, in the same order
-        :type fk: Callable[[ArrayLike], list[SE3]]
         :param parts: the shapes making up this assembly, in the order
             ``fk`` returns poses for
-        :type parts: list[Shape]
         :param q0: initial configuration, defaults to an empty array (set
             ``handle.q`` before the first :meth:`step` if ``fk`` needs
             one)
-        :type q0: ArrayLike | None
         :param callback: optional per-step callback ``(t, values) -> q``,
             called each ``env.step()`` to compute the new ``q`` directly
             -- see :meth:`step`
-        :type callback: Callable[[float, dict], ArrayLike] | None
         :param readonly: if True, swift will not advance this assembly's
             ``q`` itself, defaults to False
-        :type readonly: bool
         :param name: optional debug/display name, see :meth:`show`
-        :type name: str | None
         :return: a handle owning this assembly's live joint state
-        :rtype: AssemblyHandle
 
         ``handle = env.add_assembly(fk, parts)`` adds ``parts`` to the
         graphical environment as one unit, positioned each step by
@@ -892,29 +890,30 @@ class Swift:
 
         return handle
 
-    def add_robot(self, robot, robot_alpha=1.0, collision_alpha=0.0, readonly=False, callback=None, name=None):
+    def add_robot(
+        self,
+        robot: "_rtb_types.Robot",
+        robot_alpha: float = 1.0,
+        collision_alpha: float = 0.0,
+        readonly: bool = False,
+        callback: Callable[[float, dict[str, object]], ArrayLike] | None = None,
+        name: str | None = None,
+    ) -> AssemblyHandle:
         """
         Add an ``rtb.Robot`` to the graphical scene
 
         :param robot: the robot to add
-        :type robot: roboticstoolbox.Robot
         :param robot_alpha: Robot visual opacity. If 0, then the geometries
             are invisible, defaults to 1.0
-        :type robot_alpha: bool, optional
         :param collision_alpha: Robot collision visual opacity. If 0, then
             the geometries defaults to 0.0
-        :type collision_alpha: float, optional
         :param readonly: If true, swift will not modify any robot attributes,
             the robot is only being displayed, not simulated,
             defaults to False
-        :type readonly: bool, optional
         :param callback: optional per-step callback ``(t, values) -> q``,
             see :meth:`add_assembly`
-        :type callback: Callable[[float, dict], ArrayLike] | None
         :param name: optional debug/display name, see :meth:`show`
-        :type name: str | None
         :return: a handle owning this robot instance's live joint state
-        :rtype: AssemblyHandle
 
         ``handle = env.add_robot(robot)`` adds ``robot`` to the graphical
         environment and returns a handle. ``robot`` itself stays a plain
@@ -947,7 +946,7 @@ class Swift:
 
         return handle
 
-    def remove(self, id):
+    def remove(self, id: "int | AssemblyHandle | Shape | _rtb_types.ERobot") -> None:
         """
         Remove a robot/shape from the graphical scene
 
@@ -956,7 +955,6 @@ class Swift:
 
         :param id: the id of the object as returned by the ``add`` method,
             or the instance of the object
-        :type id: Int, Robot or Shape
         """
 
         # ob to remove
@@ -992,7 +990,7 @@ class Swift:
         if not self.headless:
             self._send_socket(code, idd)
 
-    def hold(self, duration: float | None = None, timeout: float | None = None):
+    def hold(self, duration: float | None = None, timeout: float | None = None) -> None:
         """
         Block for up to ``duration`` seconds (or indefinitely)
 
@@ -1049,20 +1047,19 @@ class Swift:
             self.close()
             raise SystemExit
 
-    def _check_disconnected(self, disconnected_since, timeout):
+    def _check_disconnected(
+        self, disconnected_since: float | None, timeout: float | None
+    ) -> tuple[float | None, bool]:
         """
         Shared disconnect-timeout bookkeeping for hold() and run().
 
         :param disconnected_since: ``time.time()`` the browser was first
             seen disconnected, or ``None`` if it wasn't (yet)
-        :type disconnected_since: float | None
         :param timeout: seconds of continuous disconnection before
             ``expired`` becomes True; ``None`` never expires
-        :type timeout: float | None
         :return: updated ``disconnected_since``, and whether ``timeout``
             has now been exceeded (headless never expires -- there's no
             browser to disconnect from)
-        :rtype: tuple[float | None, bool]
         """
         if self.headless or len(self.socket.USERS) > 0:
             return None, False
@@ -1071,7 +1068,7 @@ class Swift:
         expired = timeout is not None and time.time() - disconnected_since > timeout
         return disconnected_since, expired
 
-    def run(self, duration: float | None = None, dt: float = 0.05, timeout: float | None = None):
+    def run(self, duration: float | None = None, dt: float = 0.05, timeout: float | None = None) -> None:
         """
         Repeatedly call :meth:`step` until ``duration`` (sim-time seconds)
         has elapsed, stopping early if the browser disconnects for longer
@@ -1128,19 +1125,18 @@ class Swift:
             self.close()
             raise SystemExit
 
-    def start_recording(self, file_name, framerate, format="webm"):
+    def start_recording(
+        self, file_name: str, framerate: float, format: Literal["webm", "gif", "png", "jpg"] = "webm"
+    ) -> None:
         """
         Start recording the canvas in the Swift simulator
 
         :param file_name: The file name for which the video will be saved as
-        :type file_name: string
         :param framerate: The framerate of the video - to be timed correctly,
             this should equalt 1 / dt where dt is the time supplied to the
             step function
-        :type framerate: float
         :param format: This is the format of the video, one of 'webm', 'gif',
             'png', or 'jpg'
-        :type format: string
 
         ``env.start_recording(file_name)`` starts recording the simulation
             scene and will save it as file_name once
@@ -1160,7 +1156,7 @@ class Swift:
                 "You are already recording, you can only record one video at a time"
             )
 
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         """
         Start recording the canvas in the Swift simulator. This is optional
         as the video will be automatically saved when the python script exits
@@ -1178,12 +1174,11 @@ class Swift:
                 " to stop the recording"
             )
 
-    def screenshot(self, file_name="swift_snap"):
+    def screenshot(self, file_name: str = "swift_snap") -> None:
         """
         Save a screenshot of the current Swift frame as a png file
 
         :param file_name: The file name for which the screenshot will be saved as
-        :type file_name: string
 
         ``env.screenshot(file_name)`` saves a screenshot and downloads it as file_name
         """
@@ -1193,7 +1188,7 @@ class Swift:
 
         self._send_socket("screenshot", [file_name])
 
-    def process_events(self, events):
+    def process_events(self, events: dict[str, Any]) -> None:
         """
         Process the event queue from Swift, this invokes the callback functions
         from custom elements added to the page. If using custom elements
@@ -1205,7 +1200,7 @@ class Swift:
             self.elements[event].update(events[event])
             self.elements[event].cb(events[event])
 
-    def set_camera_pose(self, position, look_at):
+    def set_camera_pose(self, position: ArrayLike, look_at: ArrayLike) -> None:
         """
         Swift.set_camera_pose(position, look_at) will set the camera
         position and orientation of the camera within the swift scene.
@@ -1223,9 +1218,9 @@ class Swift:
             match, if needed.
 
         :param position: The desired position of the camera
-        :type position: 3 vector (list or ndarray)
+        :type position: ArrayLike(3)
         :param look_at: A point in the scene in which the camera will look at
-        :type look_at: 3 vector (list or ndarray)
+        :type look_at: ArrayLike(3)
         """
 
         # if isinstance(pose, sm.SE3):
@@ -1268,7 +1263,7 @@ class Swift:
         if not self.headless:
             self._send_socket("lights", [light.to_dict() for light in lights], expected=False)
 
-    def _step_assembly(self, handle, dt):
+    def _step_assembly(self, handle: AssemblyHandle, dt: float) -> None:
 
         handle._sync_legacy()
 
@@ -1303,7 +1298,7 @@ class Swift:
         # function of handle.q, rather than reading the scene-graph's
         # mutated/cached world transform. See jhavl/swift#85.
 
-    def _send_shape_update_if_changed(self, shape):
+    def _send_shape_update_if_changed(self, shape: Shape) -> None:
         # A shape's @update-decorated setters (color, opacity, scale, ...)
         # only flip shape._changed -- this is the one place that turns that
         # flag into an actual "shape_update" message. Must run for every
@@ -1318,7 +1313,7 @@ class Swift:
             id = self.swift_objects.index(shape)
             self._send_socket("shape_update", [id, shape.to_dict()])
 
-    def _step_shape(self, shape, dt):
+    def _step_shape(self, shape: Shape, dt: float) -> None:
 
         self._send_shape_update_if_changed(shape)
 
@@ -1328,7 +1323,7 @@ class Swift:
         if shape.collision:
             shape._update_coal()
 
-    def _step_elements(self):
+    def _step_elements(self) -> None:
         """
         Check custom HTML elements to see if any have been updated, if there
         are any updates, send them through to Swift.
@@ -1341,7 +1336,7 @@ class Swift:
                     "update_element", self.elements[element].to_dict(), False
                 )
 
-    def _draw_all(self):
+    def _draw_all(self) -> Any:
         """
         Sends the transform of every simulated object in the scene
         Recieves bacl a list of events which has occured
@@ -1362,7 +1357,7 @@ class Swift:
         events = self._send_socket("shape_poses", msg, True)
         return json.loads(events)
 
-    def _send_socket(self, code, data=None, expected=True):
+    def _send_socket(self, code: str, data: Any = None, expected: bool = True) -> Any:
         msg = [expected, [code, data]]
 
         self.outq.put(msg)
@@ -1391,7 +1386,7 @@ class Swift:
         else:
             return "0"
 
-    def _wait_mounted(self, id, count):
+    def _wait_mounted(self, id: int, count: int) -> None:
         """
         Block until the browser confirms every part of object ``id`` has
         finished loading (see shapes.js's ``SwiftObject``).
@@ -1407,11 +1402,9 @@ class Swift:
 
         :param id: the object's id, as returned by the preceding "shape"
             message
-        :type id: int
         :param count: number of parts the object has, for the browser-side
             log/protocol payload only -- the mounted check itself compares
             against the part list ``id`` was created with
-        :type count: int
         """
         while True:
             status, detail = json.loads(self._send_socket("shape_mounted", [id, count]))
@@ -1426,7 +1419,7 @@ class Swift:
                 )
             time.sleep(0.1)
 
-    def _pause_control(self, _):
+    def _pause_control(self, _: Any) -> None:
         # Button's cb() contract is "argument can be disregarded" -- the
         # click carries no state of its own, so pause/resume is tracked
         # here and just flipped on each click. A second click, arriving
@@ -1445,11 +1438,11 @@ class Swift:
             events = json.loads(self._send_socket("shape_poses", []))
             self.process_events(events)
 
-    def _time_control(self, index):
+    def _time_control(self, index: int) -> None:
         self._skipped = 1
         self.realtime_speed = _REALTIME_SPEEDS[int(index)]
 
-    def _add_controls(self):
+    def _add_controls(self) -> None:
         self._pause_button = Button(self._pause_control, label="||")
         self._pause_button.builtin = True
         self.add_ui(self._pause_button)

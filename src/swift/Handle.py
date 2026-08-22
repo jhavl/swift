@@ -3,10 +3,14 @@
 Instance handles for objects added to a Swift scene.
 """
 import warnings
-from typing import Callable, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
 
 import numpy as np
+from spatialgeometry.geom.Shape import ArrayLike
 from spatialmath import SE3
+
+if TYPE_CHECKING:
+    import roboticstoolbox as rtb
 
 
 @runtime_checkable
@@ -39,12 +43,12 @@ class AssemblyHandle:
     def __init__(
         self,
         pose_fn: Callable[[np.ndarray], list[SE3]],
-        q0,
-        robot=None,
+        q0: ArrayLike,
+        robot: "rtb.Robot | None" = None,
         readonly: bool = False,
         name: str | None = None,
-        callback=None,
-    ):
+        callback: Callable[[float, dict[str, object]], ArrayLike] | None = None,
+    ) -> None:
         self._pose_fn = pose_fn
         self.q = np.array(q0, dtype=float)
         self.qd = np.zeros_like(self.q)
@@ -75,7 +79,7 @@ class AssemblyHandle:
         return self._control_mode
 
     @control_mode.setter
-    def control_mode(self, cn: str):
+    def control_mode(self, cn: str) -> None:
         if cn not in ("p", "v", "a"):
             raise ValueError("control_mode must be one of 'p', 'v', or 'a'")
         self._control_mode = cn
@@ -84,7 +88,7 @@ class AssemblyHandle:
         """World pose of every rendered part, from this handle's ``q``."""
         return self._pose_fn(self.q)
 
-    def _sync_legacy(self):
+    def _sync_legacy(self) -> None:
         """
         Backward-compat bridge for the deprecated robot.q/robot.qd
         direct-mutation style. Only applies to a handle wrapping an actual
@@ -119,7 +123,7 @@ class AssemblyHandle:
         self._model_qd = self.qd.copy()
         self._model_control_mode = self._control_mode
 
-    def _push_legacy(self):
+    def _push_legacy(self) -> None:
         """
         Mirror image of :meth:`_sync_legacy`. Once a handle has been
         confirmed to be in the deprecated direct-mutation style

@@ -28,7 +28,7 @@ Swift
 UI elements
 ===========
 
-.. automodule:: swift.SwiftElement
+.. automodule:: swift.Elements
    :members:
    :undoc-members:
    :show-inheritance:
