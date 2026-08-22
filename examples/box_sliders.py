@@ -27,9 +27,9 @@ def box_pose(t, values):
 
 env.add_shape(box, callback=box_pose)
 
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.0, max=0.6, step=0.01, value=0.0, desc="Box Z", unit="m"), name="z")
+env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box X", unit="m"), name="x")
+env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box Y", unit="m"), name="y")
+env.add_ui(Slider(min=0.0, max=0.6, step=0.01, value=0.0, desc="Box Z", unit="m"), name="z")
 
 while True:
     env.step(0.05)
