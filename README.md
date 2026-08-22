@@ -7,7 +7,7 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[GitHub repository](https://github.com/jhavl/swift) &nbsp;|&nbsp; [Documentation](https://jhavl.github.io/swift)
+[GitHub repository](https://github.com/jhavl/swift) &nbsp;|&nbsp; [Documentation](https://jhavl.github.io/swift/)
 
 Swift is a light-weight browser-based animation visualizer which provides:
 
