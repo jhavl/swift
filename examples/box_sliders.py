@@ -29,7 +29,5 @@ env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box X", unit="
 env.add_ui(Slider(min=-0.5, max=0.5, step=0.01, value=0.0, label="Box Y", unit="m"), name="y")
 env.add_ui(Slider(min=0.0, max=0.6, step=0.01, value=0.0, label="Box Z", unit="m"), name="z")
 
-env.step(dt=0.02)
-env.screenshot("box_sliders.png")
 # animate
-env.run(dt=0.02)  # run for 5 seconds, 50 fps
+env.run(dt=0.02)  # run forever at 50 fps
