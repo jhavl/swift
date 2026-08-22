@@ -4,6 +4,7 @@ import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
 import { WebSocketTransport, portFromLocation, SWIFT_JS_VERSION } from "./comms.js";
 import { Recorder } from "./recording.js";
 import { FPS, SimTime } from "./hud.js";
+import { saveScreenshot, timestampedScreenshotName } from "./screenshot.js";
 
 const { scene, camera, renderer, controls, axesHelper, ground, groundMaterial, lights } = createScene();
 
@@ -27,24 +28,24 @@ const UI_CLASSES = { slider: Slider, button: Button, label: Label, select: Selec
 // connects (see Swift.py's launch(browser_timeout=)). null means never.
 let autoCloseDelay = null;
 
-function saveScreenshot(fileName) {
-  const link = document.createElement("a");
-  link.download = `${fileName}.png`;
-  link.href = renderer.domElement.toDataURL("image/png");
-  link.click();
-}
-
 // launch()'s _add_controls() always adds Pause/Realtime/Render as the
 // first three elements, right after connecting and before any user code
 // runs -- so id 0 is reliably the pause button. Space just simulates a
 // click on it, reusing the exact same click -> "changed" -> shape_poses
 // response path a mouse click would take.
 window.addEventListener("keydown", (e) => {
-  if (e.code !== "Space" || e.target.tagName === "INPUT") return;
-  const pauseButton = uiElements.find((el) => el.id === 0);
-  if (pauseButton?.button) {
-    e.preventDefault();
-    pauseButton.button.click();
+  if (e.target.tagName === "INPUT") return;
+
+  if (e.code === "Space") {
+    const pauseButton = uiElements.find((el) => el.id === 0);
+    if (pauseButton?.button) {
+      e.preventDefault();
+      pauseButton.button.click();
+    }
+  } else if (e.code === "KeyS" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // Bare 's' -- Ctrl/Cmd+S is left alone so it still triggers the
+    // browser's own "Save Page As", rather than fighting it.
+    saveScreenshot(renderer.domElement, timestampedScreenshotName());
   }
 });
 
@@ -186,7 +187,7 @@ transport.onMessage((func, data) => {
       break;
     }
     case "screenshot": {
-      saveScreenshot(data[0]);
+      saveScreenshot(renderer.domElement, data[0]);
       transport.send(0);
       break;
     }
