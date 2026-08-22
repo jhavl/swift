@@ -49,6 +49,19 @@ autodoc_member_order = 'bysource'
 # that documents __init__ separately instead, without silently dropping it.
 autoclass_content = 'both'
 
+# A handful of type hints reference roboticstoolbox under a
+# TYPE_CHECKING guard (robot params in Swift.add()/add_robot()/remove(),
+# AssemblyHandle's robot=) -- swift deliberately has no hard dependency
+# on it (lazily imported at runtime, see Swift._import_rtb()), and this
+# docs build doesn't install it either, so sphinx_autodoc_typehints can
+# never resolve those specific references. Expected, not a real problem;
+# suppress rather than adding roboticstoolbox as a docs-only dependency
+# just to satisfy it.
+suppress_warnings = [
+    'sphinx_autodoc_typehints.guarded_import',
+    'sphinx_autodoc_typehints.forward_reference',
+]
+
 # :example:`box1.py` -> hyperlink to the file on GitHub, displayed as
 # "examples/box1.py". Use the explicit-title form, e.g.
 # :example:`box1.py, line 5 <box1.py#L5>`, to link a specific line.
