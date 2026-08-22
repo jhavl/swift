@@ -245,7 +245,7 @@ def test_add_controls_sends_two_builtin_elements():
     _, pause_data = browser.received[0]
     assert pause_data["element"] == "button"
     assert pause_data["builtin"] is True
-    assert pause_data["desc"] == "||"
+    assert pause_data["label"] == "||"
 
     _, speed_data = browser.received[1]
     assert speed_data["element"] == "select"
@@ -261,7 +261,7 @@ def test_pause_toggles_on_click_and_unblocks_on_second_click():
     env._add_controls()
 
     assert env._paused is False
-    assert env._pause_button.desc == "||"
+    assert env._pause_button.label == "||"
 
     # Simulate a second click arriving while the pause loop below is
     # polling, by scripting its next shape_poses reply to report element
@@ -273,7 +273,7 @@ def test_pause_toggles_on_click_and_unblocks_on_second_click():
     env._pause_control(None)  # the first click
 
     assert env._paused is False
-    assert env._pause_button.desc == "||"
+    assert env._pause_button.label == "||"
     browser.stop()
 
 

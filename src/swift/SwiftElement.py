@@ -1,4 +1,5 @@
 
+import warnings
 from abc import ABC, abstractmethod
 from functools import wraps
 
@@ -76,7 +77,9 @@ class Slider(SwiftElement):
     :type max: float
     :param step: the step size of the slider, optional
     :type step: float
-    :param desc: add a description of the slider, optional
+    :param label: caption shown next to the slider, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     :param unit: add a unit to the slider value, optional
     :type unit: str
@@ -92,8 +95,16 @@ class Slider(SwiftElement):
 
     """
 
-    def __init__(self, cb, min=0, max=100, step=1, value=0, desc='', unit='', precision=3):
+    def __init__(self, cb, min=0, max=100, step=1, value=0, label='', unit='', precision=3, desc=None):
         super(Slider, self).__init__()
+
+        if desc is not None:
+            warnings.warn(
+                "Slider(desc=...) is deprecated, use Slider(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
 
         self._element = 'slider'
         self.cb = cb
@@ -101,7 +112,7 @@ class Slider(SwiftElement):
         self.max = max
         self.step = step
         self.value = value
-        self.desc = desc
+        self.label = label
         self.unit = unit
         self.precision = precision
 
@@ -152,13 +163,31 @@ class Slider(SwiftElement):
         self._notify_value_changed()
 
     @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
+
+    @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Slider.desc is deprecated, use Slider.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Slider.desc is deprecated, use Slider.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     @property
     def unit(self):
@@ -187,7 +216,7 @@ class Slider(SwiftElement):
             'max': self.max,
             'step': self.step,
             'value': self.value,
-            'desc': self.desc,
+            'label': self.label,
             'unit': self.unit,
             'precision': self.precision,
         }
@@ -201,31 +230,59 @@ class Label(SwiftElement):
     """
     Create a Label html element
 
-    :param desc: the value of the label, optional
+    :param label: the text of the label, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     """
 
-    def __init__(self, desc=''):
+    def __init__(self, label='', desc=None):
         super(Label, self).__init__()
 
+        if desc is not None:
+            warnings.warn(
+                "Label(desc=...) is deprecated, use Label(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
+
         self._element = 'label'
-        self.desc = desc
+        self.label = label
+
+    @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
 
     @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Label.desc is deprecated, use Label.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Label.desc is deprecated, use Label.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     def to_dict(self):
         return {
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'desc': self.desc
+            'label': self.label
         }
 
     def update(self, _):
@@ -240,16 +297,26 @@ class Button(SwiftElement):
         clicked. The callback should accept one argument which
         can be disregarded
     :type cb: function
-    :param desc: text written on the button, optional
+    :param label: text written on the button, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     """
 
-    def __init__(self, cb, desc=''):
+    def __init__(self, cb, label='', desc=None):
         super(Button, self).__init__()
+
+        if desc is not None:
+            warnings.warn(
+                "Button(desc=...) is deprecated, use Button(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
 
         self._element = 'button'
         self.cb = cb
-        self.desc = desc
+        self.label = label
 
     @property
     def cb(self):
@@ -261,20 +328,38 @@ class Button(SwiftElement):
         self._cb = value
 
     @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
+
+    @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Button.desc is deprecated, use Button.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Button.desc is deprecated, use Button.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     def to_dict(self):
         return {
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'desc': self.desc
+            'label': self.label
         }
 
     def update(self, _):
@@ -289,7 +374,9 @@ class Select(SwiftElement):
         box changes. The callback should accept one argument which
         represents the index of the new value
     :type cb: function
-    :param desc: add a description of the select box, optional
+    :param label: caption shown next to the select box, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     :param options: represent the options inside the select box, optional
     :type options: List of str
@@ -298,12 +385,20 @@ class Select(SwiftElement):
     :type value: int
     """
 
-    def __init__(self, cb, desc='', options=[], value=0):
+    def __init__(self, cb, label='', options=[], value=0, desc=None):
         super(Select, self).__init__()
+
+        if desc is not None:
+            warnings.warn(
+                "Select(desc=...) is deprecated, use Select(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
 
         self._element = 'select'
         self.cb = cb
-        self.desc = desc
+        self.label = label
         self.options = options
         self.value = value
 
@@ -317,13 +412,31 @@ class Select(SwiftElement):
         self._cb = value
 
     @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
+
+    @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Select.desc is deprecated, use Select.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Select.desc is deprecated, use Select.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     @property
     def options(self):
@@ -349,7 +462,7 @@ class Select(SwiftElement):
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'desc': self.desc,
+            'label': self.label,
             'options': self.options,
             'value': self.value
         }
@@ -367,7 +480,9 @@ class Checkbox(SwiftElement):
         The callback should accept one argument which represents a List of
         bool representing the checked state of each box
     :type cb: function
-    :param desc: add a description of the checkboxes, optional
+    :param label: caption shown next to the checkboxes, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     :param options: represents the checkboxes, optional
     :type options: List of str
@@ -375,12 +490,20 @@ class Checkbox(SwiftElement):
     :type checked: List of bool
     """
 
-    def __init__(self, cb, desc='', options=[], checked=[]):
+    def __init__(self, cb, label='', options=[], checked=[], desc=None):
         super(Checkbox, self).__init__()
+
+        if desc is not None:
+            warnings.warn(
+                "Checkbox(desc=...) is deprecated, use Checkbox(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
 
         self._element = 'checkbox'
         self.cb = cb
-        self.desc = desc
+        self.label = label
         self.options = options
         self.checked = checked
 
@@ -394,13 +517,31 @@ class Checkbox(SwiftElement):
         self._cb = value
 
     @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
+
+    @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Checkbox.desc is deprecated, use Checkbox.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Checkbox.desc is deprecated, use Checkbox.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     @property
     def options(self):
@@ -431,7 +572,7 @@ class Checkbox(SwiftElement):
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'desc': self.desc,
+            'label': self.label,
             'options': self.options,
             'checked': self.checked
         }
@@ -448,7 +589,9 @@ class Radio(SwiftElement):
         The callback should accept one argument which represents a index
         corresponding to the checked radio button
     :type cb: function
-    :param desc: add a description of the radio buttons, optional
+    :param label: caption shown next to the radio buttons, optional
+    :type label: str
+    :param desc: deprecated alias for ``label``
     :type desc: str
     :param options: represents the radio buttons, optional
     :type options: List of str
@@ -456,12 +599,20 @@ class Radio(SwiftElement):
     :type checked: int
     """
 
-    def __init__(self, cb, desc='', options=[], checked=[]):
+    def __init__(self, cb, label='', options=[], checked=[], desc=None):
         super(Radio, self).__init__()
+
+        if desc is not None:
+            warnings.warn(
+                "Radio(desc=...) is deprecated, use Radio(label=...) instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            label = desc
 
         self._element = 'radio'
         self.cb = cb
-        self.desc = desc
+        self.label = label
         self.options = options
         self.checked = checked
 
@@ -475,13 +626,31 @@ class Radio(SwiftElement):
         self._cb = value
 
     @property
+    def label(self):
+        return self._label
+
+    @label.setter
+    @SwiftElement._update
+    def label(self, value):
+        self._label = value
+
+    @property
     def desc(self):
-        return self._desc
+        warnings.warn(
+            "Radio.desc is deprecated, use Radio.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._label
 
     @desc.setter
-    @SwiftElement._update
     def desc(self, value):
-        self._desc = value
+        warnings.warn(
+            "Radio.desc is deprecated, use Radio.label instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.label = value
 
     @property
     def options(self):
@@ -511,7 +680,7 @@ class Radio(SwiftElement):
             'element': self._element,
             'id': self._id,
             'builtin': self.builtin,
-            'desc': self.desc,
+            'label': self.label,
             'options': self.options,
             'checked': self.checked
         }

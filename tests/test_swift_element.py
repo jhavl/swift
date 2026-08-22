@@ -5,11 +5,13 @@ are built against (see swift/public/js/ui.js) -- a change here without a
 matching browser-side change silently breaks the UI panel.
 """
 
+import pytest
+
 from swift.SwiftElement import Button, Checkbox, Label, Radio, Select, Slider
 
 
 def test_slider_to_dict():
-    s = Slider(lambda v: None, min=0, max=10, step=0.5, value=2.5, desc="d", unit="u")
+    s = Slider(lambda v: None, min=0, max=10, step=0.5, value=2.5, label="d", unit="u")
     s._id = 3
     assert s.to_dict() == {
         "element": "slider",
@@ -19,7 +21,7 @@ def test_slider_to_dict():
         "max": 10.0,
         "step": 0.5,
         "value": 2.5,
-        "desc": "d",
+        "label": "d",
         "unit": "u",
         "precision": 3,
     }
@@ -41,25 +43,25 @@ def test_slider_precision_defaults_to_3_and_is_settable():
 
 
 def test_button_to_dict():
-    b = Button(lambda v: None, desc="Click Me")
+    b = Button(lambda v: None, label="Click Me")
     b._id = 0
-    assert b.to_dict() == {"element": "button", "id": 0, "builtin": False, "desc": "Click Me"}
+    assert b.to_dict() == {"element": "button", "id": 0, "builtin": False, "label": "Click Me"}
 
 
 def test_label_to_dict():
-    lab = Label(desc="hello")
+    lab = Label(label="hello")
     lab._id = 1
-    assert lab.to_dict() == {"element": "label", "id": 1, "builtin": False, "desc": "hello"}
+    assert lab.to_dict() == {"element": "label", "id": 1, "builtin": False, "label": "hello"}
 
 
 def test_select_to_dict_and_update():
-    sel = Select(lambda v: None, desc="pick one", options=["a", "b", "c"], value=1)
+    sel = Select(lambda v: None, label="pick one", options=["a", "b", "c"], value=1)
     sel._id = 2
     assert sel.to_dict() == {
         "element": "select",
         "id": 2,
         "builtin": False,
-        "desc": "pick one",
+        "label": "pick one",
         "options": ["a", "b", "c"],
         "value": 1,
     }
@@ -68,13 +70,13 @@ def test_select_to_dict_and_update():
 
 
 def test_checkbox_to_dict_and_update():
-    cb = Checkbox(lambda v: None, desc="opts", options=["x", "y"], checked=[True, False])
+    cb = Checkbox(lambda v: None, label="opts", options=["x", "y"], checked=[True, False])
     cb._id = 4
     assert cb.to_dict() == {
         "element": "checkbox",
         "id": 4,
         "builtin": False,
-        "desc": "opts",
+        "label": "opts",
         "options": ["x", "y"],
         "checked": [True, False],
     }
@@ -88,13 +90,13 @@ def test_checkbox_checked_from_int_index():
 
 
 def test_radio_to_dict_and_update():
-    r = Radio(lambda v: None, desc="pick", options=["x", "y"], checked=0)
+    r = Radio(lambda v: None, label="pick", options=["x", "y"], checked=0)
     r._id = 5
     assert r.to_dict() == {
         "element": "radio",
         "id": 5,
         "builtin": False,
-        "desc": "pick",
+        "label": "pick",
         "options": ["x", "y"],
         "checked": [True, False],
     }
@@ -103,7 +105,7 @@ def test_radio_to_dict_and_update():
 
 
 def test_builtin_flag_defaults_false_and_is_settable():
-    b = Button(lambda v: None, desc="||")
+    b = Button(lambda v: None, label="||")
     assert b.builtin is False
     b.builtin = True
     assert b.to_dict()["builtin"] is True
@@ -117,3 +119,42 @@ def test_changed_flag_only_set_once_added_to_swift():
     s._added_to_swift = True
     s.value = 2
     assert s._changed is True
+
+
+@pytest.mark.parametrize(
+    "cls,kwargs",
+    [
+        (Slider, {"cb": lambda v: None}),
+        (Label, {}),
+        (Button, {"cb": lambda v: None}),
+        (Select, {"cb": lambda v: None}),
+        (Checkbox, {"cb": lambda v: None}),
+        (Radio, {"cb": lambda v: None}),
+    ],
+)
+def test_desc_constructor_kwarg_is_deprecated_but_still_works(cls, kwargs):
+    with pytest.deprecated_call():
+        el = cls(desc="legacy text", **kwargs)
+    assert el.label == "legacy text"
+
+
+@pytest.mark.parametrize(
+    "cls,kwargs",
+    [
+        (Slider, {"cb": lambda v: None}),
+        (Label, {}),
+        (Button, {"cb": lambda v: None}),
+        (Select, {"cb": lambda v: None}),
+        (Checkbox, {"cb": lambda v: None}),
+        (Radio, {"cb": lambda v: None}),
+    ],
+)
+def test_desc_property_is_deprecated_but_still_works(cls, kwargs):
+    el = cls(**kwargs)
+
+    with pytest.deprecated_call():
+        el.desc = "legacy text"
+    assert el.label == "legacy text"
+
+    with pytest.deprecated_call():
+        assert el.desc == "legacy text"

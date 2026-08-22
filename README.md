@@ -86,9 +86,9 @@ def box_pose(t, values):
 
 env.add_shape(box, callback=box_pose)
 
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, desc="Box Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.0, max=0.6, step=0.01, value=0.0, desc="Box Z", unit="m"), name="z")
+env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, label="Box X", unit="m"), name="x")
+env.add_ui(Slider(lambda v: None, min=-0.5, max=0.5, step=0.01, value=0.0, label="Box Y", unit="m"), name="y")
+env.add_ui(Slider(lambda v: None, min=0.0, max=0.6, step=0.01, value=0.0, label="Box Z", unit="m"), name="z")
 
 while True:
     env.step(0.05)
@@ -136,8 +136,8 @@ handle = env.add_assembly(
     callback=lambda t, values: [values["q1"], values["q2"]],
 )
 
-env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 1", unit="rad"), name="q1")
-env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, desc="Joint 2", unit="rad"), name="q2")
+env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 1", unit="rad"), name="q1")
+env.add_ui(Slider(lambda v: None, min=-np.pi, max=np.pi, step=0.01, value=0.0, label="Joint 2", unit="rad"), name="q2")
 
 while True:
     env.step(0.05)
@@ -243,9 +243,9 @@ def track_target(t, values):
 
 handle.callback = track_target
 
-env.add_ui(Slider(lambda v: None, min=0.2, max=0.7, step=0.01, value=X0, desc="Target X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.4, max=0.4, step=0.01, value=Y0, desc="Target Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, desc="Target Z", unit="m"), name="z")
+env.add_ui(Slider(lambda v: None, min=0.2, max=0.7, step=0.01, value=X0, label="Target X", unit="m"), name="x")
+env.add_ui(Slider(lambda v: None, min=-0.4, max=0.4, step=0.01, value=Y0, label="Target Y", unit="m"), name="y")
+env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, label="Target Z", unit="m"), name="z")
 
 while True:
     env.step(dt)

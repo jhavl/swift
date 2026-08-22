@@ -53,9 +53,9 @@ def track_target(t, values):
 
 handle.callback = track_target
 
-env.add_ui(Slider(lambda v: None, min=0.2, max=0.7, step=0.01, value=X0, desc="Target X", unit="m"), name="x")
-env.add_ui(Slider(lambda v: None, min=-0.4, max=0.4, step=0.01, value=Y0, desc="Target Y", unit="m"), name="y")
-env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, desc="Target Z", unit="m"), name="z")
+env.add_ui(Slider(lambda v: None, min=0.2, max=0.7, step=0.01, value=X0, label="Target X", unit="m"), name="x")
+env.add_ui(Slider(lambda v: None, min=-0.4, max=0.4, step=0.01, value=Y0, label="Target Y", unit="m"), name="y")
+env.add_ui(Slider(lambda v: None, min=0.05, max=0.6, step=0.01, value=Z0, label="Target Z", unit="m"), name="z")
 
 while True:
     env.step(dt)
