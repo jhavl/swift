@@ -35,11 +35,32 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.extlinks',
+    'sphinx_autodoc_typehints',
     'sphinx_autorun',
+    'sphinx_copybutton',
 ]
 
 autosummary_generate = True
 autodoc_member_order = 'bysource'
+
+# Render __init__'s own docstring together with the class docstring --
+# most classes here document their :param:s once on the class docstring
+# (matching the ecosystem convention), but this leaves room for a class
+# that documents __init__ separately instead, without silently dropping it.
+autoclass_content = 'both'
+
+# A handful of type hints reference roboticstoolbox under a
+# TYPE_CHECKING guard (robot params in Swift.add()/add_robot()/remove(),
+# AssemblyHandle's robot=) -- swift deliberately has no hard dependency
+# on it (lazily imported at runtime, see Swift._import_rtb()), and this
+# docs build doesn't install it either, so sphinx_autodoc_typehints can
+# never resolve those specific references. Expected, not a real problem;
+# suppress rather than adding roboticstoolbox as a docs-only dependency
+# just to satisfy it.
+suppress_warnings = [
+    'sphinx_autodoc_typehints.guarded_import',
+    'sphinx_autodoc_typehints.forward_reference',
+]
 
 # :example:`box1.py` -> hyperlink to the file on GitHub, displayed as
 # "examples/box1.py". Use the explicit-title form, e.g.
@@ -57,6 +78,14 @@ exclude_patterns = ['test_*']
 autorun_languages = {}
 autorun_languages['pycon_output_encoding'] = 'UTF-8'
 autorun_languages['pycon_input_encoding'] = 'UTF-8'
+
+# -------- sphinx-copybutton options ------------------------------------------
+# Strip interactive prompts (Python and shell) when users copy code snippets.
+
+copybutton_prompt_text = r">>> |\.\.\. |\$ "
+copybutton_prompt_is_regexp = True
+copybutton_only_copy_prompt_lines = False
+copybutton_remove_prompts = True
 
 # -- Options for HTML output -------------------------------------------------
 
