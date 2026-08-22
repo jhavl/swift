@@ -1434,7 +1434,7 @@ class Swift:
         # method (via process_events -> cb) and flips it back to False,
         # which is what breaks the outer loop.
         self._paused = not self._paused
-        self._pause_button.desc = "▶" if self._paused else "||"
+        self._pause_button.label = "▶" if self._paused else "||"
         # The loop below bypasses the normal step()/_step_elements() path
         # entirely (it only polls shape_poses directly), so the icon
         # change above would otherwise sit queued and unsent for as long
@@ -1450,7 +1450,7 @@ class Swift:
         self.realtime_speed = _REALTIME_SPEEDS[int(index)]
 
     def _add_controls(self):
-        self._pause_button = Button(self._pause_control, desc="||")
+        self._pause_button = Button(self._pause_control, label="||")
         self._pause_button.builtin = True
         self.add_ui(self._pause_button)
 
@@ -1463,7 +1463,7 @@ class Swift:
         except ValueError:
             speed_index = 0
         speed_select = Select(
-            self._time_control, desc="Speed", options=_REALTIME_SPEED_LABELS, value=speed_index
+            self._time_control, label="Speed", options=_REALTIME_SPEED_LABELS, value=speed_index
         )
         speed_select.builtin = True
         self.add_ui(speed_select)

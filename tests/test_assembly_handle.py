@@ -245,7 +245,7 @@ def test_show_lists_user_elements_alongside_builtin_ones(capsys):
 
     env = make_env()
     env._add_controls()
-    env.add_ui(Slider(lambda v: None, desc="speed"), name="speed")
+    env.add_ui(Slider(lambda v: None, label="speed"), name="speed")
 
     env.show()
     out = capsys.readouterr().out
