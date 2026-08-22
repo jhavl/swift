@@ -3,7 +3,7 @@
 import spatialgeometry as sg
 from spatialmath import SE3
 from swift import Swift
-from swift.SwiftElement import Slider, Label
+from swift.Elements import Slider, Label
 
 env = Swift()
 env.launch(realtime=True, ground_opacity=0.1)

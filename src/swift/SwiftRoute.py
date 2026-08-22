@@ -3,6 +3,8 @@
 @author Jesse Haviland
 """
 
+from __future__ import annotations
+
 import swift as sw
 import websockets
 import asyncio
@@ -17,6 +19,7 @@ from queue import Empty
 from http import HTTPStatus
 import urllib
 from importlib.metadata import version as _installed_version, PackageNotFoundError
+from typing import Any, Callable
 
 
 from queue import Queue
@@ -40,7 +43,7 @@ except ImportError:
     COLAB = False
 
 
-def _check_js_version(handshake_msg) -> None:
+def _check_js_version(handshake_msg: str) -> None:
     """
     Warn if the connecting browser tab's JS reports a different version
     than the currently-installed swift-sim package -- almost always a
@@ -92,11 +95,11 @@ def _check_js_version(handshake_msg) -> None:
 def start_servers(
     outq: Queue,
     inq: Queue,
-    stop_servers,
+    stop_servers: Callable[[], bool],
     disconnected: Event,
     open_tab: bool = True,
     browser: str | None = None,
-):
+) -> tuple[Thread, "SwiftSocket", Thread, "SwiftServer", Any]:
     # Warn up front, not just after a cold ~60s timeout with no context --
     # see jhavl/swift#45. Not a hard block: still attempts the connection
     # regardless, in case Colab's infrastructure has changed, or the user
@@ -216,7 +219,7 @@ def start_servers(
 
 
 class SwiftSocket:
-    def __init__(self, outq, inq, run, disconnected: Event):
+    def __init__(self, outq: Queue, inq: Queue, run: Callable[[], bool], disconnected: Event) -> None:
         self.run = run
         self.outq = outq
         self.inq = inq
@@ -225,7 +228,7 @@ class SwiftSocket:
         # lets Swift._send_socket()'s blocked inq.get() bail out well
         # before _REPLY_TIMEOUT, instead of it being the only bound.
         self.disconnected = disconnected
-        self.USERS = set()
+        self.USERS: set[Any] = set()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
@@ -246,19 +249,19 @@ class SwiftSocket:
         self.inq.put((port, self))
         self.loop.run_forever()
 
-    async def _start_server(self, port: int):
+    async def _start_server(self, port: int) -> None:
         # websockets>=11 requires serve() to be created from a running loop.
         self._server = await websockets.serve(self.serve, "localhost", port)
 
-    def stop(self):
+    def stop(self) -> None:
         # call_soon_threadsafe -- run_forever() is executing on a
         # different thread than whichever one calls stop().
         self.loop.call_soon_threadsafe(self.loop.stop)
 
-    async def register(self, websocket):
+    async def register(self, websocket: Any) -> None:
         self.USERS.add(websocket)
 
-    async def serve(self, websocket, path=None):
+    async def serve(self, websocket: Any, path: str | None = None) -> None:
         # Initial connection handshake
         await self.register(websocket)
         try:
@@ -313,7 +316,7 @@ class SwiftSocket:
             self.USERS.discard(websocket)
         return
 
-    async def expect_message(self, websocket, expected):
+    async def expect_message(self, websocket: Any, expected: bool) -> None:
         if not expected:
             return
 
@@ -337,7 +340,7 @@ class SwiftSocket:
         recieved = recv_task.result()
         self.inq.put(recieved)
 
-    async def producer(self):
+    async def producer(self) -> Any:
         # self.outq.get() is a genuine blocking call (a plain thread-safe
         # queue.Queue, shared with the synchronous Python-thread side --
         # can't just swap in asyncio.Queue without breaking that side's
@@ -353,7 +356,15 @@ class SwiftSocket:
 
 
 class SwiftServer:
-    def __init__(self, outq, inq, socket_port, run, verbose=False, custom_root=None):
+    def __init__(
+        self,
+        outq: Queue,
+        inq: Queue,
+        socket_port: int,
+        run: Callable[[], bool],
+        verbose: bool = False,
+        custom_root: str | None = None,
+    ) -> None:
         server_port = 52000
         self.inq = inq
         self.run = run
@@ -361,12 +372,12 @@ class SwiftServer:
         root_dir = Path(sw.__file__).parent / "public"
 
         class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super(MyHttpRequestHandler, self).__init__(
                     *args, directory=str(root_dir), **kwargs
                 )
 
-            def log_message(self, format, *args):
+            def log_message(self, format: str, *args: Any) -> None:
                 if verbose:
                     http.server.SimpleHTTPRequestHandler.log_message(
                         self, format, *args
@@ -374,7 +385,7 @@ class SwiftServer:
                 else:
                     pass
 
-            def end_headers(self):
+            def end_headers(self) -> None:
                 # This server's process (and the port it's bound to) never
                 # outlives one Python session, so there's no real caching
                 # benefit -- only the risk of a browser silently serving a
@@ -385,7 +396,7 @@ class SwiftServer:
                 self.send_header("Cache-Control", "no-store")
                 http.server.SimpleHTTPRequestHandler.end_headers(self)
 
-            def do_GET(self):
+            def do_GET(self) -> None:
                 if self.path == "/":
                     self.send_response(301)
 
@@ -416,7 +427,7 @@ class SwiftServer:
                     # to the user
                     pass
 
-            def send_file_via_real_path(self):
+            def send_file_via_real_path(self) -> None:
                 try:
                     f = open(self.path, "rb")
                 except OSError:
@@ -460,7 +471,7 @@ class SwiftServer:
             except OSError:
                 server_port += 1
 
-    def stop(self):
+    def stop(self) -> None:
         # serve_forever() never returns on its own (nothing ever called
         # shutdown() before this) -- Thread.run() (which called
         # SwiftServer(...), which is blocked inside serve_forever()) never

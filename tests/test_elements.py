@@ -7,7 +7,7 @@ matching browser-side change silently breaks the UI panel.
 
 import pytest
 
-from swift.SwiftElement import Button, Checkbox, Label, Radio, Select, Slider
+from swift.Elements import Button, Checkbox, Label, Radio, Select, Slider
 
 
 def test_slider_to_dict():

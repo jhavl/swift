@@ -1,7 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from swift.SwiftRoute import SwiftServer, SwiftSocket, start_servers
-from swift.SwiftElement import (
+from swift.Elements import (
     SwiftElement,
     Slider,
     Select,
