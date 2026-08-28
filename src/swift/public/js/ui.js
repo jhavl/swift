@@ -62,10 +62,17 @@ export class Slider {
   update(data) {
     this.unit = data.unit;
     this.precision = data.precision;
-    this.slider.value = data.value;
+    
+    const min = Number(data.min);
+    const max = Number(data.max);
+    // Expand bounds first to avoid clamping during intermediate attribute updates
+    if (min < Number(this.slider.min)) this.slider.min = min;
+    if (max > Number(this.slider.max)) this.slider.max = max;
+    this.slider.min = min;
+    this.slider.max = max;
     this.slider.step = data.step;
-    this.slider.min = data.min;
-    this.slider.max = data.max;
+    this.slider.value = data.value;
+    
     // The slider's own min/max (above) keep full precision -- only the
     // text labels are rounded, same as the live value. Otherwise a range
     // like min=-np.pi/max=np.pi shows -3.141592653589793 regardless of
