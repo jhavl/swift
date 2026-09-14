@@ -318,18 +318,33 @@ function poseWithOptionalYUp(object3d, part) {
   return wrapper;
 }
 
+// Mesh filenames arrive as absolute filesystem paths (e.g. rtbdata's
+// installed location), not URLs -- SwiftServer.do_GET only serves those
+// through its "/retrieve/<path>" passthrough route, everything else is
+// resolved against swift/public/ as the static root.
+//
+// Backslashes must be converted to forward slashes *before* the Windows
+// drive-letter strip below, not after: encodeURI() escapes '\' to '%5C',
+// so a filename that still has backslashes past this point produces a URL
+// with no literal '/' separating "/retrieve" from the rest (e.g.
+// "/retrieve%5CUsers%5C..."), which fails SwiftRoute.py's
+// self.path.startswith("/retrieve/") check and 404s instead of hitting
+// the passthrough route at all (jhavl/swift#152). Exported for testing.
+export function meshRetrieveUrl(filename, isWindows) {
+  let normalized = filename.replace(/\\/g, "/");
+  if (isWindows) {
+    // Strips the drive letter (e.g. "C:") -- the remaining '/'-prefixed
+    // path resolves server-side against the current drive, same
+    // same-drive assumption this code already relied on before this fix.
+    normalized = normalized.slice(2);
+  }
+  return "/retrieve" + encodeURI(normalized);
+}
+
 function loadMesh(part, scene, cb, errCb) {
   const ext = part.filename.split(".").pop().toLowerCase();
 
-  // Mesh filenames arrive as absolute filesystem paths (e.g. rtbdata's
-  // installed location), not URLs -- SwiftServer.do_GET only serves those
-  // through its "/retrieve/<path>" passthrough route, everything else is
-  // resolved against swift/public/ as the static root.
-  let filename = part.filename;
-  if (navigator.appVersion.indexOf("Win") !== -1) {
-    filename = filename.slice(2);
-  }
-  const url = "/retrieve" + encodeURI(filename);
+  const url = meshRetrieveUrl(part.filename, navigator.appVersion.indexOf("Win") !== -1);
 
   // Every loader below must be given this (or call errCb() directly on an
   // unsupported/malformed input) -- Swift.py's add_shape()/add_assembly()/
