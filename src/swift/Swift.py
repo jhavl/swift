@@ -1131,12 +1131,16 @@ class Swift:
         """
         Start recording the canvas in the Swift simulator
 
-        :param file_name: The file name for which the video will be saved as
-        :param framerate: The framerate of the video - to be timed correctly,
-            this should equalt 1 / dt where dt is the time supplied to the
-            step function
-        :param format: This is the format of the video, one of 'webm', 'gif',
-            'png', or 'jpg'
+        :param file_name: The file name for which the recording will be
+            saved as (extension added automatically, see ``format``)
+        :param framerate: The framerate of the recording - to be timed
+            correctly, this should equalt 1 / dt where dt is the time
+            supplied to the step function
+        :param format: One of 'webm', 'gif', 'png', or 'jpg'. 'webm' and
+            'gif' each download as a single video/animation file. 'png'
+            and 'jpg' are not a video -- every captured frame is saved as
+            a separate image, downloaded together as one ``.tar`` archive
+            (not a ``.zip``) containing them
 
         ``env.start_recording(file_name)`` starts recording the simulation
             scene and will save it as file_name once

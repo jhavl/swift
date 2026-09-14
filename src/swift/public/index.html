@@ -24,8 +24,8 @@
 			}
 		}
 		</script>
-		<!-- CCapture isn't published as an ES module -- classic global script. -->
-		<script src="js/vendor/build/CCapture.all.min.js"></script>
+		<!-- CCapture isn't imported as an ES module here -- classic global script (the UMD build still exposes window.CCapture, see recording.js). -->
+		<script src="js/vendor/build/ccapture.umd.min.js"></script>
 	</head>
 	<body>
 		<script type="module" src="js/main.js"></script>

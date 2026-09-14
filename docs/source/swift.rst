@@ -208,6 +208,8 @@ Four formats are available via ``start_recording(..., format=...)``:
   tab to stay open after the simulation ends so you can trigger its own
   save step -- Swift won't auto-close the tab while a GIF capture is
   still pending, even if you've set a ``timeout`` on :meth:`hold`.
+  ``"png"``/``"jpg"`` aren't a video at all -- every captured frame saves
+  as a separate image, downloaded together as one ``.tar`` archive.
 
 :meth:`~swift.Swift.Swift.step` or :meth:`~swift.Swift.Swift.run`?
 ====================================================================
