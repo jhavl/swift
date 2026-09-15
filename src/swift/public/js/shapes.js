@@ -326,7 +326,7 @@ function loadMesh(part, scene, cb, errCb) {
   // through its "/retrieve/<path>" passthrough route, everything else is
   // resolved against swift/public/ as the static root.
   let filename = part.filename;
-  if (navigator.appVersion.indexOf("Win") !== -1) {
+  if (/^[A-Za-z]:[\\/]/.test(filename)) {
     filename = filename.slice(2);
   }
   const url = "/retrieve" + encodeURI(filename);
