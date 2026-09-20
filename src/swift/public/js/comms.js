@@ -25,7 +25,7 @@
 // currently-installed package version at connection time, so a browser
 // tab running old cached JS against a freshly-upgraded install gets a
 // clear warning instead of silently misbehaving.
-export const SWIFT_JS_VERSION = "2.0.0";
+export const SWIFT_JS_VERSION = "2.0.1";
 
 export class WebSocketTransport {
   /** @param {string} url */
