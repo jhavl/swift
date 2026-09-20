@@ -14,12 +14,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      # Don't let one failing Python version cancel the others -- with the
+      # default fail-fast the rest show up as "cancelled", which reads as
+      # failure and hides which version actually broke.
+      fail-fast: false
+      matrix:
+        # Matches requires-python (>=3.10) and the classifiers in
+        # pyproject.toml, so the claimed support range is actually tested.
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install swift-sim and test tools
         # Deliberately no roboticstoolbox: the dependency is strictly one way
@@ -32,6 +41,13 @@ jobs:
 
       - name: Run Python tests
         run: pytest tests/ -v
+
+  # Independent of the Python version, so a separate job rather than
+  # repeating it once per matrix entry above.
+  js-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
