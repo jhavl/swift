@@ -5,6 +5,49 @@ never kept a changelog before, so this covers everything since the last
 PyPI release, v1.1.0 (2023-04-30) — effectively three years of accumulated
 work on the `future` branch, now merged into `main`, plus everything since.
 
+## [2.0.1] - 2026-09-20
+
+### New
+
+- **Python 3.14 support**: `cp314` wheels are built and the test suite now
+  runs on every supported version, 3.10 through 3.14 (it previously only ran
+  on 3.12). `requires-python` is unchanged (`>=3.10`).
+
+### Changed
+
+- **Swift no longer depends on `roboticstoolbox` in any way.** The
+  dependency runs one way only (RTB depends on swift). `Swift()` previously
+  imported RTB at construction and raised `ImportError` without it; it now
+  constructs and works standalone, and `add()`/`remove()` recognize a robot
+  by its interface rather than by RTB's type. Behavior with RTB installed is
+  unchanged, and `remove()` now also works for robots that aren't `ERobot`.
+- **Screen recording** moved to `ccapture.js` 2.0.0. The API swift uses is
+  unchanged; its GIF encoder is now bundled, so the separate
+  `gif.worker.js` is gone.
+
+### Fixed
+
+- **Meshes and textures failed to load on Windows** (#152): a Windows path's
+  backslashes were escaped by `encodeURI()`, producing a URL that never
+  reached the server's `/retrieve/` route. Backslashes are now converted
+  before the drive letter is stripped. The same fix applies to
+  `ground_pattern` textures, which had their own copy of this logic.
+- **Meshes failed to load when the server runs under WSL** with a Windows
+  browser: whether to strip a drive letter was decided from the browser's
+  OS, so POSIX paths like `/home/...` were mangled. It is now decided from
+  the path itself. Thanks to @tmbkr for diagnosing this (#157).
+
+### Internal
+
+- The Python test job no longer installs `roboticstoolbox`; robot-shaped
+  tests use a stand-in, and a session-wide guard blocks any RTB import.
+  Nine tests that were previously excluded everywhere now run.
+- New end-to-end test of the `/retrieve` route (spatialgeometry, the JS
+  URL builder and the real server) on Linux and Windows.
+- Wheel and sdist builds now run as a dry run on pull requests that touch
+  the build configuration; only a published release uploads to PyPI (a
+  manual run of the workflow previously would have published).
+
 ## [2.0.0] - 2026-08-23
 
 ### Breaking
