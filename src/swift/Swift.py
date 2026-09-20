@@ -4,7 +4,7 @@
 """
 
 import os
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import Any, Callable, Literal
 import numpy as np
 from numpy.typing import NDArray
 import spatialmath as sm
@@ -18,13 +18,6 @@ import json
 from swift import start_servers, SwiftElement, Button, Select
 from swift.Handle import AssemblyHandle
 from swift.Light import Light
-
-if TYPE_CHECKING:
-    # Aliased to avoid shadowing the module-level `rtb` global below,
-    # which holds the actual lazily-imported roboticstoolbox module (see
-    # _import_rtb()) -- this one only exists for static type checkers,
-    # never at runtime.
-    import roboticstoolbox as _rtb_types
 
 
 def _se3_to_wire(T: SE3) -> dict[str, list[float]]:
@@ -90,19 +83,6 @@ _REPLY_TIMEOUT = 15
 # immediately, rather than only ever bailing out at _REPLY_TIMEOUT.
 _DISCONNECT_POLL_INTERVAL = 0.05
 
-rtb: Any = None
-
-
-def _import_rtb() -> None:  # pragma nocover
-    import importlib
-
-    global rtb
-    try:
-        rtb = importlib.import_module("roboticstoolbox")
-    except ImportError:
-        print("\nYou must install the python package roboticstoolbox-python\n")
-        raise
-
 
 class Swift:
     """
@@ -133,9 +113,6 @@ class Swift:
         self.inq: Queue = Queue()
 
         self._dev = _dev
-
-        if rtb is None:
-            _import_rtb()
 
         self._init()
 
@@ -715,7 +692,7 @@ class Swift:
 
     def add(
         self,
-        ob: "Shape | SwiftElement | _rtb_types.Robot",
+        ob: object,
         robot_alpha: float = 1.0,
         collision_alpha: float = 0.0,
         readonly: bool = False,
@@ -750,7 +727,10 @@ class Swift:
             return self.add_shape(ob, name=name)
         elif isinstance(ob, SwiftElement):
             return self.add_ui(ob, name=name)
-        elif isinstance(ob, rtb.Robot):
+        elif hasattr(ob, "fkine_geometry"):
+            # A robot, recognized by the interface add_robot() needs rather
+            # than by type: swift must not import roboticstoolbox -- the
+            # dependency runs one way only (RTB depends on swift).
             return self.add_robot(
                 ob,
                 robot_alpha=robot_alpha,
@@ -892,7 +872,7 @@ class Swift:
 
     def add_robot(
         self,
-        robot: "_rtb_types.Robot",
+        robot: Any,
         robot_alpha: float = 1.0,
         collision_alpha: float = 0.0,
         readonly: bool = False,
@@ -902,7 +882,13 @@ class Swift:
         """
         Add an ``rtb.Robot`` to the graphical scene
 
-        :param robot: the robot to add
+        :param robot: the robot to add. Swift doesn't import
+            roboticstoolbox (the dependency is one-way: RTB depends on
+            swift), so this is any object providing the interface of RTB's
+            ``Robot`` that this method and :class:`~swift.Handle.AssemblyHandle`
+            use: ``fkine_geometry()``, ``_to_dict()``, ``_update_link_tf()``,
+            ``update()``, ``q``, ``qd``, ``qlim``, ``control_mode``, ``links``
+            and the private ``_n``/``_q``/``_qd``/``_valid_qlim`` state
         :param robot_alpha: Robot visual opacity. If 0, then the geometries
             are invisible, defaults to 1.0
         :param collision_alpha: Robot collision visual opacity. If 0, then
@@ -946,7 +932,7 @@ class Swift:
 
         return handle
 
-    def remove(self, id: "int | AssemblyHandle | Shape | _rtb_types.ERobot") -> None:
+    def remove(self, id: "int | AssemblyHandle | Shape | Any") -> None:
         """
         Remove a robot/shape from the graphical scene
 
@@ -965,8 +951,14 @@ class Swift:
             idd = id.id
             code = "remove"
             self.swift_objects[idd] = None
-        elif isinstance(id, rtb.ERobot) or isinstance(id, Shape):
-
+        elif isinstance(id, (int, np.integer)):
+            # Number corresponding to swift_objects index
+            idd = id
+            code = "remove"
+            self.swift_objects[idd] = None
+        else:
+            # A Shape, or a robot (matched against its handle) -- found by
+            # identity, so no type check on the robot is needed.
             for i in range(len(self.swift_objects)):
                 obj = self.swift_objects[i]
                 if obj is None:
@@ -976,11 +968,6 @@ class Swift:
                     code = "remove"
                     self.swift_objects[idd] = None
                     break
-        else:
-            # Number corresponding to swift_objects index
-            idd = id
-            code = "remove"
-            self.swift_objects[idd] = None
 
         if idd is None:
             raise ValueError(

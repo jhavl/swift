@@ -3,14 +3,11 @@
 Instance handles for objects added to a Swift scene.
 """
 import warnings
-from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 import numpy as np
 from spatialgeometry.geom.Shape import ArrayLike
 from spatialmath import SE3
-
-if TYPE_CHECKING:
-    import roboticstoolbox as rtb
 
 
 @runtime_checkable
@@ -44,7 +41,7 @@ class AssemblyHandle:
         self,
         pose_fn: Callable[[np.ndarray], list[SE3]],
         q0: ArrayLike,
-        robot: "rtb.Robot | None" = None,
+        robot: Any | None = None,
         readonly: bool = False,
         name: str | None = None,
         callback: Callable[[float, dict[str, object]], ArrayLike] | None = None,

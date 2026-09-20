@@ -17,11 +17,11 @@ from queue import Empty, Queue
 
 import numpy as np
 import pytest
-import roboticstoolbox as rtb
 import spatialgeometry as sg
 import spatialmath as sm
 
 from swift import Swift
+from tests.fake_robot import FakeRobot
 
 # swift/__init__.py's `from swift.Swift import Swift` rebinds the `Swift`
 # package's `Swift` attribute from the submodule to the class, shadowing it
@@ -157,16 +157,15 @@ def test_send_socket_raises_timeout_instead_of_hanging_forever(monkeypatch):
         env._send_socket("shape", ["dummy"])
 
 
-@pytest.mark.rtb
 def test_add_robot_sends_flat_list_of_all_link_parts():
     env = make_env()
-    panda = rtb.models.Panda()
-    n_parts = sum(len(link.geometry) for link in panda.links)
-    for gripper in panda.grippers:
+    robot = FakeRobot()
+    n_parts = sum(len(link.geometry) for link in robot.links)
+    for gripper in robot.grippers:
         n_parts += sum(len(link.geometry) for link in gripper.links)
 
     browser = FakeBrowser(env, responses=["0", json.dumps([1, None])])
-    robot_id = env.add(panda)
+    robot_id = env.add(robot)
 
     codes = [c for c, _ in browser.received]
     assert codes == ["shape", "shape_mounted"]
