@@ -31,8 +31,8 @@ jobs:
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD_VERBOSITY: 1
-          # Only build CPython 3.10-3.13; skip PyPy and free-threaded builds.
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          # Only build CPython 3.10-3.14; skip PyPy and free-threaded builds.
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           CIBW_SKIP: "pp* *musllinux*"
           # Only build for this runner's native arch (no QEMU cross-compilation).
           CIBW_ARCHS: native
