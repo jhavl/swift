@@ -93,8 +93,16 @@ packages = ["swift"]
 # failing reflects an RTB/SG compatibility break upstream, not a swift
 # regression, and shouldn't gate swift's own PRs. Run explicitly with
 # `pytest -m rtb`.
-markers = ["rtb: requires roboticstoolbox to build a real robot model"]
-addopts = "-m 'not rtb'"
+#
+# integration: needs Node and `npm ci` in src/swift/public (drives the real
+# JS frontend code), which the main Python job doesn't set up -- excluded by
+# default and run by the Integration workflow (integration.yml) with
+# `pytest -m integration`.
+markers = [
+    "rtb: requires roboticstoolbox to build a real robot model",
+    "integration: needs Node and npm dependencies; run by the Integration workflow",
+]
+addopts = "-m 'not rtb and not integration'"
 
 # tests/test_lights.py imports fixtures from tests/test_protocol.py as
 # `tests.test_protocol`, which needs the repo root on sys.path. That's

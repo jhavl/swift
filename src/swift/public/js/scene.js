@@ -4,7 +4,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { resizeLines } from "./shapes.js";
+import { resizeLines, retrieveUrl } from "./shapes.js";
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -93,13 +93,10 @@ export function setGroundPattern(ground, groundMaterial, pattern, width) {
   } else if (pattern === "@grid") {
     applyRepeat(makeGridTexture(), width, width);
   } else {
-    // Mirrors loadMesh()'s own /retrieve/ URL construction (shapes.js) --
-    // same absolute-filesystem-path convention, same Windows adjustment.
-    let filename = pattern;
-    if (navigator.appVersion.indexOf("Win") !== -1) {
-      filename = filename.slice(2);
-    }
-    const url = "/retrieve" + encodeURI(filename);
+    // Same absolute-filesystem-path convention as loadMesh() (shapes.js),
+    // so the same URL construction -- including the Windows backslash and
+    // drive-letter handling.
+    const url = retrieveUrl(pattern);
     new THREE.TextureLoader().load(
       url,
       (texture) => {

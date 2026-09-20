@@ -1,0 +1,55 @@
+# End-to-end check of the /retrieve route on the operating systems users
+# actually run swift on. Most of tests/ drains Swift's queues through a fake
+# browser and runs on Linux only, which is how jhavl/swift#152 (Windows
+# backslashes in mesh paths) shipped -- every test passed. This drives the real
+# spatialgeometry -> JS retrieveUrl() -> SwiftServer path over a real socket.
+#
+# Deliberately RTB-free: swift needs only numpy, spatialgeometry and
+# websockets, and nothing here should pull in roboticstoolbox.
+
+name: Integration
+
+on:
+  push:
+    branches: [main, future]
+  pull_request:
+    branches: [main, future]
+
+jobs:
+  retrieve-route:
+    name: /retrieve route (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # See both platforms' results even if one fails.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install JS dependencies
+        working-directory: src/swift/public
+        run: npm ci
+
+      - name: Install spatialgeometry from its own main branch
+        # The point is the handoff with what spatialgeometry currently
+        # serializes (Mesh.to_dict()), so test against its main, not the
+        # last PyPI release.
+        run: pip install "git+https://github.com/jhavl/spatialgeometry.git@main"
+
+      - name: Install swift-sim and pytest
+        run: pip install -e . pytest
+
+      - name: Run /retrieve route tests
+        # Names the file rather than tests/: deselecting by marker happens
+        # *after* collection, and the other test files import
+        # roboticstoolbox, which this job deliberately doesn't install.
+        run: pytest -m integration tests/test_retrieve_route.py -v -rs
