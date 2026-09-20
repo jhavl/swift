@@ -9,11 +9,11 @@ import warnings
 
 import numpy as np
 import pytest
-import roboticstoolbox as rtb
 import spatialgeometry as sg
 from spatialmath import SE3
 
 from swift import Swift, AssemblyHandle
+from tests.fake_robot import FakeRobot
 
 
 def make_env():
@@ -22,61 +22,57 @@ def make_env():
     return env
 
 
-@pytest.mark.rtb
 def test_add_robot_returns_a_handle_with_independent_state():
     env = make_env()
-    panda = rtb.models.Panda()
+    robot = FakeRobot()
 
-    handle1 = env.add_robot(panda)
-    handle2 = env.add_robot(panda)
+    handle1 = env.add_robot(robot)
+    handle2 = env.add_robot(robot)
 
     assert isinstance(handle1, AssemblyHandle)
-    assert handle1.robot is panda
-    assert handle2.robot is panda
+    assert handle1.robot is robot
+    assert handle2.robot is robot
 
-    handle1.q = panda.qr
-    handle2.q = panda.qz
+    handle1.q = robot.qr
+    handle2.q = robot.qz
 
     assert not np.array_equal(handle1.q, handle2.q)
 
 
-@pytest.mark.rtb
 def test_setting_handle_q_drives_part_poses():
     env = make_env()
-    panda = rtb.models.Panda()
-    handle = env.add_robot(panda)
+    robot = FakeRobot()
+    handle = env.add_robot(robot)
 
-    handle.q = panda.qz
+    handle.q = robot.qz
     poses_zero = handle.part_poses()
 
-    handle.q = panda.qr
+    handle.q = robot.qr
     poses_ready = handle.part_poses()
 
     assert not np.allclose(poses_zero[-1].t, poses_ready[-1].t)
 
 
-@pytest.mark.rtb
 def test_legacy_direct_mutation_still_works_but_warns_once():
     env = make_env()
-    panda = rtb.models.Panda()
-    handle = env.add_robot(panda)
+    robot = FakeRobot()
+    handle = env.add_robot(robot)
 
     with pytest.warns(DeprecationWarning):
-        panda.q = panda.qr
+        robot.q = robot.qr
         handle._sync_legacy()
 
-    assert np.array_equal(handle.q, panda.q)
+    assert np.array_equal(handle.q, robot.q)
 
     # Second legacy mutation: state still adopted, but no further warning.
     with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter("always")
-        panda.q = panda.qz
+        robot.q = robot.qz
         handle._sync_legacy()
     assert len(record) == 0
-    assert np.array_equal(handle.q, panda.q)
+    assert np.array_equal(handle.q, robot.q)
 
 
-@pytest.mark.rtb
 def test_legacy_qd_mutation_updates_robot_q_after_step():
     """
     A control loop driving the deprecated robot.qd style (e.g. RTB's own
@@ -85,47 +81,45 @@ def test_legacy_qd_mutation_updates_robot_q_after_step():
     configuration and never converges. See jhavl/swift#125.
     """
     env = make_env()
-    panda = rtb.models.Panda()
-    panda.q = panda.qr
-    env.add_robot(panda)
+    robot = FakeRobot()
+    robot.q = robot.qr
+    env.add_robot(robot)
 
-    q_before = panda.q.copy()
+    q_before = robot.q.copy()
 
     with pytest.warns(DeprecationWarning):
-        panda.qd = np.full(panda.n, 0.1)
+        robot.qd = np.full(robot.n, 0.1)
         env.step(0.05)
 
-    assert np.allclose(panda.q, q_before + 0.1 * 0.05)
+    assert np.allclose(robot.q, q_before + 0.1 * 0.05)
 
     # Second step: no further warning, q keeps advancing from where it
     # left off (not re-integrated from the stale pre-loop value).
-    q_before = panda.q.copy()
+    q_before = robot.q.copy()
     with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter("always")
-        panda.qd = np.full(panda.n, 0.1)
+        robot.qd = np.full(robot.n, 0.1)
         env.step(0.05)
     assert len(record) == 0
-    assert np.allclose(panda.q, q_before + 0.1 * 0.05)
+    assert np.allclose(robot.q, q_before + 0.1 * 0.05)
 
 
-@pytest.mark.rtb
 def test_new_style_usage_never_warns():
     env = make_env()
-    panda = rtb.models.Panda()
-    handle = env.add_robot(panda)
+    robot = FakeRobot()
+    handle = env.add_robot(robot)
 
     with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter("always")
-        handle.q = panda.qr
+        handle.q = robot.qr
         handle._sync_legacy()
     assert len(record) == 0
 
 
-@pytest.mark.rtb
 def test_control_mode_validation():
     env = make_env()
-    panda = rtb.models.Panda()
-    handle = env.add_robot(panda)
+    robot = FakeRobot()
+    handle = env.add_robot(robot)
 
     handle.control_mode = "p"
     assert handle.control_mode == "p"
@@ -213,13 +207,12 @@ def test_named_slider_pushes_into_values():
     assert env.values["q1"] == 9
 
 
-@pytest.mark.rtb
 def test_show_does_not_raise(capsys):
     env = make_env()
     box = sg.Cuboid([0.1, 0.1, 0.1])
     env.add_shape(box, name="my box")
-    panda = rtb.models.Panda()
-    env.add_robot(panda, name="panda")
+    robot = FakeRobot()
+    env.add_robot(robot, name="panda")
 
     env.show()
     out = capsys.readouterr().out

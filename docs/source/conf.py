@@ -49,14 +49,14 @@ autodoc_member_order = 'bysource'
 # that documents __init__ separately instead, without silently dropping it.
 autoclass_content = 'both'
 
-# A handful of type hints reference roboticstoolbox under a
-# TYPE_CHECKING guard (robot params in Swift.add()/add_robot()/remove(),
-# AssemblyHandle's robot=) -- swift deliberately has no hard dependency
-# on it (lazily imported at runtime, see Swift._import_rtb()), and this
-# docs build doesn't install it either, so sphinx_autodoc_typehints can
-# never resolve those specific references. Expected, not a real problem;
-# suppress rather than adding roboticstoolbox as a docs-only dependency
-# just to satisfy it.
+# Swift has no dependency on roboticstoolbox at all (the dependency runs
+# one way: RTB depends on swift), so nothing here references it any more.
+# These suppressions date from when a few type hints (robot params in
+# Swift.add()/add_robot()/remove(), AssemblyHandle's robot=) imported it
+# under a TYPE_CHECKING guard, which sphinx_autodoc_typehints could never
+# resolve in a docs build that doesn't install it. They may now be
+# unnecessary -- check for other TYPE_CHECKING-guarded imports before
+# removing them.
 suppress_warnings = [
     'sphinx_autodoc_typehints.guarded_import',
     'sphinx_autodoc_typehints.forward_reference',

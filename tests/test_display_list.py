@@ -4,10 +4,10 @@ description, and __getitem__() lookup by id or by name=.
 """
 
 import pytest
-import roboticstoolbox as rtb
 import spatialgeometry as sg
 
 from swift import Swift
+from tests.fake_robot import FakeRobot
 
 
 def make_env():
@@ -71,16 +71,15 @@ def test_describe_uses_shape_repr_not_bare_type_name():
     assert env._describe(id_, shape) == f"[{id_}] {shape!r}"
 
 
-@pytest.mark.rtb
 def test_repr_lists_robot_links_indented_under_the_assembly():
     env = make_env()
-    panda = rtb.models.Panda()
-    handle = env.add_robot(panda, name="panda")
+    robot = FakeRobot()
+    handle = env.add_robot(robot, name="panda")
 
     text = repr(env)
 
     assert f'"panda"' in text
-    for link in panda.links:
+    for link in robot.links:
         assert link.name in text
     # links appear after (indented under) their AssemblyHandle line
-    assert text.index(panda.links[0].name) > text.index("AssemblyHandle")
+    assert text.index(robot.links[0].name) > text.index("AssemblyHandle")
