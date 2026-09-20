@@ -30,6 +30,10 @@ import spatialgeometry as sg
 
 PUBLIC = Path(__file__).resolve().parents[1] / "src" / "swift" / "public"
 
+# Excluded from a plain `pytest` (see pyproject.toml); run with
+# `pytest -m integration` after `npm ci` in src/swift/public.
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(autouse=True)
 def require_node():

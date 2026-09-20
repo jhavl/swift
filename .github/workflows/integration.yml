@@ -49,4 +49,7 @@ jobs:
         run: pip install -e . pytest
 
       - name: Run /retrieve route tests
-        run: pytest tests/test_retrieve_route.py -v -rs
+        # Names the file rather than tests/: deselecting by marker happens
+        # *after* collection, and the other test files import
+        # roboticstoolbox, which this job deliberately doesn't install.
+        run: pytest -m integration tests/test_retrieve_route.py -v -rs
