@@ -1,8 +1,19 @@
+# Builds every wheel plus the sdist. Only a published release goes on to
+# upload to PyPI (see upload_pypi's `if:`); pull requests that touch the build
+# configuration and manual runs are dry runs, so a broken wheel build (e.g. a
+# new Python version) is caught before release day, not during it.
+
 name: Build all Wheels
 
 on:
   release:
     types: [created]
+  pull_request:
+    paths:
+      - pyproject.toml
+      - setup.py
+      - scripts/sync_js_version.py
+      - .github/workflows/cibuildwheel.yml
   workflow_dispatch:
 
 jobs:
@@ -61,6 +72,8 @@ jobs:
 
   upload_pypi:
     needs: [build_wheels, build_sdist]
+    # Publish only for a real release -- a manual run or a PR is a dry run.
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
