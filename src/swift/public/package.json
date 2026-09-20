@@ -8,7 +8,7 @@
     "test": "node --test js/*.test.js"
   },
   "dependencies": {
-    "three": "0.185.1",
+    "three": "0.186.0",
     "ccapture.js": "2.0.0"
   }
 }
