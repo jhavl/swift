@@ -67,5 +67,13 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install JS dependencies
+        # Only ui.js/comms.js/screenshot.js's tests existed when this step
+        # was never added -- none of them import anything from
+        # node_modules, so this gap was invisible until shapes.test.js
+        # (which imports shapes.js, which imports three) needed it.
+        working-directory: src/swift/public
+        run: npm ci
+
       - name: Run JS unit tests
         run: node --test src/swift/public/js/*.test.js
