@@ -318,21 +318,28 @@ function poseWithOptionalYUp(object3d, part) {
   return wrapper;
 }
 
-// Mesh filenames arrive as absolute filesystem paths (e.g. rtbdata's
-// installed location), not URLs -- SwiftServer.do_GET only serves those
-// through its "/retrieve/<path>" passthrough route, everything else is
+// Mesh and texture filenames arrive as absolute filesystem paths (e.g.
+// rtbdata's installed location), not URLs -- SwiftServer.do_GET only serves
+// those through its "/retrieve/<path>" passthrough route, everything else is
 // resolved against swift/public/ as the static root.
 //
-// Backslashes must be converted to forward slashes *before* the Windows
-// drive-letter strip below, not after: encodeURI() escapes '\' to '%5C',
-// so a filename that still has backslashes past this point produces a URL
-// with no literal '/' separating "/retrieve" from the rest (e.g.
-// "/retrieve%5CUsers%5C..."), which fails SwiftRoute.py's
-// self.path.startswith("/retrieve/") check and 404s instead of hitting
-// the passthrough route at all (jhavl/swift#152). Exported for testing.
-export function meshRetrieveUrl(filename, isWindows) {
+// Backslashes must be converted to forward slashes *before* the drive-letter
+// strip below, not after: encodeURI() escapes '\' to '%5C', so a filename
+// that still has backslashes past this point produces a URL with no literal
+// '/' separating "/retrieve" from the rest (e.g. "/retrieve%5CUsers%5C..."),
+// which fails SwiftRoute.py's self.path.startswith("/retrieve/") check and
+// 404s instead of hitting the passthrough route at all (jhavl/swift#152).
+//
+// Whether to strip a drive letter is decided from the path itself, not from
+// the browser's OS (navigator.appVersion): the path was produced by the
+// Python server, which need not run on the same OS as the browser -- e.g.
+// swift running in WSL (POSIX paths) with a Windows browser, where sniffing
+// the browser would chop the first two characters off "/home/..."
+// (jhavl/swift#157). Used by both loadMesh() and scene.js's ground_pattern
+// texture loading. Exported for testing.
+export function retrieveUrl(filename) {
   let normalized = filename.replace(/\\/g, "/");
-  if (isWindows) {
+  if (/^[A-Za-z]:\//.test(normalized)) {
     // Strips the drive letter (e.g. "C:") -- the remaining '/'-prefixed
     // path resolves server-side against the current drive, same
     // same-drive assumption this code already relied on before this fix.
@@ -344,7 +351,7 @@ export function meshRetrieveUrl(filename, isWindows) {
 function loadMesh(part, scene, cb, errCb) {
   const ext = part.filename.split(".").pop().toLowerCase();
 
-  const url = meshRetrieveUrl(part.filename, navigator.appVersion.indexOf("Win") !== -1);
+  const url = retrieveUrl(part.filename);
 
   // Every loader below must be given this (or call errCb() directly on an
   // unsupported/malformed input) -- Swift.py's add_shape()/add_assembly()/
