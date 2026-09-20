@@ -60,7 +60,6 @@ repository = "https://github.com/jhavl/swift"
 
 dev = [
     "black",
-    "roboticstoolbox-python~=1.0.0",
     "swift-sim",
     "pytest",
     "pytest-cov",
@@ -87,22 +86,19 @@ packages = ["swift"]
 
 [tool.pytest.ini_options]
 
-# rtb: constructs a real roboticstoolbox model (rtb.models.Panda(), not a
-# bare fk= callable) -- excluded by default. Swift depends on
-# spatialgeometry directly, not on roboticstoolbox; a test in this set
-# failing reflects an RTB/SG compatibility break upstream, not a swift
-# regression, and shouldn't gate swift's own PRs. Run explicitly with
-# `pytest -m rtb`.
+# Swift's tests never involve roboticstoolbox: the dependency is strictly one
+# way (RTB depends on swift), and tests/conftest.py blocks the import for the
+# whole session. Robot-shaped tests use tests/fake_robot.py instead; the real
+# Robot/swift pairing is tested by RTB's own CI.
 #
 # integration: needs Node and `npm ci` in src/swift/public (drives the real
 # JS frontend code), which the main Python job doesn't set up -- excluded by
 # default and run by the Integration workflow (integration.yml) with
 # `pytest -m integration`.
 markers = [
-    "rtb: requires roboticstoolbox to build a real robot model",
     "integration: needs Node and npm dependencies; run by the Integration workflow",
 ]
-addopts = "-m 'not rtb and not integration'"
+addopts = "-m 'not integration'"
 
 # tests/test_lights.py imports fixtures from tests/test_protocol.py as
 # `tests.test_protocol`, which needs the repo root on sys.path. That's
