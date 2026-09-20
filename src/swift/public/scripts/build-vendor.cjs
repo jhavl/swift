@@ -91,18 +91,12 @@ copyFile(`${NODE_MODULES}/three/build/three.core.js`, `${VENDOR}/build/three.cor
 
 console.log("CCapture:");
 copyFile(
-  `${NODE_MODULES}/ccapture.js/build/CCapture.all.min.js`,
-  `${VENDOR}/build/CCapture.all.min.js`
+  `${NODE_MODULES}/ccapture.js/build/ccapture.umd.min.js`,
+  `${VENDOR}/build/ccapture.umd.min.js`
 );
-// gif.worker.js is only shipped under src/, not build/, but
-// CCapture.all.min.js's webm/gif encoders load it at runtime as a Worker
-// script (workersPath option in recording.js) -- without it, recording
-// starts and produces a valid-looking but empty (frameless) output file,
-// silently: the Worker fails to load and nothing else surfaces the error.
-copyFile(
-  `${NODE_MODULES}/ccapture.js/src/gif.worker.js`,
-  `${VENDOR}/build/gif.worker.js`
-);
+// ccapture.js 2.x's gif encoder (gifenc) is bundled directly into
+// ccapture.umd.min.js -- no separate Worker script to vendor anymore,
+// unlike 1.x's gif.worker.js (see git history on this file).
 
 const jsmFiles = resolveTransitiveImports(ENTRY_POINTS);
 console.log(`examples/jsm (${ENTRY_POINTS.length} entry points, ${jsmFiles.length} files including transitive imports):`);

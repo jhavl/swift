@@ -2,17 +2,20 @@
  * Screen recording. "webm" uses the browser's native MediaRecorder
  * (broadly supported, no extra dependency) -- the other formats ("gif",
  * "png", "jpg") still go through CCapture (loaded globally from
- * js/vendor/build/CCapture.all.min.js -- not published as an ES module,
- * so it stays a classic global script rather than an import).
+ * js/vendor/build/ccapture.umd.min.js -- not imported as an ES module
+ * here, so it stays a classic global script).
  *
- * CCapture's own webm encoder mux-es per-frame WebP images
+ * CCapture 1.x's own webm encoder muxed per-frame WebP images
  * (canvas.toDataURL("image/webp")), which Safari has never supported
- * from a canvas -- it fails there with "WebP not supported" /
- * "Couldn't decode WebP frame" and produces an empty (frameless) file
+ * from a canvas -- it failed there with "WebP not supported" /
+ * "Couldn't decode WebP frame" and produced an empty (frameless) file
  * every time, silently (found 2026-07-26 producing a 243-byte "video").
  * MediaRecorder doesn't go through WebP at all, so it doesn't have this
- * gap; gif/png/jpg don't use CCapture's WebP path so they're unaffected
- * and still use CCapture.
+ * gap -- webm moved to it for that reason. gif/png/jpg never used
+ * CCapture's WebP path, so they're unaffected and still use CCapture
+ * (now 2.x: png/jpg now download as a .tar of frames rather than
+ * whatever 1.x packaged them as, and gif moved to the gifenc encoder --
+ * see the ccapture.js 2.x migration guide).
  */
 
 export class Recorder {
@@ -51,7 +54,6 @@ export class Recorder {
         quality: 100,
         format,
         name,
-        workersPath: "js/vendor/build/",
       });
       this._legacyCapturer.start();
     }
