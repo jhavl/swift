@@ -3,7 +3,7 @@
 # in CI ever ran either; only src/swift/public/**'s vendored-asset check
 # existed (see vendor-check.yml).
 
-name: Python tests
+name: CI
 
 on:
   push:
