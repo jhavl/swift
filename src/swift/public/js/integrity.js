@@ -58,10 +58,18 @@ export async function sha256Hex(buffer) {
   return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// How many files are fetched at once. SwiftServer is a ThreadingTCPServer with
+// Python's default listen backlog of 5, and Windows refuses (ECONNREFUSED)
+// connections beyond that queue rather than holding them, so an unbounded
+// burst loses fetches there. Browsers cap connections per host at about this
+// anyway, but a runtime with no such cap (Node, in the integration test) does
+// not.
+const MAX_CONCURRENT_FETCHES = 4;
+
 /**
- * Hash each path by fetching it. A path whose fetch fails maps to null
- * ("couldn't check"), which the Python side ignores rather than reporting as
- * stale.
+ * Hash each path by fetching it, a few at a time. A path whose fetch fails
+ * maps to null ("couldn't check"), which the Python side ignores rather than
+ * reporting as stale.
  *
  * @param {string[]} paths
  * @param {(path: string) => Promise<Response>} fetchFn
@@ -70,17 +78,21 @@ export async function sha256Hex(buffer) {
  */
 export async function hashAssets(paths, fetchFn) {
   if (!globalThis.crypto?.subtle) return null;
-  const entries = await Promise.all(
-    paths.map(async (path) => {
+  const hashes = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < paths.length) {
+      const path = paths[next++];
       try {
         const response = await fetchFn(path);
-        return [path, response.ok ? await sha256Hex(await response.arrayBuffer()) : null];
+        hashes[path] = response.ok ? await sha256Hex(await response.arrayBuffer()) : null;
       } catch {
-        return [path, null];
+        hashes[path] = null;
       }
-    })
-  );
-  return Object.fromEntries(entries);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENT_FETCHES, paths.length) }, worker));
+  return Object.fromEntries(paths.map((path) => [path, hashes[path]]));
 }
 
 let cached = null;

@@ -69,6 +69,27 @@ test("hashAssets hashes each fetched file", async () => {
   assert.equal(hashes["js/b.js"], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 });
 
+test("hashAssets fetches only a few files at once, and still hashes them all", async () => {
+  // SwiftServer's small listen backlog loses connections beyond a handful on
+  // Windows, so a burst of one fetch per file must not happen.
+  let inFlight = 0;
+  let peak = 0;
+  const paths = Array.from({ length: 12 }, (_, i) => `js/f${i}.js`);
+  const fetchFn = async () => {
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    inFlight -= 1;
+    return new Response("abc");
+  };
+
+  const hashes = await hashAssets(paths, fetchFn);
+
+  assert.ok(peak <= 4, `peak concurrency was ${peak}`);
+  assert.deepEqual(Object.keys(hashes), paths); // all present, in order
+  assert.ok(Object.values(hashes).every((h) => h?.length === 64));
+});
+
 test("hashAssets maps a failed fetch to null, not a rejection", async () => {
   const fetchFn = async (path) => {
     if (path === "js/gone.js") return new Response("nope", { status: 404 });
