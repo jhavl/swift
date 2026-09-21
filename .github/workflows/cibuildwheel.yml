@@ -12,7 +12,6 @@ on:
     paths:
       - pyproject.toml
       - setup.py
-      - scripts/sync_js_version.py
       - .github/workflows/cibuildwheel.yml
   workflow_dispatch:
 
@@ -35,9 +34,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync JS version with pyproject.toml
-        run: python scripts/sync_js_version.py
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
@@ -58,9 +54,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Sync JS version with pyproject.toml
-        run: python scripts/sync_js_version.py
 
       - name: Build sdist
         run: pipx run build --sdist
