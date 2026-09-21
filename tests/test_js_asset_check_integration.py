@@ -44,14 +44,29 @@ def page_resource_urls() -> list[str]:
     return paths
 
 
-def js_asset_hashes(port: int) -> dict[str, str]:
-    """What the browser-side code sends: integrity.js run against the server."""
+def js_asset_hashes(port: int) -> tuple[dict[str, str | None], str]:
+    """
+    What the browser-side code sends: integrity.js run against the server.
+    Returns the hashes and anything Node logged about a fetch that failed
+    (hashAssets deliberately turns a failed fetch into null, so without this a
+    failure would not say which file or why).
+    """
     script = (
         "const { loadedAssetPaths, hashAssets } = await import(process.argv[1]);"
         "const base = `http://127.0.0.1:${process.argv[2]}/`;"
         "const urls = JSON.parse(process.argv[3]).map((p) => base + p);"
         "const paths = loadedAssetPaths(urls, base + '?12345');"
-        "const hashes = await hashAssets(paths, (p) => fetch(base + p));"
+        "const logged = async (p) => {"
+        "  try {"
+        "    const r = await fetch(base + p);"
+        "    if (!r.ok) console.error(`${p}: HTTP ${r.status}`);"
+        "    return r;"
+        "  } catch (e) {"
+        "    console.error(`${p}: ${e} ${e.cause ?? ''}`);"
+        "    throw e;"
+        "  }"
+        "};"
+        "const hashes = await hashAssets(paths, logged);"
         "process.stdout.write(JSON.stringify(hashes));"
     )
     result = subprocess.run(
@@ -69,7 +84,7 @@ def js_asset_hashes(port: int) -> dict[str, str]:
         check=True,
         cwd=PUBLIC,
     )
-    return json.loads(result.stdout)
+    return json.loads(result.stdout), result.stderr
 
 
 def handshake(hashes) -> str:
@@ -77,7 +92,7 @@ def handshake(hashes) -> str:
 
 
 def test_hashes_computed_by_the_js_match_the_files_on_disk(server_port, capsys):
-    hashes = js_asset_hashes(server_port)
+    hashes, node_log = js_asset_hashes(server_port)
 
     # Swift's own files are covered; vendored code and icons are not.
     assert "index.html" in hashes
@@ -85,7 +100,9 @@ def test_hashes_computed_by_the_js_match_the_files_on_disk(server_port, capsys):
     assert "js/main.js" in hashes
     assert "js/integrity.js" in hashes
     assert not any(name.startswith(("js/vendor/", "icons/")) for name in hashes)
-    assert all(isinstance(h, str) and len(h) == 64 for h in hashes.values())
+    unhashed = sorted(name for name, h in hashes.items() if h is None)
+    assert not unhashed, f"could not fetch/hash {unhashed}; node logged: {node_log!r}"
+    assert all(len(h) == 64 for h in hashes.values())
 
     _check_js_assets(handshake(hashes))
 
@@ -93,7 +110,7 @@ def test_hashes_computed_by_the_js_match_the_files_on_disk(server_port, capsys):
 
 
 def test_a_stale_file_reported_by_the_js_is_named(server_port, capsys):
-    hashes = js_asset_hashes(server_port)
+    hashes, _ = js_asset_hashes(server_port)
     hashes["js/shapes.js"] = "0" * 64  # as if the tab held an older copy
 
     _check_js_assets(handshake(hashes))
