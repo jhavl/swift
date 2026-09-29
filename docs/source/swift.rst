@@ -323,7 +323,7 @@ Two independent problems, neither fixed as of this writing:
   ``proxyPort()`` worked, the websocket handshake specifically would
   still fail.
 
-See ``tech-debt.md``'s "Google Colab support" section for the full
+See `issue #45 <https://github.com/jhavl/swift/issues/45>`_ for the full
 investigation, including what was ruled out (reviving WebRTC) and the
 more promising direction if this is ever revisited (``eval_js``/
 ``register_callback`` instead of a raw websocket).
