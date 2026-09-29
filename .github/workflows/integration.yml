@@ -1,8 +1,11 @@
-# End-to-end check of the /retrieve route on the operating systems users
-# actually run swift on. Most of tests/ drains Swift's queues through a fake
-# browser and runs on Linux only, which is how jhavl/swift#152 (Windows
-# backslashes in mesh paths) shipped -- every test passed. This drives the real
-# spatialgeometry -> JS retrieveUrl() -> SwiftServer path over a real socket.
+# End-to-end checks, on the operating systems users actually run swift on, of
+# the paths where Python, the JS frontend and the OS meet. Most of tests/
+# drains Swift's queues through a fake browser and runs on Linux only, which is
+# how jhavl/swift#152 (Windows backslashes in mesh paths) shipped -- every test
+# passed. These drive the real JS (under Node) against a real SwiftServer over
+# a real socket: the /retrieve route (spatialgeometry -> JS retrieveUrl() ->
+# server) and the JS asset hash check (JS integrity.js -> Python
+# _check_js_assets). They are the tests marked `integration`.
 #
 # Deliberately RTB-free: swift needs only numpy, spatialgeometry and
 # websockets, and nothing here should pull in roboticstoolbox.
@@ -16,8 +19,8 @@ on:
     branches: [main, future]
 
 jobs:
-  retrieve-route:
-    name: /retrieve route (${{ matrix.os }})
+  integration:
+    name: Integration (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       # See both platforms' results even if one fails.
@@ -48,8 +51,8 @@ jobs:
       - name: Install swift-sim and pytest
         run: pip install -e . pytest
 
-      - name: Run /retrieve route tests
-        # Names the file rather than tests/: deselecting by marker happens
-        # *after* collection, and the other test files import
-        # roboticstoolbox, which this job deliberately doesn't install.
-        run: pytest -m integration tests/test_retrieve_route.py -v -rs
+      - name: Run integration tests
+        # Everything marked `integration`, so a new integration test is picked
+        # up without touching this file. Collecting all of tests/ needs
+        # nothing beyond what's installed above (the suite is RTB-free).
+        run: pytest -m integration tests/ -v -rs

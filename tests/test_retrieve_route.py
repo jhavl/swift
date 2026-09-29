@@ -15,15 +15,11 @@ either is missing the tests skip locally, but fail under CI (``CI`` is set by
 GitHub Actions), so a broken workflow can't turn this into a silent pass.
 """
 
-import os
-import shutil
 import subprocess
 import tempfile
-import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
-from queue import Queue
 
 import pytest
 import spatialgeometry as sg
@@ -31,21 +27,9 @@ import spatialgeometry as sg
 PUBLIC = Path(__file__).resolve().parents[1] / "src" / "swift" / "public"
 
 # Excluded from a plain `pytest` (see pyproject.toml); run with
-# `pytest -m integration` after `npm ci` in src/swift/public.
-pytestmark = pytest.mark.integration
-
-
-@pytest.fixture(autouse=True)
-def require_node():
-    if shutil.which("node") is None:
-        problem = "node is not on PATH"
-    elif not (PUBLIC / "node_modules" / "three").is_dir():
-        problem = "`npm ci` has not been run in src/swift/public"
-    else:
-        return
-    if os.environ.get("CI"):
-        pytest.fail(problem)
-    pytest.skip(problem)
+# `pytest -m integration` after `npm ci` in src/swift/public. The
+# require_node and server_port fixtures live in conftest.py.
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("require_node")]
 
 
 CONTENT = b"solid placeholder\nendsolid placeholder\n"
@@ -73,21 +57,6 @@ def js_retrieve_url(filename: str) -> str:
         cwd=PUBLIC,
     )
     return result.stdout
-
-
-@pytest.fixture
-def server_port():
-    from swift.SwiftRoute import SwiftServer
-
-    outq, inq = Queue(), Queue()
-    t = threading.Thread(
-        target=SwiftServer, args=(outq, inq, 0, lambda: True), daemon=True
-    )
-    t.start()
-    port, instance = inq.get(timeout=5)
-    yield port
-    instance.stop()
-    t.join(timeout=3)
 
 
 @pytest.fixture

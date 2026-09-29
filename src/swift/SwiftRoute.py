@@ -18,7 +18,7 @@ import os
 from queue import Empty
 from http import HTTPStatus
 import urllib
-from importlib.metadata import version as _installed_version, PackageNotFoundError
+import hashlib
 from typing import Any, Callable
 
 
@@ -43,52 +43,73 @@ except ImportError:
     COLAB = False
 
 
-def _check_js_version(handshake_msg: str) -> None:
+def _check_js_assets(handshake_msg: str, root: Path | None = None) -> None:
     """
-    Warn if the connecting browser tab's JS reports a different version
-    than the currently-installed swift-sim package -- almost always a
-    stale, browser-cached page from before an upgrade. comms.js's
-    SWIFT_JS_VERSION is what makes this detectable at all: it's baked
-    into that file's own source (patched to match pyproject.toml at
-    release-build time -- see scripts/sync_js_version.py), so a stale
-    cached copy keeps reporting whatever version was true when it was
-    cached, not the current one.
+    Warn if the connecting browser tab is running different Swift JavaScript
+    than the files on disk -- typically a stale copy held by a caching proxy,
+    a page left open across an upgrade, or a file edited mid-session.
 
-    :param handshake_msg: the raw first message received over the
-        websocket, expected to be JSON containing "js_version" -- a
-        pre-version-reporting JS build just sends the bare string
-        "Connected" instead, which fails to parse and is treated the
-        same as "no version reported at all"
+    The tab's first message carries a SHA-256 of each of Swift's own files it
+    loaded (see ``public/js/integrity.js``); this recomputes the same hashes
+    from the files being served and names any that differ. Comparing content,
+    not a version string, means nothing has to be bumped or kept in sync at
+    release time, it works in an editable checkout, and it also catches a
+    changed file whose version did not change.
+
+    :param handshake_msg: the raw first message received over the websocket,
+        JSON of the form ``{"event": "connected", "js_hashes": {path: hash}}``.
+        ``js_hashes`` is null where the browser could not hash (``crypto.subtle``
+        needs a secure context), and a hash is null where that one file could
+        not be fetched -- both mean "could not check", so nothing is reported.
+        A message with no ``js_hashes`` at all comes from a JavaScript build
+        that predates this check (including the bare string ``"Connected"``
+        sent by even older ones).
+    :param root: the directory the files are served from, defaults to the
+        installed package's ``public/`` directory
     """
-    try:
-        installed = _installed_version("swift-sim")
-    except PackageNotFoundError:
-        # Editable/dev install with no dist-info to compare against --
-        # nothing meaningful to warn about.
-        return
+    root = (root or Path(sw.__file__).parent / "public").resolve()
 
-    js_version = None
+    payload = None
     try:
         payload = json.loads(handshake_msg)
-        if isinstance(payload, dict):
-            js_version = payload.get("js_version")
     except (json.JSONDecodeError, TypeError):
         pass
 
-    if js_version is None:
+    if not isinstance(payload, dict) or "js_hashes" not in payload:
         print(
-            "\nWarning: this browser tab appears to be running a very "
-            "old, cached copy of Swift's JavaScript -- older than the "
-            f"version that added version reporting -- while swift-sim "
-            f"{installed} is installed. If anything looks broken, "
-            "hard-refresh the browser tab (or open a new one).\n"
+            "\nWarning: this browser tab appears to be running an old, "
+            "cached copy of Swift's JavaScript -- it reports no file "
+            "hashes, which every current version does. If anything looks "
+            "broken, hard-refresh the browser tab (or open a new one).\n"
         )
-    elif js_version != installed:
+        return
+
+    hashes = payload["js_hashes"]
+    if not isinstance(hashes, dict):
+        return  # the browser could not hash; nothing to compare
+
+    stale = []
+    for name, digest in sorted(hashes.items()):
+        if digest is None:
+            continue  # that file could not be fetched; nothing to compare
+        path = (root / name).resolve()
+        if root not in path.parents:
+            continue  # only ever read files under the served directory
+        try:
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            stale.append(f"{name} (not found on this server)")
+            continue
+        if digest != actual:
+            stale.append(name)
+
+    if stale:
         print(
-            f"\nWarning: this browser tab is running Swift JS v{js_version}, "
-            f"but swift-sim v{installed} is installed -- likely a stale "
-            "cached page. Hard-refresh the browser tab (or open a new "
-            "one) to pick up the current version.\n"
+            "\nWarning: this browser tab is running Swift JavaScript that "
+            "differs from the files on disk -- likely a stale cached page. "
+            "Hard-refresh the browser tab (or open a new one). Differs: "
+            + ", ".join(stale)
+            + "\n"
         )
 
 
@@ -213,7 +234,7 @@ def start_servers(
             print("\nCould not connect to the Swift simulator \n")
         raise
 
-    _check_js_version(handshake_msg)
+    _check_js_assets(handshake_msg)
 
     return socket, socket_instance, server, server_instance, notebook_handle
 
