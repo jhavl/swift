@@ -15,6 +15,8 @@ work on the `future` branch, now merged into `main`, plus everything since.
   are drawn red/green/blue as before. Needs the matching spatialgeometry
   change; with an older spatialgeometry, which always sends a color, every
   `Axes` would draw in that one grey.
+  The minimum spatialgeometry version is raised to 1.4.2, the first release
+  that sends `color: null`.
 
 ## [2.0.1] - 2026-09-20
 
