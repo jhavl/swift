@@ -135,10 +135,10 @@ env.run(dt=dt)  # run forever, calling track_target/target_pose each step
 
 ### Embed within a Jupyter Notebook
 
-To embed within a Jupyter Notebook cell, use the `browser="notebook"` option when launching the simulator — any of the examples above work the same way, just swap the `env.launch(...)` line:
+To embed within a Jupyter Notebook cell, use the `notebook=True` option when launching the simulator — any of the examples above work the same way, just swap the `env.launch(...)` line:
 
 ```python
-env.launch(realtime=True, browser="notebook")
+env.launch(realtime=True, notebook=True)
 ```
 
 ## Installing

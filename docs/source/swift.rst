@@ -246,9 +246,11 @@ to end an interactive session, not an error.
 Notebook operation
 ===================
 
-``env.launch(browser="notebook")`` renders inline in the current cell's
+``env.launch(notebook=True)`` renders inline in the current cell's
 output via :class:`IPython.display.IFrame`, instead of opening a separate
-browser tab -- useful in Jupyter/JupyterLab. Combined with
+browser tab -- useful in Jupyter/JupyterLab.  The browser that shows the notebook
+must be on the machine running the kernel, since the frame points at ``localhost``.
+``launch(browser="notebook")``, the old way, is deprecated. Combined with
 :meth:`~swift.Swift.Swift.hold` and
 :meth:`~swift.Swift.Swift.close`'s ``clear_cell`` option:
 
@@ -258,7 +260,7 @@ browser tab -- useful in Jupyter/JupyterLab. Combined with
     from swift import Swift
 
     env = Swift()
-    env.launch(browser="notebook")
+    env.launch(notebook=True)
 
     panda = rtb.models.Panda()
     handle = env.add_robot(panda)

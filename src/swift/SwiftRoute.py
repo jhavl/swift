@@ -120,7 +120,12 @@ def start_servers(
     disconnected: Event,
     open_tab: bool = True,
     browser: str | None = None,
+    notebook: bool = False,
 ) -> tuple[Thread, "SwiftSocket", Thread, "SwiftServer", Any]:
+    # the old way to ask for the notebook frame; launch() warns about it
+    if browser == "notebook":
+        browser, notebook = None, True
+
     # Warn up front, not just after a cold ~60s timeout with no context --
     # see jhavl/swift#45. Not a hard block: still attempts the connection
     # regardless, in case Colab's infrastructure has changed, or the user
@@ -164,7 +169,7 @@ def start_servers(
     server.start()
     server_port, server_instance = inq.get()
 
-    # Only set for browser="notebook" -- a DisplayHandle (from
+    # Only set for notebook=True -- a DisplayHandle (from
     # display(..., display_id=True)) letting close() later blank out
     # specifically the cell that rendered the iframe, regardless of
     # which cell is executing when close() actually runs. A plain
@@ -179,28 +184,27 @@ def start_servers(
         else:
             url = f"http://localhost:{server_port}/?{socket_port}"
 
-        if browser is not None:
-            if browser == "notebook":
-                if not NB:
-                    raise ImportError(
-                        "\nCould not open in notebook mode, install ipython with 'pip"
-                        " install ipython'\n"
-                    )
-
-                notebook_handle = display(
-                    IFrame(
-                        src=url,
-                        width="600",
-                        height="400",
-                    ),
-                    display_id=True,
+        if notebook:
+            if not NB:
+                raise ImportError(
+                    "\nCould not open in notebook mode, install ipython with 'pip"
+                    " install ipython'\n"
                 )
-            else:
-                try:
-                    wb.get(browser).open_new_tab(url)
-                except wb.Error:
-                    print("\nCould not open specified browser, using default instead\n")
-                    wb.open_new_tab(url)
+
+            notebook_handle = display(
+                IFrame(
+                    src=url,
+                    width="600",
+                    height="400",
+                ),
+                display_id=True,
+            )
+        elif browser is not None:
+            try:
+                wb.get(browser).open_new_tab(url)
+            except wb.Error:
+                print("\nCould not open specified browser, using default instead\n")
+                wb.open_new_tab(url)
         elif COLAB:
             # wb.open_new_tab() would try to open a browser on the
             # (headless, remote) Colab VM itself, not the user's actual

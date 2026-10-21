@@ -5,6 +5,21 @@ never kept a changelog before, so this covers everything since the last
 PyPI release, v1.1.0 (2023-04-30) — effectively three years of accumulated
 work on the `future` branch, now merged into `main`, plus everything since.
 
+## [Unreleased]
+
+### New
+
+- **`launch(notebook=True)`** shows the page in a frame of the current cell of a
+  Jupyter notebook instead of opening a browser window. The `launch` docstring now
+  says which names `browser=` accepts: those of Python's `webbrowser` module, which
+  depend on the operating system, or a command line with `%s`.
+
+### Deprecated
+
+- `launch(browser="notebook")`: a made-up browser name that did two things at once.
+  Use `launch(notebook=True)`. It still works, with a `FutureWarning`, and naming a
+  browser together with `notebook=True` is a `ValueError`.
+
 ## [2.0.1] - 2026-09-20
 
 ### New
