@@ -5,6 +5,19 @@ never kept a changelog before, so this covers everything since the last
 PyPI release, v1.1.0 (2023-04-30) — effectively three years of accumulated
 work on the `future` branch, now merged into `main`, plus everything since.
 
+## [Unreleased]
+
+### Changed
+
+- **`Axes` honors spatialgeometry's `color` override**: when a color is
+  given, all three axes are drawn in it, in both the plain-line and
+  `arrows=True` styles. With no color (`color` is `null` on the wire) they
+  are drawn red/green/blue as before. Needs the matching spatialgeometry
+  change; with an older spatialgeometry, which always sends a color, every
+  `Axes` would draw in that one grey.
+  The minimum spatialgeometry version is raised to 1.4.2, the first release
+  that sends `color: null`.
+
 ## [2.0.1] - 2026-09-20
 
 ### New

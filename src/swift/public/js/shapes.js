@@ -204,18 +204,31 @@ const _AXIS_ROTATIONS = [
   new THREE.Euler(0, 0, 0), // +Z -> +Z, no rotation needed
 ];
 
-function loadAxes(part, scene, cb) {
+/**
+ * spatialgeometry.Axes. `part.color` is null when the user never gave a
+ * color, which means the conventional X red / Y green / Z blue; otherwise
+ * it is a single color override applied to all three axes, in either style
+ * (plain lines or arrows).
+ */
+export function loadAxes(part, scene, cb) {
+  const colors = part.color == null ? _AXIS_COLORS : [part.color, part.color, part.color];
+
   let axes;
   if (part.arrows) {
     axes = new THREE.Group();
     for (let i = 0; i < 3; i++) {
-      const arrow = makeArrow(part.length, part.radius, part.linewidth, 0.2, 0.2, _AXIS_COLORS[i]);
+      const arrow = makeArrow(part.length, part.radius, part.linewidth, 0.2, 0.2, colors[i]);
       arrow.setRotationFromEuler(_AXIS_ROTATIONS[i]);
       axes.add(arrow);
     }
     axes.userData.disposables = axes.children.flatMap((a) => a.userData.disposables);
   } else {
     axes = new THREE.AxesHelper(part.length);
+    // AxesHelper's own default is the same X red / Y green / Z blue, so
+    // this only needs to run for an override -- and goes through
+    // setColors() rather than a bare material color, since AxesHelper
+    // draws with per-vertex colors that a material color would multiply.
+    if (part.color != null) axes.setColors(colors[0], colors[1], colors[2]);
   }
   setPose(axes, part.t, part.q);
   finish(part, axes, scene, cb);
