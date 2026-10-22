@@ -7,6 +7,19 @@ work on the `future` branch, now merged into `main`, plus everything since.
 
 ## [Unreleased]
 
+### New
+
+- **`launch(notebook=True)`** shows the page in a frame of the current cell of a
+  Jupyter notebook instead of opening a browser window. The `launch` docstring now
+  says which names `browser=` accepts: those of Python's `webbrowser` module, which
+  depend on the operating system, or a command line with `%s`.
+
+### Deprecated
+
+- `launch(browser="notebook")`: a made-up browser name that did two things at once.
+  Use `launch(notebook=True)`. It still works, with a `FutureWarning`, and naming a
+  browser together with `notebook=True` is a `ValueError`.
+
 ### Changed
 
 - **`Axes` honors spatialgeometry's `color` override**: when a color is

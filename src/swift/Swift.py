@@ -12,6 +12,7 @@ from spatialmath import SE3
 from spatialgeometry import Shape
 from spatialgeometry.geom.Shape import ArrayLike
 import time
+import warnings
 from queue import Queue, Empty
 from threading import Event
 import json
@@ -82,6 +83,31 @@ _REPLY_TIMEOUT = 15
 # common case during an active step() loop) ends the wait almost
 # immediately, rather than only ever bailing out at _REPLY_TIMEOUT.
 _DISCONNECT_POLL_INTERVAL = 0.05
+
+
+def _display_options(browser: str | None, notebook: bool) -> tuple[str | None, bool]:
+    """
+    Where the Swift page is shown, as given to :meth:`Swift.launch`
+
+    :param browser: the ``browser`` argument of ``launch``
+    :param notebook: the ``notebook`` argument of ``launch``
+    :returns: ``(browser, notebook)``, with the deprecated ``browser="notebook"``
+        turned into ``notebook=True``
+    :raises ValueError: a browser is named and ``notebook`` is true
+    """
+    if browser == "notebook":
+        warnings.warn(
+            'launch(browser="notebook") is deprecated, use launch(notebook=True)',
+            FutureWarning,
+            stacklevel=3,
+        )
+        browser, notebook = None, True
+    if notebook and browser is not None:
+        raise ValueError(
+            f"browser={browser!r} cannot be used with notebook=True: the page is shown "
+            "in the cell of the notebook, not in a browser window"
+        )
+    return browser, notebook
 
 
 class Swift:
@@ -178,7 +204,7 @@ class Swift:
         # applies even if this process was killed outright rather than
         # exiting through hold().
         self._browser_timeout: float | None = 5
-        # Set by launch(browser="notebook") -- see close()'s clear_cell=.
+        # Set by launch(notebook=True) -- see close()'s clear_cell=.
         self._notebook_display_handle: Any = None
         # Set by SwiftSocket the instant a disconnect is detected server-
         # side -- lets _send_socket()'s wait bail out well before
@@ -286,6 +312,7 @@ class Swift:
         headless: bool | None = None,
         rate: int = 60,
         browser: str | None = None,
+        notebook: bool = False,
         axes: bool = True,
         ground_opacity: float = 1.0,
         ground_pattern: bool | str = False,
@@ -361,9 +388,27 @@ class Swift:
             ``headless=True`` itself.
         :param rate: The rate (Hz) at which the simulator will be run,
             defaults to 60Hz
-        :param browser: browser to open in: one of 'google-chrome', 'chrome',
-            'firefox', 'safari', 'opera' or see for full list
-            https://docs.python.org/3/library/webbrowser.html#webbrowser.open_new
+        :param browser: the browser to open the page in, or ``None`` (default)
+            for the system's default browser.  This is a name known to Python's
+            ``webbrowser`` module, which names depend on the operating system,
+            for example ``"chrome"``, ``"firefox"`` or ``"safari"`` on macOS,
+            ``"google-chrome"``, ``"chromium"`` or ``"firefox"`` on Linux, and
+            ``"windows-default"`` on Windows.  ``webbrowser.get(name)`` tells you
+            whether a name works on your machine.  It can also be a command line
+            with ``%s`` where the URL goes, for example
+            ``"/path/to/brave %s"``, to use any other browser.  A name that is not
+            known gives a message and the default browser.  Not for use with
+            ``notebook=True``
+        :param notebook: show the page in a frame of the current cell of a Jupyter
+            notebook (using :class:`IPython.display.IFrame`) instead of opening a
+            browser window, defaults to False.  The browser showing the notebook
+            must be on the machine running the kernel, since the frame points at
+            ``localhost``.  Needs IPython.  See :meth:`close` for ``clear_cell``
+
+            .. versionadded:: 2.1.0
+
+            .. deprecated:: 2.1.0
+                ``browser="notebook"``, use ``notebook=True``
         :param axes: Show the world-frame axes helper at the origin,
             defaults to True
         :param ground_opacity: Opacity of the ground plane, from 0
@@ -402,9 +447,24 @@ class Swift:
             silent no-op and the tab is left showing a "Disconnected"
             banner instead.
 
+        .. note::
+
+            Python's ``webbrowser`` module cannot tell whether a browser is
+            installed, so a browser that cannot be opened is not reported as such.
+            On macOS the names ``"chrome"``, ``"firefox"`` and ``"safari"`` are always
+            accepted, whether or not the app is installed.  If it is not, no window
+            opens and there is no error: Swift waits about 10 seconds for the page
+            to connect, then reports ``Could not connect to the Swift simulator``
+            (as it also does if no browser can be started at all, for example on
+            a machine with no display).  If you see that, check that the browser
+            named by ``browser`` is installed, or leave it as ``None`` to use the
+            system's default browser.
+
         """
 
+        browser, notebook = _display_options(browser, notebook)
         self.browser = browser
+        self.notebook = notebook
         self.rate = rate
         self._hold_timeout = timeout
         self._browser_timeout = browser_timeout
@@ -446,6 +506,7 @@ class Swift:
                 self._servers_running,
                 self._disconnected,
                 browser=browser,
+                notebook=notebook,
             )
 
             # The realtime, render and pause buttons -- added after the
@@ -668,7 +729,7 @@ class Swift:
         ``env.close()`` gracefully disconnectes from the Swift visualizer
         referenced by ``env``.
 
-        :param clear_cell: if launched with ``browser="notebook"``, blank
+        :param clear_cell: if launched with ``notebook=True``, blank
             out the cell that rendered the iframe instead of leaving its
             last frame visible (the default -- matches prior behaviour).
             No effect for any other ``browser=`` mode, or if the iframe's
@@ -681,7 +742,7 @@ class Swift:
         if clear_cell and self._notebook_display_handle is not None:
             # Lazy import -- IPython is optional, only actually needed if
             # a notebook display handle was ever created in the first
-            # place (browser="notebook" already requires it be installed).
+            # place (notebook=True already requires it be installed).
             from IPython.display import HTML
 
             self._notebook_display_handle.update(HTML(""))
