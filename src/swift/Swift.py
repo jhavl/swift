@@ -85,7 +85,6 @@ _REPLY_TIMEOUT = 15
 _DISCONNECT_POLL_INTERVAL = 0.05
 
 
-
 def _display_options(browser: str | None, notebook: bool) -> tuple[str | None, bool]:
     """
     Where the Swift page is shown, as given to :meth:`Swift.launch`

@@ -40,8 +40,8 @@ def test_a_browser_and_a_notebook_frame_cannot_both_be_asked_for():
         _display_options("firefox", True)
 
 
-def test_start_servers_accepts_the_old_name_too():
-    # callers of start_servers directly, which is not part of launch()
+def test_start_servers_has_a_notebook_parameter_defaulting_to_false():
+    # only the signature: exercising start_servers itself starts real servers
     import inspect
     from swift import start_servers
 
