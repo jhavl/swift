@@ -20,6 +20,17 @@ work on the `future` branch, now merged into `main`, plus everything since.
   Use `launch(notebook=True)`. It still works, with a `FutureWarning`, and naming a
   browser together with `notebook=True` is a `ValueError`.
 
+### Changed
+
+- **`Axes` honors spatialgeometry's `color` override**: when a color is
+  given, all three axes are drawn in it, in both the plain-line and
+  `arrows=True` styles. With no color (`color` is `null` on the wire) they
+  are drawn red/green/blue as before. Needs the matching spatialgeometry
+  change; with an older spatialgeometry, which always sends a color, every
+  `Axes` would draw in that one grey.
+  The minimum spatialgeometry version is raised to 1.4.2, the first release
+  that sends `color: null`.
+
 ## [2.0.1] - 2026-09-20
 
 ### New
