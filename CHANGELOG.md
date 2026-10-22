@@ -5,7 +5,7 @@ never kept a changelog before, so this covers everything since the last
 PyPI release, v1.1.0 (2023-04-30) — effectively three years of accumulated
 work on the `future` branch, now merged into `main`, plus everything since.
 
-## [Unreleased]
+## [2.1.0] - 2026-10-22
 
 ### New
 
