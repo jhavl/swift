@@ -17,6 +17,7 @@ from queue import Queue, Empty
 from threading import Event
 import json
 from swift import start_servers, SwiftElement, Button, Select
+from swift._comm import CommBridge
 from swift.Handle import AssemblyHandle
 from swift.Light import Light
 
@@ -138,6 +139,11 @@ class Swift:
         self.outq: Queue = Queue()
         self.inq: Queue = Queue()
 
+        # Set by _attach_comm() in notebooks where Python cannot listen on a
+        # socket (Colab, JupyterLite); see _comm.py. None means the
+        # websocket/queue path above.
+        self._comm: CommBridge | None = None
+
         self._dev = _dev
 
         self._init()
@@ -193,6 +199,9 @@ class Swift:
         self.realtime_speed: float | None = None
         self.axes = True
         self.ground_opacity = 1.0
+        self.ground_pattern: bool | str = False
+        self.ground_pattern_width = 1.0
+        self.lights: list[Light] | None = None
         # How long hold() keeps waiting after the browser disconnects
         # before giving up -- see launch()'s timeout= and hold(). None
         # means wait forever (the old behaviour).
@@ -509,34 +518,63 @@ class Swift:
                 notebook=notebook,
             )
 
-            # The realtime, render and pause buttons -- added after the
-            # browser has connected, since sending them any earlier would
-            # block waiting for a reply from a client that isn't there yet.
-            self._add_controls()
+            self._setup_viewer()
 
-            if not self.axes:
-                self._send_socket("axes", False, expected=False)
+    def _attach_comm(self, bridge: CommBridge) -> None:
+        """
+        Use the comm transport instead of starting the websocket and HTTP
+        servers, for notebooks where Python cannot listen on a socket (Colab,
+        JupyterLite) -- see :class:`swift._comm.CommBridge`. Called by the
+        notebook layer once its viewer exists, in place of
+        ``start_servers()`` inside :meth:`launch`.
 
-            if self.ground_opacity != 1.0:
-                self._send_socket("ground_opacity", self.ground_opacity, expected=False)
+        :param bridge: sends messages to the viewer and holds what it reports
+        """
+        self._comm = bridge
+        self.headless = False
+        self._setup_viewer()
 
-            if self.ground_pattern:
-                self._send_socket(
-                    "ground_pattern",
-                    {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
-                    expected=False,
-                )
+    @property
+    def ready(self) -> bool:
+        """
+        True once the viewer is running. :meth:`launch` waits for this, so it
+        is always true afterwards on the desktop; in a notebook that uses the
+        comm transport the viewer reports in later, between cells.
+        """
+        return self._comm.ready if self._comm is not None else True
 
-            if self.lights is not None:
-                self.set_lights(self.lights)
+    def _setup_viewer(self) -> None:
+        """Send the initial settings to a viewer that has just connected."""
+        # The realtime, render and pause buttons -- added after the
+        # browser has connected, since sending them any earlier would
+        # block waiting for a reply from a client that isn't there yet.
+        self._add_controls()
 
-            self._send_socket("browser_timeout", self._browser_timeout, expected=False)
+        if not self.axes:
+            self._send_socket("axes", False, expected=False)
+
+        if self.ground_opacity != 1.0:
+            self._send_socket("ground_opacity", self.ground_opacity, expected=False)
+
+        if self.ground_pattern:
+            self._send_socket(
+                "ground_pattern",
+                {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
+                expected=False,
+            )
+
+        if self.lights is not None:
+            self.set_lights(self.lights)
+
+        self._send_socket("browser_timeout", self._browser_timeout, expected=False)
 
     def _servers_running(self) -> bool:
         return self._run_thread
 
     def _stop_threads(self) -> None:
         self._run_thread = False
+        if self._comm is not None:
+            return  # no threads were started
         if not self.headless:
             # Setting _run_thread above only ends serve()'s per-connection
             # message loop -- SwiftSocket.loop.run_forever() itself never
@@ -831,8 +869,7 @@ class Swift:
         shape.update()
         shape._added_to_swift = True
         if not self.headless:
-            id = int(self._send_socket("shape", [shape.to_dict()]))
-            self._wait_mounted(id, 1)
+            id = self._send_shape([shape.to_dict()])
 
         else:
             id = len(self.swift_objects)
@@ -914,8 +951,7 @@ class Swift:
 
         if not self.headless:
             parts_dict = [p.to_dict() for p in parts]
-            id = int(self._send_socket("shape", parts_dict))
-            self._wait_mounted(id, len(parts_dict))
+            id = self._send_shape(parts_dict)
 
         else:
             id = len(self.swift_objects)
@@ -976,8 +1012,7 @@ class Swift:
             robob = robot._to_dict(
                 robot_alpha=robot_alpha, collision_alpha=collision_alpha
             )
-            id = int(self._send_socket("shape", robob))
-            self._wait_mounted(id, len(robob))
+            id = self._send_shape(robob)
 
         else:
             id = len(self.swift_objects)
@@ -1109,7 +1144,7 @@ class Swift:
             has now been exceeded (headless never expires -- there's no
             browser to disconnect from)
         """
-        if self.headless or len(self.socket.USERS) > 0:
+        if self.headless or self._comm is not None or len(self.socket.USERS) > 0:
             return None, False
         if disconnected_since is None:
             return time.time(), False
@@ -1410,6 +1445,10 @@ class Swift:
         return json.loads(events)
 
     def _send_socket(self, code: str, data: Any = None, expected: bool = True) -> Any:
+        if self._comm is not None:
+            # No reply can be waited for here -- see _comm.py
+            return self._comm.send(code, data)
+
         msg = [expected, [code, data]]
 
         self.outq.put(msg)
@@ -1438,6 +1477,28 @@ class Swift:
         else:
             return "0"
 
+    def _send_shape(self, parts: list[dict[str, Any]]) -> int:
+        """
+        Add an object to the browser and return its id, once it has mounted
+        where the transport allows waiting for that.
+
+        The websocket transport asks the browser for the id and waits for the
+        object to mount. The comm transport cannot wait for a reply, so Python
+        assigns the id itself, as headless mode does, and the browser holds
+        the object's poses until it has loaded.
+
+        :param parts: the object's parts, as sent in a ``shape`` message
+        :returns: the object's id, its index in ``swift_objects``
+        """
+        if self._comm is not None:
+            id = len(self.swift_objects)
+            self._comm.send("shape", {"id": id, "parts": parts})
+            return id
+
+        id = int(self._send_socket("shape", parts))
+        self._wait_mounted(id, len(parts))
+        return id
+
     def _wait_mounted(self, id: int, count: int) -> None:
         """
         Block until the browser confirms every part of object ``id`` has
@@ -1458,6 +1519,11 @@ class Swift:
             log/protocol payload only -- the mounted check itself compares
             against the part list ``id`` was created with
         """
+        if self._comm is not None:
+            # Python cannot wait for the browser; a load failure is reported
+            # by the viewer and raised by the next call (see _comm.py)
+            return
+
         while True:
             status, detail = json.loads(self._send_socket("shape_mounted", [id, count]))
             if status == 1:
