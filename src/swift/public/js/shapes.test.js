@@ -7,7 +7,7 @@ import { test } from "node:test";
 // static `import` is hoisted before any stubbing here would run. A dynamic
 // import(), which isn't hoisted, lets `window` be stubbed first.
 globalThis.window ??= { innerWidth: 0, innerHeight: 0 };
-const { retrieveUrl, loadAxes } = await import("./shapes.js");
+const { retrieveUrl, loadAxes, parseShapeMessage, SwiftObject } = await import("./shapes.js");
 
 // Regression test for jhavl/swift#152: a Windows path's backslashes must be
 // converted to forward slashes *before* the drive-letter strip, not after --
@@ -100,4 +100,40 @@ test("Axes color overrides all three axes in arrow style, line and tube shafts",
     const mesh = loaded(axesPart({ arrows: true, radius, color: 0xff00ff }));
     assert.deepEqual(arrowColors(mesh), [0xff00ff, 0xff00ff, 0xff00ff]);
   }
+});
+
+// The comm transport sends {id, parts} so Python can assign ids without a
+// reply; the websocket form is still the bare list and the browser picks.
+test("parseShapeMessage accepts the bare list of parts and assigns the next id", () => {
+  const parts = [{ stype: "box" }];
+  assert.deepEqual(parseShapeMessage(parts, 7), { id: 7, parts });
+});
+
+test("parseShapeMessage takes the id from an {id, parts} message", () => {
+  const parts = [{ stype: "box" }];
+  assert.deepEqual(parseShapeMessage({ id: 3, parts }, 7), { id: 3, parts });
+});
+
+test("SwiftObject reports a synchronous load failure through onError", (t) => {
+  t.mock.method(console, "error", () => {});
+  const failures = [];
+  const obj = new SwiftObject({ add() {}, remove() {} }, [{ stype: "nonsense" }], (code, reason) =>
+    failures.push([code, reason])
+  );
+
+  assert.equal(obj.hasError(), true);
+  assert.deepEqual(failures, [[-1, "unsupported shape type 'nonsense'"]]);
+});
+
+// Under the comm transport Python does not wait for mounting, so the pose for
+// a part can arrive before its mesh has loaded; it must be applied on load.
+test("a part that finishes loading after its pose arrived is placed at that pose", (t) => {
+  t.mock.method(console, "error", () => {});
+  const obj = new SwiftObject({ add() {}, remove() {} }, [{ stype: "nonsense" }]);
+  obj.setPoses([{ t: [1, 2, 3], q: [0, 0, 0, 1] }]); // no mesh yet: nothing to move
+
+  obj.parts[0] = axesPart({});
+  obj._loadPart(0); // the mesh "arrives"
+
+  assert.deepEqual(obj.parts[0].mesh.position.toArray(), [1, 2, 3]);
 });

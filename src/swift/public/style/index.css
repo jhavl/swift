@@ -50,6 +50,24 @@ body {
   border-radius: 0px 0px 15px 0px;
 }
 
+/* Load status in a notebook (comm transport): "starting" until the viewer
+   is up, then only shown again on an asset load error, which persists. */
+.swift-status {
+  position: fixed;
+  z-index: 10000;
+  top: 0px;
+  left: 0px;
+  padding: 6px 14px;
+  color: #cccccc;
+  background-color: #1e1e1e;
+  border-radius: 0px 0px 15px 0px;
+}
+
+.swift-status.error {
+  color: #ffffff;
+  background-color: #7a1f1f;
+}
+
 /* Built-in pause/realtime-speed controls (Swift._add_controls()) -- kept
    visually distinct from the generic .sidenav so they read as permanent
    playback controls rather than user-defined sliders/buttons. display is

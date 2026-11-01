@@ -1,5 +1,5 @@
 import { createScene, setGroundPattern, updateGroundPatternPosition, setLights } from "./scene.js";
-import { SwiftObject } from "./shapes.js";
+import { SwiftObject, parseShapeMessage } from "./shapes.js";
 import { Slider, Button, Label, Select, Checkbox, Radio } from "./ui.js";
 import { WebSocketTransport, portFromLocation } from "./comms.js";
 import { computeAssetHashes } from "./integrity.js";
@@ -50,7 +50,35 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-const transport = new WebSocketTransport(`ws://localhost:${portFromLocation()}/`);
+// A notebook page (Colab, JupyterLite) sets globalThis.swiftTransport to a
+// CommTransport before loading this module; otherwise connect back to the
+// websocket server Swift.py started.
+const transport = globalThis.swiftTransport ?? new WebSocketTransport(`ws://localhost:${portFromLocation()}/`);
+
+// Responses to Swift.py's messages. Over the websocket Python blocks on them;
+// over comm it cannot wait for them, so they are not sent (status and UI
+// events go through transport.send() directly -- see below).
+function respond(value) {
+  if (transport.expectsReplies) transport.send(value);
+}
+
+// Load status for the comm transport; the websocket case needs none because
+// Swift.py waits on shape_mounted and raises. Persists in the cell output.
+const statusEl = document.createElement("div");
+statusEl.className = "swift-status";
+if (!transport.expectsReplies) {
+  statusEl.textContent = "Swift: starting...";
+  document.body.appendChild(statusEl);
+}
+
+function showLoadError(id, code, reason) {
+  console.error(`Swift: object ${id} failed to load: ${reason}`);
+  if (transport.expectsReplies) return; // Swift.py raises from its shape_mounted poll
+  statusEl.className = "swift-status error";
+  statusEl.textContent = `Swift: ERROR: object ${id}: ${reason}`;
+  if (!statusEl.isConnected) document.body.appendChild(statusEl);
+  transport.send({ event: "error", id, code, reason });
+}
 
 // Guards animate()'s requestAnimationFrame chain -- otherwise it reschedules
 // itself forever regardless of connection state, rendering a static scene
@@ -69,6 +97,7 @@ transport.onOpen(async () => {
   // down the line. js_hashes is null where the browser couldn't hash.
   transport.send(JSON.stringify({ event: "connected", js_hashes: await computeAssetHashes() }));
   connected = true;
+  if (statusEl.className === "swift-status") statusEl.remove(); // started with no error
   requestAnimationFrame(animate);
 });
 
@@ -101,9 +130,9 @@ transport.onClose(() => {
 transport.onMessage((func, data) => {
   switch (func) {
     case "shape": {
-      const id = objects.length;
-      objects.push(new SwiftObject(scene, data));
-      transport.send(id);
+      const { id, parts } = parseShapeMessage(data, objects.length);
+      objects[id] = new SwiftObject(scene, parts, (code, reason) => showLoadError(id, code, reason));
+      respond(id);
       break;
     }
     case "shape_mounted": {
@@ -115,20 +144,20 @@ transport.onMessage((func, data) => {
       // forever -- see SwiftObject.hasError()/errorCode()/errorReason()
       // and Swift._wait_mounted().
       const reply = obj.hasError() ? [obj.errorCode, obj.errorReason] : [obj.isMounted() ? 1 : 0, null];
-      transport.send(reply);
+      respond(reply);
       break;
     }
     case "remove": {
       objects[data]?.remove(scene);
       renderer.renderLists.dispose();
       objects[data] = null;
-      transport.send(0);
+      respond(0);
       break;
     }
     case "shape_update": {
       const [id, partData] = data;
       objects[id].updatePart(0, partData);
-      transport.send(0);
+      respond(0);
       break;
     }
     case "shape_poses": {
@@ -143,13 +172,17 @@ transport.onMessage((func, data) => {
           el.changed = false;
         }
       }
-      transport.send(JSON.stringify(changes));
+      respond(JSON.stringify(changes));
+      // Over comm Python cannot wait for this reply, so report UI input only when there is some
+      if (!transport.expectsReplies && Object.keys(changes).length > 0) {
+        transport.send({ event: "ui", changes });
+      }
       break;
     }
     case "element": {
       const Cls = UI_CLASSES[data.element];
       if (Cls) uiElements.push(new Cls(data));
-      transport.send(0);
+      respond(0);
       break;
     }
     case "update_element": {
@@ -190,18 +223,18 @@ transport.onMessage((func, data) => {
     }
     case "screenshot": {
       saveScreenshot(renderer.domElement, data[0]);
-      transport.send(0);
+      respond(0);
       break;
     }
     case "start_recording": {
       const [framerate, name, format] = data;
       recorder.start(parseFloat(framerate), name, format);
-      transport.send(0);
+      respond(0);
       break;
     }
     case "stop_recording": {
       recorder.stop();
-      setTimeout(() => transport.send(0), 5000);
+      setTimeout(() => respond(0), 5000);
       break;
     }
     case "close": {
