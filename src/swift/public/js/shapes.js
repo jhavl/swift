@@ -528,6 +528,21 @@ function load(part, scene, cb, errCb) {
 }
 
 /**
+ * Normalises a "shape" message. The original form is the bare list of parts,
+ * and the browser picks the object's id (the next free index). The comm
+ * transport sends `{id, parts}` instead, so Python can assign ids without
+ * waiting for a reply.
+ *
+ * @param {Array<object> | {id: number, parts: Array<object>}} data
+ * @param {number} nextId the id to use when the message does not carry one
+ * @returns {{id: number, parts: Array<object>}}
+ */
+export function parseShapeMessage(data, nextId) {
+  if (Array.isArray(data)) return { id: nextId, parts: data };
+  return { id: data.id, parts: data.parts };
+}
+
+/**
  * One entry in Swift's `swift_objects` list -- either a lone Shape (one
  * part) or a Robot (one part per link/gripper geometry). Both are added,
  * posed and removed identically since the wire protocol treats them the
@@ -537,8 +552,11 @@ export class SwiftObject {
   /**
    * @param {THREE.Scene} scene
    * @param {Array<object>} parts flat list of shape dicts
+   * @param {((code: number, reason: string) => void) | null} [onError] called once, with
+   *   the first failed part's code and reason (including a synchronous failure
+   *   during construction)
    */
-  constructor(scene, parts) {
+  constructor(scene, parts, onError = null) {
     this.scene = scene;
     this.parts = parts;
     this.loaded = 0;
@@ -551,17 +569,38 @@ export class SwiftObject {
     this.errorCode = null;
     this.errorReason = null;
 
-    const cb = () => {
-      this.loaded++;
-    };
-    const errCb = (code, reason) => {
-      this.failed++;
-      if (this.errorCode === null) {
-        this.errorCode = code;
-        this.errorReason = reason;
+    // Latest poses received, kept so a part that finishes loading after its
+    // pose arrived (comm transport: Python does not wait for mounting) is
+    // placed where it belongs instead of sitting at the origin.
+    this.lastPoses = null;
+    this.onError = onError;
+
+    for (let i = 0; i < this.parts.length; i++) this._loadPart(i);
+  }
+
+  /** Loads part ``i``; on success places it at the latest pose, on failure records the first reason. */
+  _loadPart(i) {
+    load(
+      this.parts[i],
+      this.scene,
+      () => {
+        this.loaded++;
+        this._applyPose(i);
+      },
+      (code, reason) => {
+        this.failed++;
+        if (this.errorCode === null) {
+          this.errorCode = code;
+          this.errorReason = reason;
+          if (this.onError) this.onError(code, reason);
+        }
       }
-    };
-    for (const part of this.parts) load(part, scene, cb, errCb);
+    );
+  }
+
+  _applyPose(i) {
+    const mesh = this.parts[i].mesh;
+    if (mesh && this.lastPoses?.[i]) setPose(mesh, this.lastPoses[i].t, this.lastPoses[i].q);
   }
 
   isMounted() {
@@ -574,10 +613,8 @@ export class SwiftObject {
   }
 
   setPoses(poses) {
-    for (let i = 0; i < this.parts.length; i++) {
-      const mesh = this.parts[i].mesh;
-      if (mesh) setPose(mesh, poses[i].t, poses[i].q);
-    }
+    this.lastPoses = poses;
+    for (let i = 0; i < this.parts.length; i++) this._applyPose(i);
   }
 
   /** Handles "shape_update" -- a Shape's geometry/color/etc changed, not just its pose. */
@@ -589,20 +626,7 @@ export class SwiftObject {
       this.loaded--;
     }
     this.parts[index] = partData;
-    load(
-      partData,
-      this.scene,
-      () => {
-        this.loaded++;
-      },
-      (code, reason) => {
-        this.failed++;
-        if (this.errorCode === null) {
-          this.errorCode = code;
-          this.errorReason = reason;
-        }
-      }
-    );
+    this._loadPart(index);
   }
 
   remove(scene) {

@@ -16,6 +16,8 @@ export class WebSocketTransport {
   /** @param {string} url */
   constructor(url) {
     this.ws = new WebSocket(url);
+    // Python blocks on a reply to most messages (see main.js's reply()).
+    this.expectsReplies = true;
   }
 
   onOpen(cb) {
@@ -35,6 +37,44 @@ export class WebSocketTransport {
 
   send(data) {
     this.ws.send(typeof data === "string" ? data : JSON.stringify(data));
+  }
+}
+
+/**
+ * Transport for notebooks where Python cannot listen on a socket (Colab,
+ * JupyterLite/Pyodide): messages travel over the Jupyter comm channel, via
+ * an anywidget-style `model` ({on, send}). Python's messages arrive as
+ * `{func, data}` (the same [func, data] pair as the websocket wire
+ * protocol, as an object because comm messages are dicts).
+ *
+ * Python cannot wait for replies there -- the kernel delivers messages from
+ * the browser only between cells -- so `expectsReplies` is false and
+ * main.js sends back only status and UI events, as `{reply: ...}`.
+ */
+export class CommTransport {
+  /** @param {{on: Function, send: Function}} model */
+  constructor(model) {
+    this.model = model;
+    this.expectsReplies = false;
+  }
+
+  onOpen(cb) {
+    // there is no connection to wait for: the comm exists once the widget does
+    queueMicrotask(cb);
+  }
+
+  onMessage(cb) {
+    this.model.on("msg:custom", (msg) => {
+      if (msg && msg.func !== undefined) cb(msg.func, msg.data);
+    });
+  }
+
+  onClose() {
+    // a notebook output does not disconnect; it is cleared or the notebook closes
+  }
+
+  send(data) {
+    this.model.send({ reply: data });
   }
 }
 
