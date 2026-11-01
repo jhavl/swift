@@ -1,0 +1,49 @@
+# Dependabot bumps package.json/package-lock.json only, but js/vendor/ is built
+# from those and committed, so vendor-check fails until someone rebuilds it.
+# This workflow does the rebuild and pushes it back to the Dependabot PR branch.
+#
+# The push uses VENDOR_BOT_TOKEN (a Dependabot secret: fine-grained PAT with
+# contents:write on this repo) rather than GITHUB_TOKEN, because a push made
+# with GITHUB_TOKEN does not re-trigger vendor-check on the PR.
+
+name: Dependabot vendor rebuild
+
+on:
+  pull_request:
+    branches: [main, future]
+    paths: ["src/swift/public/package*.json"]
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/swift/public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.VENDOR_BOT_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci --ignore-scripts
+      - run: npm run build:vendor
+
+      - name: Commit and push rebuilt js/vendor/
+        run: |
+          if git diff --quiet -- js/vendor/ && [ -z "$(git ls-files --others --exclude-standard -- js/vendor/)" ]; then
+            echo "js/vendor/ already up to date"
+            exit 0
+          fi
+          git config user.name "swift-vendor-bot"
+          git config user.email "swift-vendor-bot@users.noreply.github.com"
+          git add -A js/vendor/
+          git commit -m "chore: rebuild vendored bundles"
+          git push
