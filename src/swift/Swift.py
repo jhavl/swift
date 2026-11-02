@@ -573,6 +573,9 @@ class Swift:
             self._send_socket("ground_opacity", self.ground_opacity, expected=False)
 
         if self.ground_pattern:
+            if self._comm is not None and isinstance(self.ground_pattern, str):
+                if self.ground_pattern not in ("@tile", "@grid"):
+                    self._comm.send_files(self.ground_pattern)
             self._send_socket(
                 "ground_pattern",
                 {"pattern": self.ground_pattern, "width": self.ground_pattern_width},
@@ -1508,6 +1511,10 @@ class Swift:
         """
         if self._comm is not None:
             id = len(self.swift_objects)
+            # nothing can be fetched from here, so the files go ahead of the shape
+            for part in parts:
+                if part.get("filename"):
+                    self._comm.send_files(part["filename"])
             self._comm.send("shape", {"id": id, "parts": parts})
             return id
 

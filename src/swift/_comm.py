@@ -24,6 +24,12 @@ import json
 import threading
 from typing import Any, Callable
 
+from swift._assets import asset_key, mesh_files
+
+# Mesh files are sent in pieces of this size: a message much larger than this can
+# be refused by the notebook server (Jupyter's limit is 10 MiB)
+_CHUNK = 1 << 20
+
 
 def in_comm_environment() -> bool:
     """
@@ -50,19 +56,21 @@ class CommBridge:
     them again. Python keeps these until the browser first reports that it is
     listening; from then on nothing more can be lost and they are let go.
 
-    :param send: pushes one message to the browser; called from the thread that
-        is running the user's code
+    :param send: pushes one message to the browser, with binary buffers if it has
+        any (``send(msg)`` or ``send(msg, buffers)``); called from the thread
+        that is running the user's code
     """
 
-    def __init__(self, send: Callable[[dict[str, Any]], None]) -> None:
+    def __init__(self, send: Callable[..., None]) -> None:
         self._send = send
         self._lock = threading.Lock()
         self._seq = 0
         # Numbered messages not yet known to have reached the browser, and the
         # latest of each kind in _LATEST_WINS; None once the browser has
         # reported that it is listening
-        self._kept: list[dict[str, Any]] | None = []
+        self._kept: list[tuple[dict[str, Any], list[bytes] | None]] | None = []
         self._latest: dict[str, dict[str, Any]] = {}
+        self._files_sent: set[str] = set()
         #: True once the browser has reported that its viewer is running
         self.ready = False
         #: the first load error the browser reported, as a message, or None
@@ -70,12 +78,15 @@ class CommBridge:
         # UI input since the last "shape_poses" message, {element id: data}
         self._ui: dict[str, Any] = {}
 
-    def send(self, code: str, data: Any = None) -> str:
+    def send(
+        self, code: str, data: Any = None, buffers: list[bytes] | None = None
+    ) -> str:
         """
         Push one message to the browser.
 
         :param code: the message's function name, as in the websocket protocol
         :param data: the message's payload
+        :param buffers: binary data that goes with the message
         :returns: what the websocket transport's reply would have been: the
             UI events since the last call (JSON) for ``shape_poses``, else ``"0"``
         :raises RuntimeError: if the browser has reported a load error
@@ -92,13 +103,39 @@ class CommBridge:
                 self._seq += 1
                 msg["seq"] = self._seq
                 if self._kept is not None:
-                    self._kept.append(msg)
-            self._send(msg)
+                    self._kept.append((msg, buffers))
+            self._deliver(msg, buffers)
 
         if code == "shape_poses":
             events, self._ui = self._ui, {}
             return json.dumps(events)
         return "0"
+
+    def _deliver(self, msg: dict[str, Any], buffers: list[bytes] | None) -> None:
+        if buffers:
+            self._send(msg, buffers)
+        else:
+            self._send(msg)
+
+    def send_files(self, filename: str) -> None:
+        """
+        Send the browser a mesh file, and the files it refers to, to be loaded
+        in place of fetching them. Those already sent are not sent again.
+
+        :param filename: the mesh file, as given to the mesh
+        :raises FileNotFoundError: if the mesh file does not exist
+        """
+        for path in mesh_files(filename):
+            key = asset_key(path)
+            if key in self._files_sent:
+                continue
+            self._files_sent.add(key)
+            data = path.read_bytes()
+            starts = range(0, max(len(data), 1), _CHUNK)  # one piece, even if empty
+            for index, start in enumerate(starts):
+                piece = data[start:][:_CHUNK]
+                info = {"path": key, "index": index, "count": len(starts)}
+                self.send("asset", info, [piece])
 
     def receive(self, content: dict[str, Any]) -> None:
         """
@@ -144,10 +181,10 @@ class CommBridge:
                         "the Swift viewer missed messages that can no longer be sent"
                     )
                 return
-            for msg in self._kept:
+            for msg, buffers in self._kept:
                 if msg["seq"] > have:
-                    self._send(msg)
+                    self._deliver(msg, buffers)
             for msg in self._latest.values():
-                self._send(msg)
+                self._deliver(msg, None)
             # the browser is listening now, so nothing more can be lost
             self._kept = None
