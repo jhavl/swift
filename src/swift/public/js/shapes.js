@@ -22,6 +22,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { installAssetUrls } from "./assets.js";
+
+// In a notebook the files of a mesh are sent from Python rather than fetched
+// (see assets.js); notebook.js gives the page what it has received.
+if (globalThis.swiftAssets) installAssetUrls(THREE.DefaultLoadingManager, globalThis.swiftAssets);
 
 const daeLoader = new ColladaLoader();
 const stlLoader = new STLLoader();

@@ -1,0 +1,18 @@
+{
+  "_comment": "Read by both tests/test_assets.py and src/swift/public/js/assets.test.js: the name Python gives a mesh file (asset_key) and the name the browser works out from the URL a loader asks for (assetKey of retrieveUrl) must be the same, for every spelling of a path.",
+  "cases": [
+    {"path": "/home/user/meshes/arm.stl", "key": "/home/user/meshes/arm.stl"},
+    {"path": "C:\\Users\\Me\\meshes\\arm.stl", "key": "/Users/Me/meshes/arm.stl"},
+    {"path": "c:/Users/Me/meshes/arm.stl", "key": "/Users/Me/meshes/arm.stl"},
+    {"path": "D:\\arm.stl", "key": "/arm.stl"},
+    {"path": "/home/user/my meshes/arm link.stl", "key": "/home/user/my meshes/arm link.stl"},
+    {"path": "C:\\Users\\Me\\my meshes\\arm link.stl", "key": "/Users/Me/my meshes/arm link.stl"},
+    {"path": "/home/user/meshes/../common/arm.stl", "key": "/home/user/common/arm.stl"},
+    {"path": "C:\\Users\\Me\\meshes\\..\\common\\arm.stl", "key": "/Users/Me/common/arm.stl"},
+    {"path": "/home/user/./meshes//arm.stl", "key": "/home/user/meshes/arm.stl"},
+    {"path": "\\\\server\\share\\arm.stl", "key": "/server/share/arm.stl"},
+    {"path": "/home/user/100%/arm.stl", "key": "/home/user/100%/arm.stl"},
+    {"path": "/home/user/é/arm.stl", "key": "/home/user/é/arm.stl"},
+    {"path": "/home/user/a#b/arm.stl", "key": "/home/user/a#b/arm.stl"}
+  ]
+}

@@ -137,7 +137,9 @@ export function buildPage(files, makeUrl, viewerId) {
     /<script type="module" src="js\/main\.js"><\/script>/,
     `<script type="module">
       import { CommTransport } from "${urls.get("js/comms.js")}";
-      window.swiftTransport = new CommTransport(window.parent.__swiftViewers["${viewerId}"].channel);
+      const viewer = window.parent.__swiftViewers["${viewerId}"];
+      window.swiftAssets = viewer.assets;
+      window.swiftTransport = new CommTransport(viewer.channel);
     </script>
     <script type="module" src="${urls.get("js/main.js")}"></script>`,
   );
@@ -157,9 +159,21 @@ export function buildPage(files, makeUrl, viewerId) {
  * absent) need no such care; only the latest matters.
  */
 export class MessageHub {
-  /** @param {(have: number) => void} requestSync tells Python how many numbered messages we have applied */
-  constructor(requestSync) {
+  /**
+   * @param {(have: number) => void} requestSync tells Python how many numbered messages we have applied
+   * @param {(pieces: ArrayBufferView[]) => string} makeUrl a URL that serves a file's bytes
+   * @param {(url: string) => void} revokeUrl lets go of a URL made by makeUrl
+   */
+  constructor(
+    requestSync,
+    makeUrl = (pieces) => URL.createObjectURL(new Blob(pieces)),
+    revokeUrl = (url) => URL.revokeObjectURL(url),
+  ) {
     this.requestSync = requestSync;
+    this.makeUrl = makeUrl;
+    this.revokeUrl = revokeUrl;
+    this.assets = new Map(); // key of a file Python sent (see assets.js) -> its URL
+    this.pieces = new Map(); // key -> the pieces of a file that has not all arrived
     this.next = 1; // the number of the message we expect next
     this.syncing = false;
     this.queue = []; // messages that arrived before the page was listening
@@ -174,8 +188,11 @@ export class MessageHub {
     this.requestSync(0);
   }
 
-  /** @param {{func: string, data: any, seq?: number}} msg */
-  receive(msg) {
+  /**
+   * @param {{func: string, data: any, seq?: number}} msg
+   * @param {ArrayBufferView[]} [buffers] binary data sent with the message
+   */
+  receive(msg, buffers) {
     if (!msg || msg.func === undefined) return;
 
     if (msg.seq !== undefined) {
@@ -198,8 +215,31 @@ export class MessageHub {
       this.queue = this.queue.filter((m) => m.seq !== undefined || m.func !== msg.func);
     }
 
+    if (msg.func === "asset") {
+      this.addPiece(msg.data, buffers);
+      return;
+    }
     if (this.sink) this.sink(msg);
     else this.queue.push(msg);
+  }
+
+  // Mesh files arrive in pieces, in order (the messages are numbered); the page
+  // is told nothing, it finds the file by its key once a loader asks for it
+  addPiece({ path, count }, buffers) {
+    const pieces = this.pieces.get(path) ?? [];
+    pieces.push(buffers[0]);
+    if (pieces.length < count) {
+      this.pieces.set(path, pieces);
+      return;
+    }
+    this.pieces.delete(path);
+    this.assets.set(path, this.makeUrl(pieces));
+  }
+
+  /** Let go of the files held. */
+  dispose() {
+    this.assets.forEach((url) => this.revokeUrl(url));
+    this.assets.clear();
   }
 
   /** @param {(msg: object) => void} sink called with each message, from now on */
@@ -221,9 +261,12 @@ export default {
     const id = model.get("viewer_id");
     const hub = new MessageHub((have) => model.send({ reply: { event: "sync", have } }));
     hubs.set(id, hub);
-    model.on("msg:custom", (msg) => hub.receive(msg));
+    model.on("msg:custom", (msg, buffers) => hub.receive(msg, buffers));
     hub.start();
-    return () => hubs.delete(id);
+    return () => {
+      hubs.delete(id);
+      hub.dispose();
+    };
   },
 
   render({ model, el }) {
@@ -252,6 +295,7 @@ export default {
     // launch() looks at (through eval_js on Colab) to see that the page is up
     const viewer = {
       hub, // for looking at in the browser's console
+      assets: hub.assets, // the page's mesh files
       ready: false,
       channel: {
         on: (_event, listener) => {

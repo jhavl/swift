@@ -144,7 +144,8 @@ test("buildPage turns index.html into a page with nothing left to fetch", () => 
   assert.doesNotMatch(html, /importmap/);
   assert.doesNotMatch(html, /\.\/js\/|src="js\/|href="\.\/style/);
   assert.match(html, /<style>[\s\S]*\.sidenav/);
-  assert.match(html, /__swiftViewers\["7"\]\.channel/);
+  assert.match(html, /__swiftViewers\["7"\]/);
+  assert.match(html, /new CommTransport\(viewer\.channel\)/);
   assert.match(html, /<script type="module" src="file:/);
   // the elements main.js looks for
   for (const id of ["canvas", "fps", "sim-time", "sidenav", "control-panel"]) {
@@ -238,4 +239,57 @@ test("anything that is not a Swift message is ignored", () => {
   hub.receive(null);
   hub.receive({ other: 1 });
   assert.deepEqual(seen, []);
+});
+
+
+function assetHub() {
+  const made = [];
+  const revoked = [];
+  const hub = new MessageHub(
+    () => {},
+    (pieces) => {
+      made.push(pieces);
+      return `blob:${made.length}`;
+    },
+    (url) => revoked.push(url),
+  );
+  const seen = [];
+  hub.attach((msg) => seen.push(msg));
+  return { hub, made, revoked, seen };
+}
+
+const piece = (seq, path, index, count, text) => [
+  { func: "asset", data: { path, index, count }, seq },
+  [encoder.encode(text)],
+];
+
+test("a mesh file sent in pieces is put together, and not passed on to the page", () => {
+  const { hub, made, seen } = assetHub();
+  hub.receive(...piece(1, "/a/arm.stl", 0, 2, "ab"));
+  assert.equal(hub.assets.size, 0);
+  hub.receive(...piece(2, "/a/arm.stl", 1, 2, "cd"));
+
+  assert.equal(hub.assets.get("/a/arm.stl"), "blob:1");
+  assert.deepEqual(made[0].map(toText), ["ab", "cd"]);
+  assert.deepEqual(seen, []);
+});
+
+test("a mesh file sent again after a gap is not made twice", () => {
+  const { hub, made } = assetHub();
+  hub.receive(...piece(1, "/a/arm.stl", 0, 1, "ab"));
+  hub.receive(...piece(1, "/a/arm.stl", 0, 1, "ab"));
+  assert.equal(made.length, 1);
+});
+
+test("files held are let go of when the widget goes", () => {
+  const { hub, revoked } = assetHub();
+  hub.receive(...piece(1, "/a/arm.stl", 0, 1, "ab"));
+  hub.dispose();
+  assert.deepEqual(revoked, ["blob:1"]);
+  assert.equal(hub.assets.size, 0);
+});
+
+test("buildPage gives the page the files held for it", () => {
+  const { html } = buildPage(realFiles(), fileUrl, "3");
+  assert.match(html, /window\.swiftAssets = viewer\.assets/);
 });
