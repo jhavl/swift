@@ -121,6 +121,8 @@ def start_servers(
     open_tab: bool = True,
     browser: str | None = None,
     notebook: bool = False,
+    width: int = 600,
+    height: int = 400,
 ) -> tuple[Thread, "SwiftSocket", Thread, "SwiftServer", Any]:
     # the old way to ask for the notebook frame; launch() warns about it
     if browser == "notebook":
@@ -194,8 +196,8 @@ def start_servers(
             notebook_handle = display(
                 IFrame(
                     src=url,
-                    width="600",
-                    height="400",
+                    width=str(width),
+                    height=str(height),
                 ),
                 display_id=True,
             )

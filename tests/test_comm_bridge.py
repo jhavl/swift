@@ -36,7 +36,7 @@ def test_send_pushes_func_and_data_and_replies_with_a_constant():
     bridge, sent = make_bridge()
 
     assert bridge.send("axes", False) == "0"
-    assert sent == [{"func": "axes", "data": False}]
+    assert sent == [{"func": "axes", "data": False, "seq": 1}]
 
 
 def test_shape_poses_returns_the_ui_events_since_the_last_call():
@@ -129,3 +129,72 @@ def test_close_sends_close_and_starts_no_threads_to_stop():
     env.close()
 
     assert codes(sent)[-1] == "close"
+
+
+def test_scene_messages_are_numbered_without_gaps_but_poses_are_not():
+    bridge, sent = make_bridge()
+    bridge.send("axes", False)
+    bridge.send("shape_poses", [])
+    bridge.send("sim_time", 0.1)
+    bridge.send("ground_opacity", 0.5)
+
+    assert [(m["func"], m.get("seq")) for m in sent] == [
+        ("axes", 1),
+        ("shape_poses", None),
+        ("sim_time", None),
+        ("ground_opacity", 2),
+    ]
+
+
+def test_sync_resends_what_the_browser_has_not_seen_then_the_latest_poses():
+    bridge, sent = make_bridge()
+    bridge.send("axes", False)
+    bridge.send("shape_poses", [[0, "old"]])
+    bridge.send("ground_opacity", 0.5)
+    bridge.send("shape_poses", [[0, "new"]])
+    sent.clear()
+
+    # the browser started after the first message went out
+    bridge.receive({"reply": {"event": "sync", "have": 1}})
+
+    assert [(m["func"], m.get("seq")) for m in sent] == [
+        ("ground_opacity", 2),
+        ("shape_poses", None),
+    ]
+    assert sent[-1]["data"] == [[0, "new"]]
+
+
+def test_sync_from_a_browser_that_has_everything_resends_only_the_poses():
+    bridge, sent = make_bridge()
+    bridge.send("axes", False)
+    bridge.send("shape_poses", [])
+    sent.clear()
+
+    bridge.receive({"reply": {"event": "sync", "have": 1}})
+
+    assert codes(sent) == ["shape_poses"]
+
+
+def test_messages_are_let_go_after_the_first_sync():
+    bridge, sent = make_bridge()
+    bridge.send("axes", False)
+    bridge.receive({"reply": {"event": "sync", "have": 0}})
+    assert bridge._kept is None
+
+    # a later sync that is up to date is harmless...
+    bridge.send("ground_opacity", 0.5)
+    sent.clear()
+    bridge.receive({"reply": {"event": "sync", "have": 2}})
+    assert bridge.error is None
+
+    # ...but one that asks for what was let go cannot be met, and says so
+    bridge.receive({"reply": {"event": "sync", "have": 0}})
+    assert "missed messages" in bridge.error
+
+
+def test_an_error_event_may_carry_its_own_message():
+    bridge, _ = make_bridge()
+    bridge.receive({"reply": {"event": "error", "message": "no iframe"}})
+
+    with pytest.raises(RuntimeError, match="no iframe"):
+        bridge.send("axes", True)

@@ -95,7 +95,10 @@ transport.onOpen(async () => {
   // tab loaded against the files on disk (see integrity.js), so it can
   // warn about stale JS rather than something more confusing further
   // down the line. js_hashes is null where the browser couldn't hash.
-  transport.send(JSON.stringify({ event: "connected", js_hashes: await computeAssetHashes() }));
+  // A notebook's page is built from the installed package's own files (see
+  // notebook.js), so there is nothing to compare, and no server to fetch from.
+  const js_hashes = transport.expectsReplies ? await computeAssetHashes() : null;
+  transport.send(JSON.stringify({ event: "connected", js_hashes }));
   connected = true;
   if (statusEl.className === "swift-status") statusEl.remove(); // started with no error
   requestAnimationFrame(animate);

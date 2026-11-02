@@ -17,7 +17,7 @@ from queue import Queue, Empty
 from threading import Event
 import json
 from swift import start_servers, SwiftElement, Button, Select
-from swift._comm import CommBridge
+from swift._comm import CommBridge, in_comm_environment
 from swift.Handle import AssemblyHandle
 from swift.Light import Light
 
@@ -329,6 +329,8 @@ class Swift:
         lights: list[Light] | None = None,
         timeout: float | None = 1,
         browser_timeout: float | None = 5,
+        width: int = 600,
+        height: int = 400,
         **kwargs: Any,
     ) -> None:
         """
@@ -455,6 +457,11 @@ class Swift:
             user-opened tab (the common case) ``window.close()`` is a
             silent no-op and the tab is left showing a "Disconnected"
             banner instead.
+        :param width: width in pixels of the frame the page is shown in, when it
+            is shown in a notebook (``notebook=True``, or in Colab and JupyterLite,
+            where it always is), defaults to 600.  The frame is never wider than the
+            output of the cell.  Ignored when the page is shown in a browser window
+        :param height: height in pixels of the frame, as for ``width``, defaults to 400
 
         .. note::
 
@@ -505,7 +512,14 @@ class Swift:
         # headless mode too, not just for rendering.
         self.last_time = time.time()
 
-        if not self.headless:
+        if not self.headless and in_comm_environment():
+            # No server can be run for a browser to connect to (Colab,
+            # JupyterLite), so the viewer is a widget in the cell's output
+            from swift._notebook import show_viewer
+
+            self._run_thread = True
+            self._notebook_display_handle = show_viewer(self, width=width, height=height)
+        elif not self.headless:
             # A flag for our threads to monitor for when to quit
             self._run_thread = True
             self._disconnected.clear()
@@ -516,6 +530,8 @@ class Swift:
                 self._disconnected,
                 browser=browser,
                 notebook=notebook,
+                width=width,
+                height=height,
             )
 
             self._setup_viewer()

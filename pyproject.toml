@@ -65,11 +65,13 @@ dev = [
     "pytest-cov",
     "flake8",
     "pyyaml",
+    "anywidget",
+    "ipython",
 ]
 
 docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun", "sphinx-autodoc-typehints", "sphinx-copybutton"]
 
-nb = ["ipython", "notebook"]
+nb = ["ipython", "notebook", "anywidget>=0.9"]
 
 [build-system]
 
